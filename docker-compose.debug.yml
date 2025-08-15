@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  watchlist-app-debug:
+    build:
+      context: .
+      dockerfile: Dockerfile.debug
+    container_name: watchlist-app-debug
+    ports:
+      - "8009:8000"
+    volumes:
+      - watchlist-db:/app/db
+      - posters:/app/static/posters
+    env_file:
+      - ./secrets.env
+    restart: "no"
+    stdin_open: true
+    tty: true
+
+volumes:
+  watchlist-db:
+  posters: 

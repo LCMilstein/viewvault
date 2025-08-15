@@ -1,0 +1,5 @@
+[33m45e6b7d[m[33m ([m[1;36mHEAD[m[33m -> [m[1;32mmaster[m[33m, [m[1;31morigin/master[m[33m, [m[1;31morigin/HEAD[m[33m)[m Fix series import: use get_tmdb_series_by_imdb instead of get_tv_details_with_imdb to properly handle IMDB IDs
+[33mbf8ee68[m Add import buttons and make search result cards smaller
+[33m2add62d[m Add import buttons and make search result cards smaller
+[33m02bc5f6[m Add import buttons and make search result cards smaller
+[33mb31736f[m Update UI with latest changes
