@@ -9,12 +9,12 @@ services:
     ports:
       - "8008:8000"
     volumes:
-      - watchlist-db:/app/db
-      - posters:/app/static/posters
+      - watchlist-app_watchlist-db:/app/db
+      - watchlist-app_posters:/app/static/posters
     env_file:
       - ./secrets.env
     restart: unless-stopped
 
 volumes:
-  watchlist-db:
-  posters:
+  watchlist-app_watchlist-db:
+  watchlist-app_posters:
