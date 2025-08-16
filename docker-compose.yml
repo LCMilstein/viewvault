@@ -3,8 +3,7 @@ version: '3.8'
 services:
   watchlist-app:
     # Use image if specified, otherwise build locally
-    image: ${WATCHLIST_IMAGE:-}
-    build: .
+    image: ghcr.io/lcmilstein/viewvault-backend-web:main
     container_name: watchlist-app
     ports:
       - "8008:8000"
