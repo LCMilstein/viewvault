@@ -1439,8 +1439,12 @@
 
         /* Force admin console alignment */
         #adminConsoleLink {
+        #adminConsoleLink:not(.admin-visible) {
+            display: none !important;
+        }
+
             padding: 10px 16px !important;
-            display: flex !important;
+            display: none !important;
             align-items: center !important;
             gap: 12px !important;
         }
@@ -1868,7 +1872,7 @@
     @media (max-width: 600px) {
         /* Watchlist row as horizontal list */
         .watchlist-row, .watchlist-item {
-            display: flex !important;
+            display: none !important;
             flex-direction: row !important;
             align-items: center !important;
             padding: 4px 2px !important;

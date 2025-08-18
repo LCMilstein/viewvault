@@ -289,13 +289,13 @@ async function checkAdminStatus() {
             
             if (adminConsoleLink) {
                 if (user.is_admin) {
-                    adminConsoleLink.style.display = 'block';
+                    adminConsoleLink.classList.add("admin-visible");
                     // Add click handler for admin console
                     adminConsoleLink.onclick = () => {
                         window.location.href = '/admin';
                     };
                 } else {
-                    adminConsoleLink.style.display = 'none';
+                    adminConsoleLink.classList.remove("admin-visible");
                 }
             }
         }
