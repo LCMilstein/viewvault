@@ -1,0 +1,8 @@
+{
+  "ignore_dirs": [
+    "temp-web-app",
+    "__pycache__",
+    ".git",
+    "node_modules"
+  ]
+}

@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="1024" height="1024" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <!-- Background -->
+  <rect width="1024" height="1024" fill="#533483" rx="200"/>
+  
+  <!-- Main V Shape -->
+  <path d="M 200 300 L 512 700 L 824 300 L 700 300 L 512 600 L 324 300 Z" fill="#00d4aa"/>
+  
+  <!-- List Elements -->
+  <circle cx="400" cy="800" r="40" fill="#00d4aa"/>
+  <circle cx="512" cy="800" r="40" fill="#00d4aa"/>
+  <circle cx="624" cy="800" r="40" fill="#00d4aa"/>
+</svg>

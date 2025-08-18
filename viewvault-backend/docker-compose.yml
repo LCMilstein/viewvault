@@ -1,0 +1,20 @@
+version: '3.8'
+
+services:
+  watchlist-app:
+    # Use image if specified, otherwise build locally
+    image: ${WATCHLIST_IMAGE:-}
+    build: .
+    container_name: watchlist-app
+    ports:
+      - "8008:8000"
+    volumes:
+      - watchlist-app_watchlist-db:/app/db
+      - watchlist-app_posters:/app/static/posters
+    env_file:
+      - ./secrets.env
+    restart: unless-stopped
+
+volumes:
+  watchlist-app_watchlist-db:
+  watchlist-app_posters:

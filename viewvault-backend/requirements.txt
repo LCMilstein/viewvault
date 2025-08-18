@@ -1,0 +1,13 @@
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+sqlmodel==0.0.14
+requests==2.31.0
+python-multipart==0.0.6
+python-jose[cryptography]==3.3.0
+passlib==1.7.4
+bcrypt==4.0.1
+python-multipart==0.0.6
+slowapi==0.1.9 
+tmdbv3api==1.9.0
+python-dotenv==1.1.1
+aiohttp==3.9.1
