@@ -291,9 +291,32 @@ async function checkAdminStatus() {
                 if (user.is_admin) {
                     adminConsoleLink.classList.add("admin-visible");
                     // Add click handler for admin console
-                    adminConsoleLink.onclick = () => {
-                        window.location.href = '/admin';
+                    adminConsoleLink.onclick = async () => {
+                        try {
+                            const token = localStorage.getItem("access_token");
+                            if (!token) {
+                                console.error("No access token found");
+                                return;
+                            }
+                            
+                            // Make authenticated request to admin endpoint
+                            const response = await fetch("/admin", {
+                                headers: {
+                                    "Authorization": `Bearer ${token}`
+                                }
+                            });
+                            
+                            if (response.ok) {
+                                // If successful, navigate to admin page
+                                window.location.href = "/admin";
+                            } else {
+                                console.error("Admin access denied:", response.status);
+                            }
+                        } catch (error) {
+                            console.error("Error accessing admin console:", error);
+                        }
                     };
+                    // Add click handler for admin console
                 } else {
                     adminConsoleLink.classList.remove("admin-visible");
                 }
@@ -306,7 +329,7 @@ async function checkAdminStatus() {
 
 // Navigate to admin console
 function openAdminConsole() {
-    window.location.href = '/admin';
+    const token = localStorage.getItem('access_token'); if (token) { fetch('/admin', { headers: { 'Authorization': `Bearer ${token}` } }).then(r => { if (r.ok) window.location.href = '/admin'; }); }
 }
 
 // Add auth header to all requests
