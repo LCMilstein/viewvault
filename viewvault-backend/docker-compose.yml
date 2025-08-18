@@ -1,20 +1,18 @@
 version: '3.8'
 
 services:
-  watchlist-app:
+  viewvault-test:
     # Use image if specified, otherwise build locally
     image: ${WATCHLIST_IMAGE:-}
     build: .
-    container_name: watchlist-app
+    container_name: viewvault-test
     ports:
-      - "8008:8000"
+      - "3637:8000"
     volumes:
-      - watchlist-app_watchlist-db:/app/db
-      - watchlist-app_posters:/app/static/posters
-    env_file:
-      - ./secrets.env
+      - viewvault-test_watchlist-db:/app/db
+      - viewvault-test_posters:/app/static/posters
     restart: unless-stopped
 
 volumes:
-  watchlist-app_watchlist-db:
-  watchlist-app_posters:
+  viewvault-test_watchlist-db:
+  viewvault-test_posters:
