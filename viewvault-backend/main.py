@@ -3905,8 +3905,8 @@ def unshare_list(
         raise HTTPException(status_code=500, detail=f"Failed to unshare list: {str(e)}")
 
 @app.get("/admin")
-def admin_console():
-    """Serve the admin console HTML"""
+def admin_console(current_user: User = Depends(get_current_admin_user)):
+    """Serve the admin console HTML - admin users only"""
     return FileResponse("static/admin.html")
 
 # Admin API endpoints
