@@ -157,21 +157,7 @@
             width: auto;
         }
 
-        .search-icon {
-            position: absolute;
-            left: 12px;
-            color: #6c757d;
-            font-size: 14px; /* Reduced from 16px to 14px */
-            pointer-events: none;
-            z-index: 1;
-            top: 50%;
-            transform: translateY(-50%);
-        }
 
-        .search-icon::before {
-            content: "🔍";
-            font-size: 12px; /* Reduced from 14px to 12px */
-        }
 
         .search-input {
             flex: 1;
@@ -347,14 +333,6 @@
             box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.1);
         }
 
-        .watchlist-search-container .search-icon {
-            position: absolute;
-            left: 15px;
-            color: #6c757d;
-            font-size: 16px;
-            pointer-events: none;
-            z-index: 1;
-        }
 
         /* Settings cog menu */
         .settings-menu {
@@ -2517,8 +2495,6 @@
       .search-input-wrapper { flex: 1 1 auto; min-width: 0; }
       .search-input { width: 100%; padding: 10px 10px 10px 32px; font-size: 14px; }
       .search-input::placeholder { font-size: 0.95em; }
-      .search-icon { left: 8px; font-size: 12px; }
-      .search-box .btn-primary { flex: 0 0 96px; padding: 10px 12px; font-size: 14px; white-space: nowrap; }
       /* Slightly reduce header vertical space */
       .header { padding-top: 6px; padding-bottom: 8px; }
     }
@@ -2594,16 +2570,16 @@
                     <button class="omnibox-toggle" id="omniboxToggleBtn" aria-label="Toggle search type">
                         <span class="toggle-text">Search</span>
                         <span class="switch-indicator">
-                            <span class="toggle-icon">🔍</span>
+                            <span class="toggle-icon"></span>
                         </span>
                     </button>
                     <div class="search-input-wrapper">
-                        <span class="search-icon"></span>
+                        
                         <input id="importTypeInput" class="search-input" type="text" placeholder="Find and add to watchlist..." />
                     </div>
                     <button class="btn btn-primary" id="importTypeSubmitBtn" aria-label="Search">
                         <span class="btn-label">Search</span>
-                        <span class="btn-icon" style="display:none">🔍</span>
+                        
                     </button>
                 </div>
             </div>
