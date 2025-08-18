@@ -351,6 +351,14 @@ def register(request: Request, user: UserCreate):
         )
         
         # Make first user admin
+        print(f"Checking for existing admin users...")
+        admin_count = session.exec(select(User).where(User.is_admin == True)).all()
+        print(f"Found {len(admin_count)} admin users")
+        if len(admin_count) == 0:
+            print(f"Making {db_user.username} the first admin user")
+            db_user.is_admin = True
+        else:
+            print(f"User {db_user.username} will be regular user (not first)")
         admin_count = session.exec(select(User).where(User.is_admin == True)).all()
         if len(admin_count) == 0:
             db_user.is_admin = True
