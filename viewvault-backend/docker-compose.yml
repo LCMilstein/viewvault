@@ -7,7 +7,7 @@ services:
     build: .
     container_name: watchlist-app
     ports:
-      - "8008:8000"
+      - "3637:8000"
     volumes:
       - watchlist-app_watchlist-db:/app/db
       - watchlist-app_posters:/app/static/posters
