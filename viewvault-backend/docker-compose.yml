@@ -19,7 +19,6 @@ services:
       - JELLYFIN_API_KEY=fd1784c23f2d4f2b8178f2c3e1b14f27
       - JELLYFIN_USER_ID=86f8567a70cd42f5bf27d47cbe216e80
     restart: unless-stopped
-
 volumes:
   viewvault-test_watchlist-db:
   viewvault-test_posters:
