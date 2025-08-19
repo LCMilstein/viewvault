@@ -64,6 +64,17 @@ The stack builds directly from Git; no local files are required on the NAS besid
 
 ## 🔧 Configuration
 
+### Security Features
+
+ViewVault implements comprehensive security measures:
+
+- **JWT Token-based Authentication**: Secure session management with 30-minute expiration
+- **Password Hashing**: bcrypt with salt for secure password storage
+- **Rate Limiting**: API protection (search: 30/min, login: 10/min, register: 5/min)
+- **Input Validation**: Pydantic models for all API inputs
+- **SQL Injection Protection**: SQLModel ORM with parameterized queries
+- **CORS Configuration**: Secure cross-origin request handling
+
 ### Secrets and Environment
 
 Copy `secrets.env.example` to `secrets.env` and set values:
@@ -94,6 +105,26 @@ For full IMDB integration, get a free API key from [OMDB API](http://www.omdbapi
 **Note**: The app works without an API key using mock data for development.
 
 ## 📱 Usage
+
+### Web Interface & Mobile App
+
+ViewVault provides both web and mobile interfaces:
+
+#### **Web Interface**
+- **Responsive Design**: Works on desktop, tablet, and mobile
+- **Dark Theme**: Modern, eye-friendly interface
+- **Poster Grid Layout**: Visual browsing with movie/series posters
+- **Advanced Search & Filtering**: Find content quickly
+- **Multi-List Management**: Organize content into custom lists
+
+#### **iOS App (In Development)**
+- **React Native**: Cross-platform mobile development
+- **Feature Parity**: Full backend API integration
+- **Offline Support**: Work without internet connection
+- **Push Notifications**: Alerts for new releases and updates
+- **Widget Support**: iOS home screen widgets
+
+The iOS app is being developed in parallel and will provide full feature parity with the web interface.
 
 ### Web Interface
 
@@ -153,15 +184,29 @@ The application uses SQLite for data storage. The database file (`watchlist.db`)
 - **Series**: TV series information
 - **Episodes**: Episode details with season/episode tracking
 
-## 🔄 Future Features
+## 🔄 Current Status & Roadmap
 
-- [ ] **Scheduled Updates**: Automatic checking for new episodes
-- [ ] **Mobile App**: Native mobile application
-- [ ] **Notifications**: Alerts for new episodes/seasons
-- [ ] **Export/Import**: Backup and restore functionality
-- [ ] **Multiple Users**: User authentication and profiles
-- [ ] **Advanced Filtering**: Filter by genre, year, rating, etc.
-- [ ] **Recommendations**: AI-powered content recommendations
+### ✅ **Completed Features**
+- **Multi-List Support**: Create and manage multiple custom watchlists
+- **Multi-User Support**: User authentication, data isolation, admin roles
+- **List Sharing**: Share lists between users with permissions
+- **Import to Specific Lists**: Choose which list(s) to import to
+- **Collection Management**: Complete checkbox behavior, confirmations, real-time updates
+- **Advanced Filtering**: All filtering functionality working correctly
+- **JWT Authentication**: Secure token-based authentication
+- **Rate Limiting**: API protection against abuse
+
+### 🚀 **Next Priority Features (Q1 2025)**
+- **Item Details Page**: Detailed view with poster, synopsis, notes, and metadata
+- **Enhanced List Management**: List templates, analytics, and export functionality
+- **Social Features**: User profiles, following system, and recommendations
+- **Content Discovery**: Advanced search with filters and AI-powered suggestions
+
+### 🔮 **Future Roadmap**
+- **Phase 2 (Q2 2025)**: Social features, user profiles, activity feeds
+- **Phase 3 (Q3 2025)**: Advanced content management, trailers, release tracking
+- **Phase 4 (Q4 2025)**: iOS app completion, offline support, cross-device sync
+- **Phase 5 (2026)**: AI recommendations, voice commands, multi-language support
 
 ## 🛠️ Development
 
@@ -188,11 +233,34 @@ viewvault-backend/
 
 ## 🤝 Contributing
 
+### Development Guidelines
+
+ViewVault follows a robust Git Flow branching strategy:
+
+#### **Branch Structure**
+- **`main`**: Production-ready, stable releases
+- **`develop`**: Integration branch for new features
+- **`stable/working-version`**: Tested features ready for production
+- **`feature/*`**: Individual feature development
+- **`hotfix/*`**: Critical production fixes
+- **`release/*`**: Release preparation
+
+#### **Development Workflow**
 1. Fork the repository
-2. Create a feature branch
-3. Make your changes
-4. Test thoroughly
-5. Submit a pull request
+2. Create a feature branch from `develop`: `git checkout -b feature/your-feature develop`
+3. Make your changes and commit: `git commit -m "Add your feature"`
+4. Push and create a Pull Request to merge into `develop`
+5. After testing, merge to `stable/working-version`
+6. Finally merge to `main` for production release
+
+### Adding New Features
+
+1. **Database Models**: Add new models in `models.py`
+2. **API Endpoints**: Add endpoints in `main.py`
+3. **Frontend**: Update `static/index.html`
+4. **Services**: Add new services in separate files
+5. **Testing**: Ensure all endpoints work correctly
+6. **Documentation**: Update this README with new features
 
 ## 📄 License
 
