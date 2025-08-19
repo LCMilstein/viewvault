@@ -11,3 +11,4 @@ slowapi==0.1.9
 tmdbv3api==1.9.0
 python-dotenv==1.1.1
 aiohttp==3.9.1
+Pillow==10.1.0
