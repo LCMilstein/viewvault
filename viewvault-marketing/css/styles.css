@@ -449,11 +449,19 @@ body {
     background: white;
 }
 
-.platform-grid {
+.platforms-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(3, 1fr);
     gap: 40px;
     margin-top: 60px;
+}
+
+/* Mobile responsive: stack vertically on small screens */
+@media (max-width: 768px) {
+    .platforms-grid {
+        grid-template-columns: 1fr;
+        gap: 30px;
+    }
 }
 
 .platform-card {
