@@ -1,4 +1,4 @@
-// CineSync Marketing Site JavaScript
+// ViewVault Marketing Site JavaScript
 
 // Navbar scroll effect
 window.addEventListener('scroll', function() {
@@ -54,10 +54,10 @@ if (videoPlaceholder) {
             this.style.display = 'none';
             videoElement.play().catch(e => {
                 console.log('Video playback failed:', e);
-                alert('Please add your demo video to ./assets/videos/CineSync-demo.mp4');
+                alert('Please add your demo video to ./assets/videos/viewvault-demo.mp4');
             });
         } else {
-            alert('Please add your demo video to ./assets/videos/CineSync-demo.mp4');
+            alert('Please add your demo video to ./assets/videos/viewvault-demo.mp4');
         }
     });
 }
@@ -178,7 +178,7 @@ if ('IntersectionObserver' in window) {
 
 // Console easter egg for developers
 console.log(`
-🎬 CineSync Marketing Site
+🎬 ViewVault Marketing Site
 Built with modern web technologies
 Want to contribute? Check out our GitHub!
 `);
@@ -186,7 +186,7 @@ Want to contribute? Check out our GitHub!
 // Initialize on DOM load
 document.addEventListener('DOMContentLoaded', function() {
     // Initialize any components that need DOM to be ready
-    console.log('CineSync marketing site loaded successfully!');
+    console.log('ViewVault marketing site loaded successfully!');
     
     // Add loading animation cleanup if needed
     const loader = document.querySelector('.loading');

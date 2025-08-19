@@ -1,4 +1,4 @@
-name: Deploy CineSync Marketing Site
+name: Deploy ViewVault Marketing Site
 
 on:
   push:
@@ -74,13 +74,13 @@ jobs:
       with:
         context: .
         push: false
-        tags: CineSync-marketing:test
+        tags: viewvault-marketing:test
         cache-from: type=gha
         cache-to: type=gha,mode=max
         
     - name: Test Docker container
       run: |
-        docker run -d --name test-container -p 8080:80 CineSync-marketing:test
+        docker run -d --name test-container -p 8080:80 viewvault-marketing:test
         sleep 5
         curl -f http://localhost:8080/health || exit 1
         docker stop test-container
