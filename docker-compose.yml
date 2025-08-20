@@ -1,24 +1,24 @@
 version: '3.8'
 
 services:
-  viewvault-test:
+  viewvaultdev:
     # Use image if specified, otherwise build locally
     image: ${WATCHLIST_IMAGE:-}
     build: .
-    container_name: viewvault-test
+    container_name: viewvaultdev
     ports:
-      - "3637:8000"
+      - "8008:8000"
     volumes:
-      - viewvault-test_watchlist-db:/app/db
-      - viewvault-test_posters:/app/static/posters
+      - viewvaultdev_db:/app/db
+      - viewvaultdev_posters:/app/static/posters
     environment:
-      - SECRET_KEY=ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIPahUFIQUxwtLy4OBTykAKwaxRDkGdSjrcpvJcn9MsAY
-      - IMDB_API_KEY=d1b56aac
-      - TMDB_API_KEY=2b964cf87e1851109b470e887c0c6084
-      - JELLYFIN_URL=192.168.1.211:8096
-      - JELLYFIN_API_KEY=fd1784c23f2d4f2b8178f2c3e1b14f27
-      - JELLYFIN_USER_ID=86f8567a70cd42f5bf27d47cbe216e80
+      - SECRET_KEY=${SECRET_KEY}
+      - IMDB_API_KEY=${IMDB_API_KEY}
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - JELLYFIN_URL=${JELLYFIN_URL}
+      - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
+      - JELLYFIN_USER_ID=${JELLYFIN_USER_ID}
     restart: unless-stopped
 volumes:
-  viewvault-test_watchlist-db:
-  viewvault-test_posters:
+  viewvaultdev_db:
+  viewvaultdev_posters:
