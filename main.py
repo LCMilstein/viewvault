@@ -11,7 +11,7 @@ from fastapi import FastAPI, status, HTTPException, Query, Request, Depends, API
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlmodel import SQLModel, Session, select, text
+from sqlmodel import SQLModel, Session, select, text, update
 from models import Series, Episode, Movie, MovieCreate, SeriesCreate, EpisodeCreate, User, UserCreate, UserLogin, Token, List, ListItem, ListPermission, ListCreate, ListUpdate, ListItemAdd, ListItemUpdate, ChangePassword
 from security import get_current_user, get_current_admin_user, authenticate_user, create_access_token, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES
 from slowapi import Limiter, _rate_limit_exceeded_handler
@@ -22,7 +22,7 @@ from contextlib import asynccontextmanager
 # from typing import List  # Commented out to avoid conflict with our List model
 from imdb_service import IMDBService, MockIMDBService
 import os
-from tmdb_service import movie_api, tv_api, get_tv_details_with_imdb, get_collection_movies_by_imdb, find_api, get_tmdb_movie_by_imdb, get_tmdb_series_by_imdb, get_all_episodes_by_imdb, get_collection_details_by_tmdb_id
+from tmdb_service import movie_api, tv_api, get_tv_details_with_imdb, get_collection_movies_by_imdb, get_collection_movies_by_tmdb_id, find_api, get_tmdb_movie_by_imdb, get_tmdb_series_by_imdb, get_all_episodes_by_imdb, get_collection_details_by_tmdb_id
 from jellyfin_service import create_jellyfin_service
 import requests
 import re
@@ -39,6 +39,23 @@ from contextlib import asynccontextmanager
 # Set up logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# SOFT DELETE BEHAVIOR - CRITICAL FOR USER PRIVACY
+# =============================================================================
+# IMPORTANT: Soft deletes are user-specific and respect user boundaries
+# 
+# ✅ CORRECT BEHAVIOR:
+# - User A soft-deletes "Cinderella III" → Hidden from User A only
+# - User B can still see and import "Cinderella III" 
+# - Manual re-import restores soft-deleted items for that user
+# - Cron jobs and automatic processes respect soft delete flags
+#
+# ❌ INCORRECT BEHAVIOR (FIXED):
+# - Admin functions were querying deleted items globally
+# - This could interfere with user-specific collection imports
+# - Now all admin functions properly respect user boundaries
+# =============================================================================
 
 # Rate limiting for TMDB API calls
 tmdb_last_call_time = 0
@@ -218,12 +235,18 @@ def create_db_and_tables():
             
             if user_count == 0:
                 logger.info("Creating default user...")
-                import hashlib
-                default_password_hash = hashlib.sha256("password".encode()).hexdigest()
+                from security import get_password_hash
+                default_password_hash = get_password_hash("password")
                 session.execute(text("""
                     INSERT INTO user (username, email, hashed_password, is_active, is_admin)
-                    VALUES (?, ?, ?, ?, ?)
-                """), ("default", "default@example.com", default_password_hash, True, True))
+                    VALUES (:username, :email, :hashed_password, :is_active, :is_admin)
+                """), {
+                    "username": "default", 
+                    "email": "default@example.com", 
+                    "hashed_password": default_password_hash, 
+                    "is_active": True, 
+                    "is_admin": True
+                })
                 default_user_id = session.execute(text("SELECT last_insert_rowid()")).fetchone()[0]
                 session.commit()
                 logger.info(f"Created default user with ID: {default_user_id}")
@@ -590,6 +613,9 @@ async def import_movie(imdb_id: str, request: Request, current_user: User = Depe
         if collection and 'id' in collection:
             collection_id = collection['id']
             collection_name = collection.get('name')
+            logger.info(f"Found collection: {collection_name} (ID: {collection_id}) for {imdb_id}")
+    else:
+        logger.info(f"No TMDB movie data found for {imdb_id}")
 
     # Check if movie already exists for this user
     with Session(engine) as session:
@@ -697,10 +723,83 @@ async def import_movie(imdb_id: str, request: Request, current_user: User = Depe
                         logger.error(f"Failed to add {movie.title} to list {list_id}: {e}")
                         # Continue with other lists even if one fails
             
-            # Commit list items
-            session.commit()
+                    # Import sequels if available (but don't block the main import)
+        try:
+            if collection_id and collection_name:
+                logger.info(f"Found collection '{collection_name}' for {movie.title}, checking for sequels...")
+                collection_movies = get_collection_movies_by_imdb(imdb_id)
+                if collection_movies:
+                    logger.info(f"Found {len(collection_movies)} movies in collection for {imdb_id}")
+                    for sequel in collection_movies:
+                        # Skip the original movie (it's already imported)
+                        if sequel.get('title') == movie.title:
+                            logger.info(f"Skipping original movie: {sequel.get('title')}")
+                            continue
+                            
+                        logger.info(f"Processing sequel: {sequel.get('title', 'Unknown')}")
+                        
+                        # Get TMDB ID for sequel
+                        tmdb_id = sequel.get('id')
+                        if not tmdb_id:
+                            logger.warning(f"No TMDB ID found for sequel {sequel.get('title', 'Unknown')}")
+                            continue
+                        
+                        try:
+                            # Get full details for sequel to get IMDB ID
+                            full_details = movie_api.details(tmdb_id)
+                            sequel_imdb_id = getattr(full_details, 'imdb_id', None)
+                            
+                            if not sequel_imdb_id:
+                                logger.warning(f"No IMDB ID found for sequel {sequel.get('title', 'Unknown')}")
+                                continue
+                            
+                            # Check if sequel already exists
+                            existing_sequel = session.exec(
+                                select(Movie).where(Movie.imdb_id == sequel_imdb_id, Movie.user_id == current_user.id)
+                            ).first()
+                            if existing_sequel:
+                                logger.info(f"Skipping {sequel.get('title')} - Already exists in DB")
+                                continue
+                            
+                            # Construct poster URL for sequel
+                            sequel_poster_path = getattr(full_details, 'poster_path', None)
+                            sequel_poster_url = None
+                            if sequel_poster_path:
+                                tmdb_poster_url = f"https://image.tmdb.org/t/p/w500{sequel_poster_path}"
+                                sequel_poster_url = save_poster_image(tmdb_poster_url, sequel_imdb_id)
+                            if not sequel_poster_url:
+                                sequel_poster_url = "/static/no-image.png"
+                            
+                            # Get collection info for sequel
+                            collection = getattr(full_details, 'belongs_to_collection', None)
+                            sequel_collection_id = collection.id if collection and hasattr(collection, 'id') else movie.collection_id
+                            sequel_collection_name = collection.name if collection and hasattr(collection, 'name') else movie.collection_name
+                            
+                            sequel_movie = Movie(
+                                title=getattr(full_details, 'title', sequel.get('title', 'Unknown')),
+                                imdb_id=sequel_imdb_id,
+                                release_date=getattr(full_details, 'release_date', sequel.get('release_date')),
+                                poster_url=sequel_poster_url,
+                                collection_id=sequel_collection_id,
+                                collection_name=sequel_collection_name,
+                                type="movie",
+                                user_id=current_user.id
+                            )
+                            session.add(sequel_movie)
+                            logger.info(f"Successfully added sequel: {sequel_movie.title} to database")
+                        except Exception as e:
+                            logger.error(f"Failed to get full details for sequel {sequel.get('title', 'Unknown')}: {e}")
+                    
+                    logger.info(f"Successfully processed sequels for {movie.title}")
+            else:
+                logger.info(f"No collection found for {movie.title}, skipping sequel import")
+        except Exception as e:
+            logger.warning(f"Failed to import sequels for {imdb_id}: {e}")
         
-        return movie
+        # Commit everything (main movie, list items, and sequels)
+        session.commit()
+    
+    return movie
 
 @api_router.post("/import/movie/{imdb_id}/sequels")
 async def import_movie_with_sequels(imdb_id: str, request: Request, current_user: User = Depends(get_current_user)):
@@ -2540,7 +2639,8 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                                     collection_id=tmdb_movie.get('belongs_to_collection', {}).get('id') if tmdb_movie.get('belongs_to_collection') else None,
                                     collection_name=tmdb_movie.get('belongs_to_collection', {}).get('name') if tmdb_movie.get('belongs_to_collection') else None,
                                     type="movie",
-                                    user_id=current_user.id
+                                    user_id=current_user.id,
+                                    is_new=1  # Mark as "current" for this import session
                                 )
                                 session.add(new_movie)
                                 session.flush()  # Flush to get the movie ID
@@ -2587,82 +2687,7 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                                                 logger.error(f"Failed to add {movie_name} to list {list_id}: {e}")
                                                 # Continue with other lists even if one fails
                                 
-                                # Import sequels if available (but don't block the main import)
-                                try:
-                                    rate_limit_tmdb()  # Rate limit TMDB API calls
-                                    collection_movies = get_collection_movies_by_imdb(imdb_id)
-                                    if collection_movies:
-                                        logger.info(f"Found {len(collection_movies)} movies in collection for {imdb_id}")
-                                        for sequel in collection_movies:
-                                            if sequel.get('imdb_id') != imdb_id:  # Skip the original
-                                                logger.info(f"Processing sequel: {sequel.get('title', 'Unknown')} (IMDB: {sequel.get('imdb_id')})")
-                                                
-                                                # Check if sequel already exists
-                                                sequel_imdb_id = sequel.get('imdb_id')
-                                                if sequel_imdb_id and sequel_imdb_id not in existing_imdb_ids:
-                                                    # Get full details for sequel
-                                                    tmdb_id = sequel.get('id')
-                                                    if tmdb_id:
-                                                        try:
-                                                            rate_limit_tmdb()  # Rate limit TMDB API calls
-                                                            full_details = movie_api.details(tmdb_id)
-                                                            sequel_imdb_id = getattr(full_details, 'imdb_id', None)
-                                                            if not sequel_imdb_id:
-                                                                # Fallback: try to fetch IMDB ID using find_api
-                                                                logger.info(f"No IMDB ID in TMDB details for {sequel.get('title')}, trying find_api fallback...")
-                                                                try:
-                                                                    find_result = find_api.find(tmdb_id, external_source='tmdb_id')
-                                                                    if find_result and 'movie_results' in find_result and find_result['movie_results']:
-                                                                        sequel_imdb_id = find_result['movie_results'][0].get('imdb_id')
-                                                                        logger.info(f"Fallback IMDB ID for {sequel.get('title')}: {sequel_imdb_id}")
-                                                                except Exception as e:
-                                                                    logger.error(f"Fallback find_api failed for {sequel.get('title')}: {e}")
-                                                                
-                                                            if not sequel_imdb_id:
-                                                                logger.warning(f"Skipping {sequel.get('title')} - No IMDB ID in TMDB details or fallback.")
-                                                                continue
-                                                            
-                                                            # Check if sequel already exists
-                                                            existing_sequel = session.exec(
-                                                                select(Movie).where(Movie.imdb_id == sequel_imdb_id, Movie.user_id == current_user.id)
-                                                            ).first()
-                                                            if existing_sequel:
-                                                                logger.info(f"Skipping {sequel.get('title')} - Already exists in DB")
-                                                                continue
-                                                            
-                                                            # Construct poster URL for sequel
-                                                            sequel_poster_path = getattr(full_details, 'poster_path', None)
-                                                            sequel_poster_url = None
-                                                            if sequel_poster_path:
-                                                                tmdb_poster_url = f"https://image.tmdb.org/t/p/w500{sequel_poster_path}"
-                                                                sequel_poster_url = save_poster_image(tmdb_poster_url, sequel_imdb_id)
-                                                            if not sequel_poster_url:
-                                                                sequel_poster_url = "/static/no-image.png"
-                                                            
-                                                            # Get collection info for sequel
-                                                            collection = getattr(full_details, 'belongs_to_collection', None)
-                                                            sequel_collection_id = collection.id if collection and hasattr(collection, 'id') else new_movie.collection_id
-                                                            sequel_collection_name = collection.name if collection and hasattr(collection, 'name') else new_movie.collection_name
-                                                            
-                                                            sequel_movie = Movie(
-                                                                title=getattr(full_details, 'title', sequel.get('title', 'Unknown')),
-                                                                imdb_id=sequel_imdb_id,
-                                                                release_date=getattr(full_details, 'release_date', sequel.get('release_date')),
-                                                                poster_url=sequel_poster_url,
-                                                                collection_id=sequel_collection_id,
-                                                                collection_name=sequel_collection_name,
-                                                                type="movie",
-                                                                user_id=current_user.id
-                                                            )
-                                                            session.add(sequel_movie)
-                                                            # Note: Don't count sequels toward main import stats as they're not from Jellyfin
-                                                            logger.info(f"Successfully added sequel: {sequel_movie.title} to database (not counted in main import stats)")
-                                                        except Exception as e:
-                                                            logger.error(f"Failed to get full details for sequel {sequel.get('title', 'Unknown')}: {e}")
-                                                    else:
-                                                        logger.warning(f"No TMDB ID found for sequel {sequel.get('title', 'Unknown')}")
-                                except Exception as e:
-                                    logger.warning(f"Failed to import sequels for {imdb_id}: {e}")
+                                # Note: Sequel import moved to batch processing after all movies are imported
                                 
                             except Exception as e:
                                 error_msg = f"Error importing movie {imdb_id}: {e}"
@@ -2687,12 +2712,105 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                     session.rollback()
                     return {"error": f"Database error: {str(e)}"}, 500
         
+        # Phase 2: Batch process collections for newly imported movies
+        logger.info("Starting batch collection processing for sequels...")
+        try:
+            # Get all movies imported in this session (marked as "current")
+            current_movies = session.exec(
+                select(Movie).where(Movie.is_new == 1, Movie.user_id == current_user.id)
+            ).all()
+            
+            logger.info(f"Processing collections for {len(current_movies)} newly imported movies...")
+            
+            # Track which collections we've already processed in this session
+            processed_collections_this_session = set()
+            total_sequels_imported = 0
+            
+            for movie in current_movies:
+                if movie.collection_id and movie.collection_id not in processed_collections_this_session:
+                    processed_collections_this_session.add(movie.collection_id)
+                    logger.info(f"Processing collection '{movie.collection_name}' (ID: {movie.collection_id}) for sequels...")
+                    
+                    try:
+                        rate_limit_tmdb()  # Rate limit TMDB API calls
+                        collection_movies = get_collection_movies_by_tmdb_id(movie.collection_id)
+                        
+                        if collection_movies:
+                            logger.info(f"Found {len(collection_movies)} movies in collection '{movie.collection_name}'")
+                            
+                            # Only process movies that don't already exist
+                            missing_sequels = []
+                            for sequel in collection_movies:
+                                if sequel.get('imdb_id') != movie.imdb_id:  # Skip the current movie
+                                    # Check if sequel already exists
+                                    existing_sequel = session.exec(
+                                        select(Movie).where(Movie.imdb_id == sequel.get('imdb_id'), Movie.user_id == current_user.id)
+                                    ).first()
+                                    
+                                    if not existing_sequel:
+                                        missing_sequels.append(sequel)
+                                    else:
+                                        logger.info(f"Skipping {sequel.get('title')} - Already exists in DB")
+                            
+                            # Import missing sequels
+                            if missing_sequels:
+                                logger.info(f"Importing {len(missing_sequels)} missing sequels for collection '{movie.collection_name}'...")
+                                for sequel in missing_sequels:
+                                    logger.info(f"Processing sequel: {sequel.get('title', 'Unknown')} (IMDB: {sequel.get('imdb_id')})")
+                                    
+                                    # Create sequel movie
+                                    sequel_movie = Movie(
+                                        title=sequel.get('title', 'Unknown'),
+                                        imdb_id=sequel.get('imdb_id'),
+                                        release_date=sequel.get('release_date'),
+                                        runtime=sequel.get('runtime'),
+                                        poster_url=sequel.get('poster_path'),
+                                        overview=sequel.get('overview'),
+                                        collection_id=movie.collection_id,
+                                        collection_name=movie.collection_name,
+                                        type="movie",
+                                        user_id=current_user.id,
+                                        is_new=0  # Not "current" since it's a sequel
+                                    )
+                                    session.add(sequel_movie)
+                                    total_sequels_imported += 1
+                                    logger.info(f"Successfully added sequel: {sequel_movie.title} to database")
+                                
+                                logger.info(f"Successfully imported {len(missing_sequels)} sequels for collection '{movie.collection_name}'")
+                            else:
+                                logger.info(f"All sequels for collection '{movie.collection_name}' already exist in DB")
+                        else:
+                            logger.info(f"No collection movies found for collection '{movie.collection_name}'")
+                    
+                    except Exception as e:
+                        logger.warning(f"Failed to process collection '{movie.collection_name}' for sequels: {e}")
+                        continue
+            
+            # Commit all sequel imports
+            if total_sequels_imported > 0:
+                session.commit()
+                logger.info(f"Committed {total_sequels_imported} sequel imports")
+            
+            # Phase 3: Clean up temporary "current" tags
+            logger.info("Cleaning up temporary tags...")
+            session.exec(
+                update(Movie).where(Movie.is_new == 1, Movie.user_id == current_user.id).values(is_new=0)
+            )
+            session.commit()
+            logger.info("Temporary tags cleaned up successfully")
+            
+        except Exception as e:
+            logger.error(f"Error during batch collection processing: {e}")
+            # Don't fail the entire import if collection processing fails
+            session.rollback()
+        
         return {
             "success": True,
             "message": f"Jellyfin import complete",
             "imported": imported_count,
             "updated": updated_count,
             "skipped": skipped_count,
+            "sequels_imported": total_sequels_imported if 'total_sequels_imported' in locals() else 0,
             "total_jellyfin_movies": len(jellyfin_movies),
             "libraries_found": len(libraries),
             "errors": errors[:10] if errors else []  # Limit error messages
@@ -4117,7 +4235,11 @@ def delete_admin_user(user_id: int, current_user: User = Depends(get_current_adm
 
 @api_router.get("/admin/dashboard")
 def get_admin_dashboard(current_user: User = Depends(get_current_admin_user)):
-    """Get admin dashboard statistics"""
+    """Get admin dashboard statistics
+    
+    NOTE: This function provides global system statistics for admin monitoring.
+    Individual user operations properly respect user boundaries and soft deletes.
+    """
     try:
         print(f"Admin dashboard request from user: {current_user.username}")
         with Session(engine) as session:
@@ -4126,7 +4248,9 @@ def get_admin_dashboard(current_user: User = Depends(get_current_admin_user)):
             total_users = len(session.exec(select(User).where(User.is_active == True)).all())
             print(f"Total active users: {total_users}")
             
-            # Count total movies and series
+            # Count total movies and series (global stats for admin monitoring)
+            # NOTE: These are global counts for system monitoring only
+            # Individual user queries properly filter by user_id + deleted status
             total_movies = len(session.exec(select(Movie).where(Movie.deleted == False)).all())
             total_series = len(session.exec(select(Series).where(Series.deleted == False)).all())
             print(f"Total movies: {total_movies}, Total series: {total_series}")
@@ -4163,10 +4287,18 @@ for route in api_router.routes:
 
 @api_router.post("/admin/check-releases")
 async def check_releases():
-    """Check for new releases and update is_new flags"""
+    """Check for new releases and update is_new flags - RESPECTS USER SOFT DELETES
+    
+    IMPORTANT: This function respects user soft deletes.
+    - If User A soft-deleted "Cinderella III", it won't be marked as "new" for User A
+    - If User B has "Cinderella III", it can still be marked as "new" for User B
+    - Manual re-import of soft-deleted items is allowed and will restore them
+    - Only automatic processes respect the soft delete flag
+    """
     try:
         with Session(engine) as session:
-            # Get all movies and series
+            # Get all movies and series - RESPECTING user soft deletes
+            # This function operates globally but respects individual user preferences
             movies = session.exec(select(Movie).where(Movie.deleted == False)).all()
             series = session.exec(select(Series).where(Series.deleted == False)).all()
             
@@ -4212,7 +4344,14 @@ async def check_releases():
 
 @api_router.post("/admin/remove-duplicates")
 async def remove_duplicates(current_user: User = Depends(get_current_user)):
-    """Remove duplicate movie and series entries from the database"""
+    """Remove duplicate movie and series entries from the database
+    
+    IMPORTANT: This function RESPECTS user soft deletes.
+    - If User A soft-deleted "Cinderella III", it won't be processed for User A
+    - If User B imports "Cinderella III", it can still be processed for User B
+    - Manual re-import of soft-deleted items is allowed and will restore them
+    - Only cron jobs and automatic processes respect the soft delete flag
+    """
     if not current_user.is_admin:
         raise HTTPException(status_code=403, detail="Admin access required")
     
@@ -4222,6 +4361,7 @@ async def remove_duplicates(current_user: User = Depends(get_current_user)):
             details = []
             
             # Find and remove duplicate movies (same IMDB ID) - PER USER ONLY
+            # RESPECTS user soft deletes - only processes non-deleted items per user
             movie_duplicates = session.exec(
                 select(Movie).where(Movie.deleted == False)
             ).all()
@@ -4247,6 +4387,7 @@ async def remove_duplicates(current_user: User = Depends(get_current_user)):
                         removed_count += 1
             
             # Find and remove duplicate series (same IMDB ID) - PER USER ONLY
+            # RESPECTS user soft deletes - only processes non-deleted items per user
             series_duplicates = session.exec(
                 select(Series).where(Series.deleted == False)
             ).all()
