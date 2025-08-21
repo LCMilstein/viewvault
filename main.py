@@ -2490,6 +2490,7 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
             # Process movies in batches
             batch_size = 10  # Process 10 movies at a time
             total_batches = (len(valid_movies) + batch_size - 1) // batch_size
+            imported_movies = []  # Track movies for sequel processing
             for i in range(0, len(valid_movies), batch_size):
                 batch = valid_movies[i:i + batch_size]
                 batch_num = i // batch_size + 1
@@ -2640,11 +2641,12 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                                     collection_name=tmdb_movie.get('belongs_to_collection', {}).get('name') if tmdb_movie.get('belongs_to_collection') else None,
                                     type="movie",
                                     user_id=current_user.id,
-                                    is_new=1  # Mark as "current" for this import session
+                                    is_new=0  # Not new - this is imported content
                                 )
                                 session.add(new_movie)
                                 session.flush()  # Flush to get the movie ID
                                 imported_count += 1
+                                imported_movies.append(new_movie)  # Track for sequel processing
                                 logger.info(f"Successfully imported {movie_name}")
                                 
                                 # Add to specified lists (if any)
@@ -2712,51 +2714,31 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                     session.rollback()
                     return {"error": f"Database error: {str(e)}"}, 500
         
-        # Phase 2: Batch process collections for newly imported movies
-        logger.info("Starting batch collection processing for sequels...")
-        try:
-            # Get all movies imported in this session (marked as "current")
-            current_movies = session.exec(
-                select(Movie).where(Movie.is_new == 1, Movie.user_id == current_user.id)
-            ).all()
-            
-            logger.info(f"Processing collections for {len(current_movies)} newly imported movies...")
-            
-            # Track which collections we've already processed in this session
-            processed_collections_this_session = set()
-            total_sequels_imported = 0
-            
-            for movie in current_movies:
-                if movie.collection_id and movie.collection_id not in processed_collections_this_session:
-                    processed_collections_this_session.add(movie.collection_id)
-                    logger.info(f"Processing collection '{movie.collection_name}' (ID: {movie.collection_id}) for sequels...")
+        # Import sequels immediately for each movie (faster approach)
+        logger.info("Importing sequels for movies with collections...")
+        total_sequels_imported = 0
+        
+        # Process each movie that has collection info
+        for movie in imported_movies:
+            if movie.collection_id and movie.collection_name:
+                try:
+                    logger.info(f"Processing collection '{movie.collection_name}' for {movie.title}...")
+                    rate_limit_tmdb()  # Rate limit TMDB API calls
+                    collection_movies = get_collection_movies_by_tmdb_id(movie.collection_id)
                     
-                    try:
-                        rate_limit_tmdb()  # Rate limit TMDB API calls
-                        collection_movies = get_collection_movies_by_tmdb_id(movie.collection_id)
+                    if collection_movies:
+                        logger.info(f"Found {len(collection_movies)} movies in collection '{movie.collection_name}'")
                         
-                        if collection_movies:
-                            logger.info(f"Found {len(collection_movies)} movies in collection '{movie.collection_name}'")
-                            
-                            # Only process movies that don't already exist
-                            missing_sequels = []
-                            for sequel in collection_movies:
-                                if sequel.get('imdb_id') != movie.imdb_id:  # Skip the current movie
-                                    # Check if sequel already exists
-                                    existing_sequel = session.exec(
-                                        select(Movie).where(Movie.imdb_id == sequel.get('imdb_id'), Movie.user_id == current_user.id)
-                                    ).first()
-                                    
-                                    if not existing_sequel:
-                                        missing_sequels.append(sequel)
-                                    else:
-                                        logger.info(f"Skipping {sequel.get('title')} - Already exists in DB")
-                            
-                            # Import missing sequels
-                            if missing_sequels:
-                                logger.info(f"Importing {len(missing_sequels)} missing sequels for collection '{movie.collection_name}'...")
-                                for sequel in missing_sequels:
-                                    logger.info(f"Processing sequel: {sequel.get('title', 'Unknown')} (IMDB: {sequel.get('imdb_id')})")
+                        # Import missing sequels
+                        for sequel in collection_movies:
+                            if sequel.get('imdb_id') != movie.imdb_id:  # Skip the current movie
+                                # Check if sequel already exists
+                                existing_sequel = session.exec(
+                                    select(Movie).where(Movie.imdb_id == sequel.get('imdb_id'), Movie.user_id == current_user.id)
+                                ).first()
+                                
+                                if not existing_sequel:
+                                    logger.info(f"Importing sequel: {sequel.get('title', 'Unknown')}")
                                     
                                     # Create sequel movie
                                     sequel_movie = Movie(
@@ -2770,39 +2752,26 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                                         collection_name=movie.collection_name,
                                         type="movie",
                                         user_id=current_user.id,
-                                        is_new=0  # Not "current" since it's a sequel
+                                        is_new=0  # Not new - this is imported content
                                     )
                                     session.add(sequel_movie)
                                     total_sequels_imported += 1
-                                    logger.info(f"Successfully added sequel: {sequel_movie.title} to database")
-                                
-                                logger.info(f"Successfully imported {len(missing_sequels)} sequels for collection '{movie.collection_name}'")
-                            else:
-                                logger.info(f"All sequels for collection '{movie.collection_name}' already exist in DB")
-                        else:
-                            logger.info(f"No collection movies found for collection '{movie.collection_name}'")
-                    
-                    except Exception as e:
-                        logger.warning(f"Failed to process collection '{movie.collection_name}' for sequels: {e}")
-                        continue
-            
-            # Commit all sequel imports
-            if total_sequels_imported > 0:
-                session.commit()
-                logger.info(f"Committed {total_sequels_imported} sequel imports")
-            
-            # Phase 3: Clean up temporary "current" tags
-            logger.info("Cleaning up temporary tags...")
-            session.exec(
-                update(Movie).where(Movie.is_new == 1, Movie.user_id == current_user.id).values(is_new=0)
-            )
+                                    logger.info(f"Successfully added sequel: {sequel_movie.title}")
+                                else:
+                                    logger.info(f"Skipping {sequel.get('title')} - Already exists in DB")
+                        
+                        logger.info(f"Completed collection '{movie.collection_name}' - {total_sequels_imported} sequels imported")
+                    else:
+                        logger.info(f"No collection movies found for collection '{movie.collection_name}'")
+                
+                except Exception as e:
+                    logger.warning(f"Failed to process collection '{movie.collection_name}' for {movie.title}: {e}")
+                    continue
+        
+        # Commit all sequel imports
+        if total_sequels_imported > 0:
             session.commit()
-            logger.info("Temporary tags cleaned up successfully")
-            
-        except Exception as e:
-            logger.error(f"Error during batch collection processing: {e}")
-            # Don't fail the entire import if collection processing fails
-            session.rollback()
+            logger.info(f"Committed {total_sequels_imported} sequel imports")
         
         return {
             "success": True,
