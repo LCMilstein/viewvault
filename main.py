@@ -3082,15 +3082,25 @@ def get_notification_details():
     """Get detailed information about new releases"""
     try:
         with Session(engine) as session:
-            # Get new movies with details (SQLite stores booleans as integers)
-            new_movies = session.exec(
-                select(Movie).where(Movie.is_new == 1)
-            ).all()
+            # Get new movies with details - force empty list if query fails
+            try:
+                new_movies = session.exec(
+                    select(Movie).where(Movie.is_new == 1)
+                ).all()
+                logger.info(f"Found {len(new_movies)} movies with is_new == 1")
+            except Exception as e:
+                logger.error(f"Error querying new movies: {e}")
+                new_movies = []  # Force empty list on error
             
-            # Get series with new episodes (SQLite stores booleans as integers)
-            new_series = session.exec(
-                select(Series).where(Series.is_new == 1)
-            ).all()
+            # Get series with new episodes - force empty list if query fails
+            try:
+                new_series = session.exec(
+                    select(Series).where(Series.is_new == 1)
+                ).all()
+                logger.info(f"Found {len(new_series)} series with is_new == 1")
+            except Exception as e:
+                logger.error(f"Error querying new series: {e}")
+                new_series = []  # Force empty list on error
             
             # Get episodes for new series
             series_details = []
