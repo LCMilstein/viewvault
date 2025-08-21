@@ -3030,14 +3030,14 @@ def get_new_releases():
     """Get new releases for notification badges"""
     try:
         with Session(engine) as session:
-            # Get new movies
+            # Get new movies (SQLite stores booleans as integers)
             new_movies = session.exec(
-                select(Movie).where(Movie.is_new == True)
+                select(Movie).where(Movie.is_new == 1)
             ).all()
             
-            # Get series with new episodes
+            # Get series with new episodes (SQLite stores booleans as integers)
             new_series = session.exec(
-                select(Series).where(Series.is_new == True)
+                select(Series).where(Series.is_new == 1)
             ).all()
             
             # Count new episodes
@@ -3062,14 +3062,14 @@ def mark_notifications_seen():
     """Mark all new releases as seen (clear notification badges)"""
     try:
         with Session(engine) as session:
-            # Mark all new movies as seen
+            # Mark all new movies as seen (SQLite stores booleans as integers)
             session.exec(
-                "UPDATE movie SET is_new = FALSE WHERE is_new = TRUE"
+                "UPDATE movie SET is_new = 0 WHERE is_new = 1"
             )
             
-            # Mark all new series as seen
+            # Mark all new series as seen (SQLite stores booleans as integers)
             session.exec(
-                "UPDATE series SET is_new = FALSE WHERE is_new = TRUE"
+                "UPDATE series SET is_new = 0 WHERE is_new = 1"
             )
             
             session.commit()
@@ -3082,14 +3082,14 @@ def get_notification_details():
     """Get detailed information about new releases"""
     try:
         with Session(engine) as session:
-            # Get new movies with details
+            # Get new movies with details (SQLite stores booleans as integers)
             new_movies = session.exec(
-                select(Movie).where(Movie.is_new == True)
+                select(Movie).where(Movie.is_new == 1)
             ).all()
             
-            # Get series with new episodes
+            # Get series with new episodes (SQLite stores booleans as integers)
             new_series = session.exec(
-                select(Series).where(Series.is_new == True)
+                select(Series).where(Series.is_new == 1)
             ).all()
             
             # Get episodes for new series
