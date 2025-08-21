@@ -2326,7 +2326,16 @@ async function importFromJellyfin() {
                 // Close progress modal and show success
                 closeProgressModal(progressModal);
                 showSuccess(`Jellyfin import complete! Imported: ${result.imported || 0}, Updated: ${result.updated || 0}, Skipped: ${result.skipped || 0}`);
-                loadWatchlist();
+                
+                // Force a direct refresh to show new items immediately
+                console.log('🔄 Forcing watchlist refresh after import...');
+                await loadWatchlist();
+                
+                // Also trigger a manual page refresh as backup
+                setTimeout(() => {
+                    console.log('🔄 Triggering backup page refresh...');
+                    window.location.reload();
+                }, 2000);
             } else {
                 const error = await response.json();
                 console.error('❌ Import failed with status:', response.status);
