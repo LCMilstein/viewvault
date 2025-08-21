@@ -2281,7 +2281,8 @@ async function importFromJellyfin() {
             }
             
             console.log('✅ User confirmed import, proceeding...');
-            showSuccess(`Starting Jellyfin import from ${selectedLibrary} to ${listNames}...`);
+            // Show progress indicator
+            const progressModal = showProgressModal('Starting Jellyfin import...', 'This may take several minutes for large libraries.');
             
             console.log('📡 About to send POST request to:', `${API_BASE}/import/jellyfin/`);
             console.log('📦 Request body:', { library_name: selectedLibrary, list_ids: selectedListIds });
@@ -2317,20 +2318,25 @@ async function importFromJellyfin() {
                 
                 if (result.error) {
                     console.error('❌ Import failed with error:', result.error);
+                    closeProgressModal(progressModal);
                     showError('Jellyfin import failed: ' + result.error);
                     return;
                 }
                 
+                // Close progress modal and show success
+                closeProgressModal(progressModal);
                 showSuccess(`Jellyfin import complete! Imported: ${result.imported || 0}, Updated: ${result.updated || 0}, Skipped: ${result.skipped || 0}`);
                 loadWatchlist();
             } else {
                 const error = await response.json();
                 console.error('❌ Import failed with status:', response.status);
                 console.error('❌ Error details:', error);
+                closeProgressModal(progressModal);
                 showError('Jellyfin import failed: ' + (error.error || 'Unknown error'));
             }
         } catch (error) {
             console.error('💥 Error in import process:', error);
+            closeProgressModal(progressModal);
             showError('Jellyfin import failed: ' + error.message);
         }
     } catch (error) {
@@ -5948,4 +5954,62 @@ function selectBackgroundColor(color, event) {
     window.selectedBackgroundColor = color;
     
     console.log('Selected background color:', color);
+}
+
+// Progress modal functions for long-running operations
+function showProgressModal(title, message) {
+    const modalOverlay = document.createElement('div');
+    modalOverlay.className = 'modal-overlay';
+    modalOverlay.style.display = 'flex';
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.maxWidth = '500px';
+    
+    modal.innerHTML = `
+        <div class="modal-header">
+            <h3>${title}</h3>
+            <p class="modal-subtitle">${message}</p>
+        </div>
+        <div class="modal-body">
+            <div style="text-align: center; padding: 20px;">
+                <div class="spinner" style="
+                    width: 40px;
+                    height: 40px;
+                    border: 4px solid rgba(0, 212, 170, 0.3);
+                    border-top: 4px solid #00d4aa;
+                    border-radius: 50%;
+                    animation: spin 1s linear infinite;
+                    margin: 0 auto 20px;
+                "></div>
+                <p style="color: rgba(255, 255, 255, 0.8); margin: 0;">
+                    Please wait while the import is processing...
+                </p>
+            </div>
+        </div>
+    `;
+    
+    // Add CSS animation for spinner
+    if (!document.querySelector('#spinner-styles')) {
+        const style = document.createElement('style');
+        style.id = 'spinner-styles';
+        style.textContent = `
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    modalOverlay.appendChild(modal);
+    document.body.appendChild(modalOverlay);
+    
+    return modalOverlay;
+}
+
+function closeProgressModal(modalOverlay) {
+    if (modalOverlay && modalOverlay.parentNode) {
+        modalOverlay.parentNode.removeChild(modalOverlay);
+    }
 }
