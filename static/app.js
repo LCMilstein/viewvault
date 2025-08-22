@@ -2303,6 +2303,9 @@ async function importFromJellyfin() {
             // Update progress to show import starting
             updateProgress(progressModal, 1, preScanData.total_work, 'Starting import...', 'Sending request to server...');
             
+            // Start predictive progress animation
+            startPredictiveProgress(progressModal, preScanData.total_work);
+            
             const response = await fetch(`${API_BASE}/import/jellyfin/`, {
                 method: 'POST',
                 headers: {
@@ -6056,6 +6059,73 @@ function showProgressModalWithProgress(title, message, totalWork) {
     return modalOverlay;
 }
 
+// Function to start predictive progress animation
+function startPredictiveProgress(modalOverlay, totalWork) {
+    if (!modalOverlay || !modalOverlay.progressElements) return;
+    
+    // Estimate time per batch (movies are processed in batches of 10)
+    const estimatedBatches = Math.ceil(totalWork / 10);
+    const estimatedTimePerBatch = 3; // 3 seconds per batch (conservative estimate)
+    const totalEstimatedTime = estimatedBatches * estimatedTimePerBatch;
+    
+    console.log(`🚀 Starting predictive progress: ${estimatedBatches} batches, ~${totalEstimatedTime} seconds total`);
+    
+    let startTime = Date.now();
+    let lastProgress = 0;
+    
+    // Start polling for real progress updates
+    const progressInterval = setInterval(async () => {
+        try {
+            // Poll the progress endpoint
+            const response = await fetch(`${API_BASE}/import/jellyfin/progress`, {
+                headers: getAuthHeaders()
+            });
+            
+            if (response.ok) {
+                const progressData = await response.json();
+                
+                // If we get real progress data, use it
+                if (progressData.progress > 0 && progressData.phase !== "No import in progress") {
+                    console.log(`📊 Real progress update: ${progressData.progress}% - ${progressData.phase}`);
+                    updateProgress(modalOverlay, progressData.current, progressData.total, progressData.phase, progressData.details);
+                    lastProgress = progressData.progress;
+                    
+                    // If we're done, stop polling
+                    if (progressData.progress >= 95) {
+                        clearInterval(progressInterval);
+                        return;
+                    }
+                }
+            }
+        } catch (error) {
+            console.log('Progress poll failed, continuing with prediction:', error);
+        }
+        
+        // Calculate predicted progress based on time elapsed
+        const elapsed = (Date.now() - startTime) / 1000;
+        const predictedProgress = Math.min(95, (elapsed / totalEstimatedTime) * 100);
+        
+        // Only show prediction if we don't have real progress or if prediction is ahead
+        if (predictedProgress > lastProgress) {
+            const currentPhase = getPhaseForProgress(predictedProgress);
+            updateProgress(modalOverlay, Math.floor(predictedProgress * totalWork / 100), totalWork, currentPhase, 'Processing...');
+        }
+        
+    }, 500); // Poll every 500ms
+    
+    // Store the interval so we can clear it later
+    modalOverlay.progressInterval = progressInterval;
+}
+
+// Function to get appropriate phase text based on progress percentage
+function getPhaseForProgress(progress) {
+    if (progress < 25) return 'Processing movies...';
+    if (progress < 50) return 'Processing movies...';
+    if (progress < 75) return 'Checking collections...';
+    if (progress < 90) return 'Importing sequels...';
+    return 'Finalizing...';
+}
+
 // Function to update progress in the progress modal
 function updateProgress(modalOverlay, current, total, phase, details) {
     if (!modalOverlay || !modalOverlay.progressElements) return;
@@ -6188,6 +6258,10 @@ function startProgressSimulation(modalOverlay) {
 
 function closeProgressModal(modalOverlay) {
     if (modalOverlay && modalOverlay.parentNode) {
+        // Clear any progress polling intervals
+        if (modalOverlay.progressInterval) {
+            clearInterval(modalOverlay.progressInterval);
+        }
         modalOverlay.parentNode.removeChild(modalOverlay);
     }
 }

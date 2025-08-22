@@ -2378,6 +2378,24 @@ def share_import(request: Request):
 async def import_by_url_alias(request: Request):
     return await import_by_url(request)
 
+@api_router.get("/import/jellyfin/progress")
+async def get_import_progress(current_user: User = Depends(get_current_user)):
+    """Get current import progress for the authenticated user"""
+    try:
+        # This would need to be stored in a more persistent way for production
+        # For now, we'll return a default progress
+        return {
+            "phase": "No import in progress",
+            "progress": 0,
+            "current": 0,
+            "total": 0,
+            "batch_num": 0,
+            "total_batches": 0
+        }
+    except Exception as e:
+        logger.error(f"Error getting progress: {e}")
+        return {"error": f"Failed to get progress: {str(e)}"}, 500
+
 @api_router.get("/import/jellyfin/pre-scan/{library_name}")
 async def pre_scan_jellyfin_library(library_name: str, current_user: User = Depends(get_current_user)):
     """Pre-scan a Jellyfin library to count total work for progress tracking"""
@@ -2774,6 +2792,22 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                 try:
                     session.commit()
                     logger.info(f"Committed batch {batch_num}/{total_batches}")
+                    
+                    # Update progress tracking for this batch
+                    progress_data = {
+                        "phase": f"Completed batch {batch_num}/{total_batches}",
+                        "progress": min(80, (batch_num / total_batches) * 80),
+                        "current": batch_num * batch_size,
+                        "total": len(valid_movies),
+                        "batch_num": batch_num,
+                        "total_batches": total_batches
+                    }
+                    
+                    # Store progress in session for frontend to poll
+                    if not hasattr(request.state, 'import_progress'):
+                        request.state.import_progress = {}
+                    request.state.import_progress[current_user.id] = progress_data
+                    
                 except Exception as e:
                     logger.error(f"Error committing batch: {e}")
                     session.rollback()
@@ -2903,6 +2937,21 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
             if total_sequels_imported > 0:
                 session.commit()
                 logger.info(f"Committed chunk {i//chunk_size + 1} - {total_sequels_imported} total sequels imported")
+                
+                # Update progress for collection processing
+                collection_progress = 80 + ((i // chunk_size + 1) / ((len(collection_ids) + chunk_size - 1) // chunk_size)) * 20
+                progress_data = {
+                    "phase": f"Processing collections - chunk {i//chunk_size + 1}",
+                    "progress": min(95, collection_progress),
+                    "current": len(valid_movies) + (i // chunk_size + 1) * chunk_size,
+                    "total": len(valid_movies) + len(collection_ids),
+                    "batch_num": i//chunk_size + 1,
+                    "total_batches": (len(collection_ids) + chunk_size - 1) // chunk_size
+                }
+                
+                if not hasattr(request.state, 'import_progress'):
+                    request.state.import_progress = {}
+                request.state.import_progress[current_user.id] = progress_data
         
         # Commit all sequel imports
         if total_sequels_imported > 0:
