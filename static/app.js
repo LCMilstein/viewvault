@@ -6109,8 +6109,8 @@ function startPredictiveProgress(modalOverlay, totalWork) {
         const predictedProgress = Math.min(95, (elapsed / totalEstimatedTime) * 100);
         console.log(`⏱️ Time elapsed: ${elapsed}s, Predicted progress: ${predictedProgress}%, Last real progress: ${lastProgress}%`);
         
-        // Only show prediction if we don't have real progress or if prediction is ahead
-        if (predictedProgress > lastProgress) {
+        // Always show prediction if we don't have real progress
+        if (predictedProgress > lastProgress || lastProgress === 0) {
             const currentPhase = getPhaseForProgress(predictedProgress);
             console.log(`🎯 Updating to predicted progress: ${predictedProgress}% - ${currentPhase}`);
             updateProgress(modalOverlay, Math.floor(predictedProgress * totalWork / 100), totalWork, currentPhase, 'Processing...');
