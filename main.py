@@ -4151,9 +4151,12 @@ def get_list_items(
                             "collection_name": movie.collection_name,
                             "poster_url": movie.poster_url,
                             "quality": getattr(movie, 'quality', None),
+                            "runtime": getattr(movie, 'runtime', None),  # Add runtime for consistency
                             "overview": getattr(movie, 'overview', None),  # Movie description from TMDB
                             "notes": item.notes,  # List-specific notes
                             "added_at": item.added_at,
+                            "imported_at": getattr(movie, 'imported_at', None),  # Add imported_at for "Newly Imported" badges
+                            "is_new": getattr(movie, 'is_new', False),  # Add is_new for consistency
                             "watched_by": item.watched_by
                         })
                 
