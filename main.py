@@ -2721,6 +2721,10 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
         
         # Import sequels in chunks for better performance
         logger.info("Importing sequels for movies with collections...")
+        logger.info(f"DEBUG: imported_movies list has {len(imported_movies)} items")
+        for i, movie_data in enumerate(imported_movies):
+            logger.info(f"DEBUG: Movie {i}: collection_id={movie_data.get('collection_id')}, collection_name={movie_data.get('collection_name')}")
+        
         total_sequels_imported = 0
         
         # Collect all unique collections to process
