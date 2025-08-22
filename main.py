@@ -2755,6 +2755,7 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                         logger.info(f"Found {len(collection_movies)} movies in collection '{collection_info['name']}'")
                          
                         # Import missing sequels
+                        chunk_sequels_imported = 0
                         for sequel in collection_movies:
                             if sequel.get('imdb_id'):  # Skip movies without IMDB IDs
                                 # Check if sequel already exists
@@ -2781,11 +2782,52 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                                     )
                                     session.add(sequel_movie)
                                     total_sequels_imported += 1
+                                    chunk_sequels_imported += 1
                                     logger.info(f"Successfully added sequel: {sequel_movie.title}")
+                                    
+                                    # Add sequel to specified lists (if any)
+                                    if target_list_ids:
+                                        for list_id in target_list_ids:
+                                            if list_id != "personal":  # Skip personal list as it's virtual
+                                                try:
+                                                    # Verify the list exists and user has access
+                                                    target_list = session.exec(
+                                                        select(List).where(
+                                                            List.id == list_id,
+                                                            List.user_id == current_user.id,
+                                                            List.deleted == False
+                                                        )
+                                                    ).first()
+                                                    
+                                                    if target_list:
+                                                        # Check if sequel is already in this list
+                                                        existing_item = session.exec(
+                                                            select(ListItem).where(
+                                                                ListItem.list_id == list_id,
+                                                                ListItem.item_type == "movie",
+                                                                ListItem.item_id == sequel_movie.id,
+                                                                ListItem.deleted == False
+                                                            )
+                                                        ).first()
+                                                        
+                                                        if not existing_item:
+                                                            new_list_item = ListItem(
+                                                                list_id=list_id,
+                                                                item_type="movie",
+                                                                item_id=sequel_movie.id,
+                                                                user_id=current_user.id
+                                                            )
+                                                            session.add(new_list_item)
+                                                            logger.info(f"Added sequel {sequel_movie.title} to list {target_list.name}")
+                                                    else:
+                                                        logger.warning(f"List {list_id} not found or no access for user {current_user.username}")
+                                                except Exception as e:
+                                                    logger.error(f"Failed to add sequel {sequel_movie.title} to list {list_id}: {e}")
+                                                    # Continue with other lists even if one fails
                                 else:
                                     logger.info(f"Skipping {sequel.get('title')} - Already exists in DB")
                         
-                        logger.info(f"Completed collection '{collection_info['name']}' - {total_sequels_imported} sequels imported")
+                        logger.info(f"Completed collection '{collection_info['name']}' - {chunk_sequels_imported} sequels imported")
                     else:
                         logger.info(f"No collection movies found for collection '{collection_info['name']}'")
                 
