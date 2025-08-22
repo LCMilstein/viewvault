@@ -5991,9 +5991,15 @@ function showProgressModal(title, message) {
                     animation: spin 1s linear infinite;
                     margin: 0 auto 20px;
                 "></div>
-                <p style="color: rgba(255, 255, 255, 0.8); margin: 0;">
-                    Please wait while the import is processing...
-                </p>
+                <div id="progress-phase" style="color: rgba(255, 255, 255, 0.9); margin: 0 0 10px 0; font-weight: 500;">
+                    Starting import...
+                </div>
+                <div id="progress-details" style="color: rgba(255, 255, 255, 0.7); margin: 0 0 15px 0; font-size: 14px;">
+                    This may take several minutes for large libraries
+                </div>
+                <div id="progress-tips" style="color: rgba(255, 255, 255, 0.6); margin: 0; font-size: 12px; font-style: italic;">
+                    💡 Tip: Large libraries are processed in batches for efficiency
+                </div>
             </div>
         </div>
     `;
@@ -6014,7 +6020,51 @@ function showProgressModal(title, message) {
     modalOverlay.appendChild(modal);
     document.body.appendChild(modalOverlay);
     
+    // Start progress simulation for better UX
+    startProgressSimulation(modalOverlay);
+    
     return modalOverlay;
+}
+
+function startProgressSimulation(modalOverlay) {
+    const phaseElement = modalOverlay.querySelector('#progress-phase');
+    const detailsElement = modalOverlay.querySelector('#progress-details');
+    const tipsElement = modalOverlay.querySelector('#progress-tips');
+    
+    const phases = [
+        { phase: "Fetching Jellyfin library...", details: "Retrieving movie list from your server", tip: "💡 This step depends on your Jellyfin server response time" },
+        { phase: "Processing movies...", details: "Importing movies in batches of 10", tip: "💡 Batching improves performance and prevents timeouts" },
+        { phase: "Checking collections...", details: "Identifying movies that belong to franchises", tip: "💡 Collection detection uses TMDB API for accuracy" },
+        { phase: "Importing sequels...", details: "Adding missing franchise movies", tip: "💡 This step may take longer for large collections" },
+        { phase: "Finalizing import...", details: "Completing database updates", tip: "💡 Almost done! Your watchlist will refresh automatically" }
+    ];
+    
+    let currentPhase = 0;
+    let phaseStartTime = Date.now();
+    
+    const updateProgress = () => {
+        if (!modalOverlay.parentNode) return; // Modal was closed
+        
+        const now = Date.now();
+        const timeInPhase = now - phaseStartTime;
+        
+        // Show current phase
+        phaseElement.textContent = phases[currentPhase].phase;
+        detailsElement.textContent = phases[currentPhase].details;
+        tipsElement.textContent = phases[currentPhase].tip;
+        
+        // Progress to next phase after some time
+        if (timeInPhase > 8000) { // 8 seconds per phase
+            currentPhase = Math.min(currentPhase + 1, phases.length - 1);
+            phaseStartTime = now;
+        }
+        
+        // Continue updating
+        setTimeout(updateProgress, 2000);
+    };
+    
+    // Start the progress simulation
+    setTimeout(updateProgress, 1000);
 }
 
 function closeProgressModal(modalOverlay) {
