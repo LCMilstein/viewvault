@@ -278,6 +278,7 @@ async function checkAuth() {
 
 // Check admin status and show/hide admin console link
 async function checkAdminStatus() {
+    console.log('🚨 checkAdminStatus function called!');
     try {
         console.log('🔍 Checking admin status...');
         const response = await fetch(`${API_BASE}/auth/me`, {
@@ -293,6 +294,8 @@ async function checkAdminStatus() {
             
             const adminConsoleLink = document.getElementById('adminConsoleLink');
             console.log('🔍 Admin console link element:', adminConsoleLink);
+            console.log('🔍 All elements with adminConsoleLink ID:', document.querySelectorAll('#adminConsoleLink'));
+            console.log('🔍 Admin console link HTML:', adminConsoleLink ? adminConsoleLink.outerHTML : 'NOT FOUND');
             
             if (adminConsoleLink) {
                 if (user.is_admin) {
