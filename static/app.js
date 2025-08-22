@@ -2304,6 +2304,7 @@ async function importFromJellyfin() {
             updateProgress(progressModal, 1, preScanData.total_work, 'Starting import...', 'Sending request to server...');
             
             // Start predictive progress animation
+            console.log('🚀 Starting predictive progress with total work:', preScanData.total_work);
             startPredictiveProgress(progressModal, preScanData.total_work);
             
             const response = await fetch(`${API_BASE}/import/jellyfin/`, {
@@ -6077,12 +6078,14 @@ function startPredictiveProgress(modalOverlay, totalWork) {
     const progressInterval = setInterval(async () => {
         try {
             // Poll the progress endpoint
+            console.log('🔍 Polling for progress updates...');
             const response = await fetch(`${API_BASE}/import/jellyfin/progress`, {
                 headers: getAuthHeaders()
             });
             
             if (response.ok) {
                 const progressData = await response.json();
+                console.log('📊 Progress response:', progressData);
                 
                 // If we get real progress data, use it
                 if (progressData.progress > 0 && progressData.phase !== "No import in progress") {
@@ -6104,10 +6107,12 @@ function startPredictiveProgress(modalOverlay, totalWork) {
         // Calculate predicted progress based on time elapsed
         const elapsed = (Date.now() - startTime) / 1000;
         const predictedProgress = Math.min(95, (elapsed / totalEstimatedTime) * 100);
+        console.log(`⏱️ Time elapsed: ${elapsed}s, Predicted progress: ${predictedProgress}%, Last real progress: ${lastProgress}%`);
         
         // Only show prediction if we don't have real progress or if prediction is ahead
         if (predictedProgress > lastProgress) {
             const currentPhase = getPhaseForProgress(predictedProgress);
+            console.log(`🎯 Updating to predicted progress: ${predictedProgress}% - ${currentPhase}`);
             updateProgress(modalOverlay, Math.floor(predictedProgress * totalWork / 100), totalWork, currentPhase, 'Processing...');
         }
         
