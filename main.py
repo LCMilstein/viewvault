@@ -679,13 +679,16 @@ async def import_movie(imdb_id: str, request: Request, current_user: User = Depe
                 poster_url=poster_url,
                 poster_thumb=None,
                 overview=overview,  # Add overview from TMDB
+                imported_at=datetime.now(timezone.utc),  # Track when imported for "Newly Imported" badges
                 user_id=current_user.id
             )
             session.add(movie)
             session.commit()
             session.refresh(movie)
         else:
-            # Movie already exists, use it
+            # Movie already exists, update imported_at timestamp
+            existing_movie.imported_at = datetime.now(timezone.utc)
+            session.add(existing_movie)
             movie = existing_movie
         
         # Add to specified lists (if any)
