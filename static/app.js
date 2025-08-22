@@ -594,12 +594,58 @@ function isItemNew(itemType, itemId) {
 
 // Check if item is newly imported
 function isItemNewlyImported(itemType, itemId) {
+    // First check the global newItems state (for Jellyfin imports)
     if (itemType === 'movie') {
-        return newItems.newly_imported_movies && newItems.newly_imported_movies.some(m => m.id === itemId);
+        if (newItems.newly_imported_movies && newItems.newly_imported_movies.some(m => m.id === itemId)) {
+            return true;
+        }
     } else if (itemType === 'series') {
-        return newItems.newly_imported_series && newItems.newly_imported_series.some(s => s.series.id === itemId);
+        if (newItems.newly_imported_series && newItems.newly_imported_series.some(s => s.series.id === itemId)) {
+            return true;
+        }
     }
+    
+    // If not in global state, check the individual item's imported_at field
+    // This handles manual imports and other cases where imported_at is set
+    const item = findItemById(itemType, itemId);
+    if (item && item.imported_at) {
+        const importedTime = new Date(item.imported_at);
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        return importedTime > oneDayAgo;
+    }
+    
     return false;
+}
+
+// Helper function to find an item by ID in the current watchlist data
+function findItemById(itemType, itemId) {
+    const watchlistData = window.currentWatchlistData || window.lastWatchlistData;
+    if (!watchlistData) return null;
+    
+    if (itemType === 'movie') {
+        // Check standalone movies
+        if (watchlistData.movies) {
+            const movie = watchlistData.movies.find(m => m.id === itemId);
+            if (movie) return movie;
+        }
+        
+        // Check movies in collections
+        if (watchlistData.collections) {
+            for (const collection of watchlistData.collections) {
+                if (collection.movies) {
+                    const movie = collection.movies.find(m => m.id === itemId);
+                    if (movie) return movie;
+                }
+            }
+        }
+    } else if (itemType === 'series') {
+        if (watchlistData.series) {
+            const series = watchlistData.series.find(s => s.id === itemId);
+            if (series) return series;
+        }
+    }
+    
+    return null;
 }
 
 function showTab(tabName) {
