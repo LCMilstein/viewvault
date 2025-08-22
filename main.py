@@ -2646,7 +2646,12 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                                 session.add(new_movie)
                                 session.flush()  # Flush to get the movie ID
                                 imported_count += 1
-                                imported_movies.append(new_movie)  # Track for sequel processing
+                                # Store collection info instead of the full Movie object to avoid session binding issues
+                                if new_movie.collection_id and new_movie.collection_name:
+                                    imported_movies.append({
+                                        'collection_id': new_movie.collection_id,
+                                        'collection_name': new_movie.collection_name
+                                    })
                                 logger.info(f"Successfully imported {movie_name}")
                                 
                                 # Add to specified lists (if any)
@@ -2720,14 +2725,14 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
         
         # Collect all unique collections to process
         unique_collections = {}
-        for movie in imported_movies:
-            if movie.collection_id and movie.collection_name:
-                if movie.collection_id not in unique_collections:
-                    unique_collections[movie.collection_id] = {
-                        'name': movie.collection_name,
+        for movie_data in imported_movies:
+            if movie_data['collection_id'] and movie_data['collection_name']:
+                if movie_data['collection_id'] not in unique_collections:
+                    unique_collections[movie_data['collection_id']] = {
+                        'name': movie_data['collection_name'],
                         'movies': []
                     }
-                unique_collections[movie.collection_id]['movies'].append(movie)
+                unique_collections[movie_data['collection_id']]['movies'].append(movie_data)
         
         logger.info(f"Processing {len(unique_collections)} unique collections...")
         
