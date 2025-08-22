@@ -2,7 +2,7 @@ const API_BASE = '/api';
 
 // Test if JavaScript is loading
 console.log('🚨 ViewVault JavaScript loaded!');
-alert('ViewVault JavaScript is loading!'); // Temporary test
+console.log('🚨 API_BASE set to:', API_BASE);
 
 // Offline functionality and PWA support
 let isOnline = navigator.onLine;
@@ -283,7 +283,6 @@ async function checkAuth() {
 // Check admin status and show/hide admin console link
 async function checkAdminStatus() {
     console.log('🚨 checkAdminStatus function called!');
-    alert('checkAdminStatus function is running!'); // Temporary test
     try {
         console.log('🔍 Checking admin status...');
         const response = await fetch(`${API_BASE}/auth/me`, {
