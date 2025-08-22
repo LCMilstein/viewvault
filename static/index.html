@@ -1500,7 +1500,15 @@
             gap: 12px !important;
         }
         
-                #adminConsoleLink:not(.admin-visible) {
+                .admin-only {
+            display: none !important;
+        }
+        
+        .admin-only.admin-visible {
+            display: flex !important;
+        }
+        
+        #adminConsoleLink:not(.admin-visible) {
             display: none !important;
         }
         
