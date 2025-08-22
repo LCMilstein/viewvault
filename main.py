@@ -2378,6 +2378,66 @@ def share_import(request: Request):
 async def import_by_url_alias(request: Request):
     return await import_by_url(request)
 
+@api_router.get("/import/jellyfin/pre-scan/{library_name}")
+async def pre_scan_jellyfin_library(library_name: str, current_user: User = Depends(get_current_user)):
+    """Pre-scan a Jellyfin library to count total work for progress tracking"""
+    try:
+        logger.info(f"Pre-scanning Jellyfin library '{library_name}' for user {current_user.username}")
+        jellyfin_service = create_jellyfin_service()
+        
+        if not jellyfin_service.test_connection():
+            return {"error": "Failed to connect to Jellyfin server"}, 500
+        
+        # Get available libraries first
+        try:
+            libraries = jellyfin_service.get_libraries()
+            logger.info(f"Libraries retrieved: {libraries}")
+        except Exception as e:
+            logger.error(f"Failed to get libraries: {e}")
+            return {"error": f"Failed to get Jellyfin libraries: {str(e)}"}, 500
+            
+        if not libraries:
+            logger.warning("No movie libraries found in Jellyfin")
+            return {"error": "No movie libraries found in Jellyfin"}, 400
+        
+        # Find the specific library
+        target_library = None
+        for lib in libraries:
+            if lib.get('name') == library_name:
+                target_library = lib
+                break
+        
+        if not target_library:
+            available_libraries = [lib.get('name', 'Unknown') for lib in libraries]
+            logger.warning(f"Library '{library_name}' not found. Available libraries: {available_libraries}")
+            return {"error": f"Library '{library_name}' not found. Available libraries: {available_libraries}"}, 400
+        
+        # Get movies from the specific library
+        try:
+            jellyfin_movies = jellyfin_service.get_movies(library_ids=[target_library['id']])
+            logger.info(f"Movies retrieved: {len(jellyfin_movies) if jellyfin_movies else 0} movies")
+        except Exception as e:
+            logger.error(f"Failed to get movies: {e}")
+            return {"error": f"Failed to get movies from Jellyfin: {str(e)}"}, 500
+        
+        if not jellyfin_movies:
+            return {"error": f"No movies found in library '{library_name}'"}, 404
+        
+        # Count total work
+        total_movies = len(jellyfin_movies)
+        estimated_collections = total_movies // 10  # Rough estimate of collections
+        
+        return {
+            "total_movies": total_movies,
+            "estimated_collections": estimated_collections,
+            "total_work": total_movies + estimated_collections,
+            "library_name": library_name
+        }
+        
+    except Exception as e:
+        logger.error(f"Pre-scan failed: {e}")
+        return {"error": f"Pre-scan failed: {str(e)}"}, 500
+
 @api_router.post("/import/jellyfin/")
 @limiter.limit("100/hour")
 async def import_from_jellyfin(request: Request, current_user: User = Depends(get_current_user)):

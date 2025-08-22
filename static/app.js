@@ -2272,24 +2272,36 @@ async function importFromJellyfin() {
                 return list ? list.name : 'Unknown List';
             }).join(', ');
             
-            const confirmed = await showCustomConfirmModal(
-                `Import all movies from "${selectedLibrary}" library to: ${listNames}?`,
-                `This will add new movies and update quality information for existing ones.`
-            );
-            console.log('✅ Confirmation result:', confirmed);
+            console.log('✅ User initiated import, proceeding...');
             
-            if (!confirmed) {
-                console.log('❌ User cancelled import confirmation');
+            // Pre-scan to get total work count for progress bar
+            console.log('🔍 Pre-scanning library for progress tracking...');
+            const preScanResponse = await fetch(`${API_BASE}/import/jellyfin/pre-scan/${encodeURIComponent(selectedLibrary)}`, {
+                headers: getAuthHeaders()
+            });
+            
+            if (!preScanResponse.ok) {
+                const error = await preScanResponse.json();
+                showError('Pre-scan failed: ' + (error.error || 'Unknown error'));
                 return;
             }
             
-            console.log('✅ User confirmed import, proceeding...');
-            // Show progress indicator
-            const progressModal = showProgressModal('Starting Jellyfin import...', 'This may take several minutes for large libraries.');
+            const preScanData = await preScanResponse.json();
+            console.log('📊 Pre-scan results:', preScanData);
+            
+            // Show progress modal with real progress tracking
+            const progressModal = showProgressModalWithProgress(
+                'Starting Jellyfin import...', 
+                `Found ${preScanData.total_movies} movies to process`,
+                preScanData.total_work
+            );
             
             console.log('📡 About to send POST request to:', `${API_BASE}/import/jellyfin/`);
             console.log('📦 Request body:', { library_name: selectedLibrary, list_ids: selectedListIds });
             console.log('🔑 Auth headers:', getAuthHeaders());
+            
+            // Update progress to show import starting
+            updateProgress(progressModal, 1, preScanData.total_work, 'Starting import...', 'Sending request to server...');
             
             const response = await fetch(`${API_BASE}/import/jellyfin/`, {
                 method: 'POST',
@@ -2310,6 +2322,9 @@ async function importFromJellyfin() {
             if (response.ok) {
                 const result = await response.json();
                 console.log('✅ Import result:', result);
+                
+                // Update progress to show completion
+                updateProgress(progressModal, preScanData.total_work, preScanData.total_work, 'Import complete!', 'Processing results...');
                 
                 // Check if result is actually an error (FastAPI sometimes returns errors as 200)
                 if (Array.isArray(result) && result.length === 2 && result[1] === 500) {
@@ -5969,6 +5984,107 @@ function selectBackgroundColor(color, event) {
 }
 
 // Progress modal functions for long-running operations
+function showProgressModalWithProgress(title, message, totalWork) {
+    const modalOverlay = document.createElement('div');
+    modalOverlay.className = 'modal-overlay';
+    modalOverlay.style.display = 'flex';
+    
+    const modal = document.createElement('div');
+    modal.className = 'modal';
+    modal.style.maxWidth = '500px';
+    
+    modal.innerHTML = `
+        <div class="modal-header">
+            <h3>${title}</h3>
+            <p class="modal-subtitle">${message}</p>
+        </div>
+        <div class="modal-body">
+            <div style="text-align: center; padding: 20px;">
+                <div id="progress-phase" style="color: rgba(255, 255, 255, 0.9); margin: 0 0 15px 0; font-weight: 500;">
+                    Starting import...
+                </div>
+                
+                <!-- Real Progress Bar -->
+                <div style="margin: 20px 0;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+                        <span style="color: rgba(255, 255, 255, 0.7); font-size: 14px;">Progress</span>
+                        <span id="progress-percentage" style="color: rgba(255, 255, 255, 0.9); font-weight: 500;">0%</span>
+                    </div>
+                    <div style="
+                        width: 100%;
+                        height: 8px;
+                        background: rgba(255, 255, 255, 0.1);
+                        border-radius: 4px;
+                        overflow: hidden;
+                    ">
+                        <div id="progress-bar-fill" style="
+                            width: 0%;
+                            height: 100%;
+                            background: linear-gradient(90deg, #00d4aa, #00b8d4);
+                            border-radius: 4px;
+                            transition: width 0.3s ease;
+                        "></div>
+                    </div>
+                    <div id="progress-details" style="color: rgba(255, 255, 255, 0.6); margin-top: 8px; font-size: 12px;">
+                        Processing movies...
+                    </div>
+                </div>
+                
+                <div id="progress-tips" style="color: rgba(255, 255, 255, 0.6); margin: 0; font-size: 12px; font-style: italic;">
+                    💡 Tip: Large libraries are processed in batches for efficiency
+                </div>
+            </div>
+        </div>
+    `;
+    
+    modalOverlay.appendChild(modal);
+    document.body.appendChild(modalOverlay);
+    
+    // Store progress tracking elements
+    modalOverlay.progressElements = {
+        phase: modal.querySelector('#progress-phase'),
+        percentage: modal.querySelector('#progress-percentage'),
+        barFill: modal.querySelector('#progress-bar-fill'),
+        details: modal.querySelector('#progress-details'),
+        tips: modal.querySelector('#progress-tips')
+    };
+    
+    // Initialize progress
+    modalOverlay.currentProgress = 0;
+    modalOverlay.totalWork = totalWork;
+    
+    return modalOverlay;
+}
+
+// Function to update progress in the progress modal
+function updateProgress(modalOverlay, current, total, phase, details) {
+    if (!modalOverlay || !modalOverlay.progressElements) return;
+    
+    const percentage = Math.min(100, Math.round((current / total) * 100));
+    
+    modalOverlay.progressElements.percentage.textContent = `${percentage}%`;
+    modalOverlay.progressElements.barFill.style.width = `${percentage}%`;
+    
+    if (phase) {
+        modalOverlay.progressElements.phase.textContent = phase;
+    }
+    
+    if (details) {
+        modalOverlay.progressElements.details.textContent = details;
+    }
+    
+    // Update tips based on progress
+    if (percentage < 25) {
+        modalOverlay.progressElements.tips.textContent = '💡 Tip: Large libraries are processed in batches for efficiency';
+    } else if (percentage < 50) {
+        modalOverlay.progressElements.tips.textContent = '💡 Tip: Collection detection uses TMDB API for accuracy';
+    } else if (percentage < 75) {
+        modalOverlay.progressElements.tips.textContent = '💡 Tip: This step may take longer for large collections';
+    } else {
+        modalOverlay.progressElements.tips.textContent = '💡 Tip: Almost done! Your watchlist will refresh automatically';
+    }
+}
+
 function showProgressModal(title, message) {
     const modalOverlay = document.createElement('div');
     modalOverlay.className = 'modal-overlay';
