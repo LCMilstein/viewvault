@@ -6065,7 +6065,7 @@ function startPredictiveProgress(modalOverlay, totalWork) {
     if (!modalOverlay || !modalOverlay.progressElements) return;
     
     // Simple, reliable progress that always completes
-    const totalTime = Math.max(15, totalWork * 2); // At least 15 seconds, 2s per item (slower for better UX)
+    const totalTime = Math.max(8, totalWork * 0.8); // At least 8 seconds, 0.8s per item (balanced timing)
     console.log(`🚀 Starting simple progress: ${totalWork} items, ~${totalTime} seconds total`);
     
     let startTime = Date.now();
