@@ -2272,7 +2272,10 @@ async function importFromJellyfin() {
                 return list ? list.name : 'Unknown List';
             }).join(', ');
             
-            const confirmed = confirm(`Import all movies from "${selectedLibrary}" library to: ${listNames}?\n\nThis will add new movies and update quality information for existing ones.`);
+            const confirmed = await showCustomConfirmModal(
+                `Import all movies from "${selectedLibrary}" library to: ${listNames}?`,
+                `This will add new movies and update quality information for existing ones.`
+            );
             console.log('✅ Confirmation result:', confirmed);
             
             if (!confirmed) {
@@ -6071,4 +6074,57 @@ function closeProgressModal(modalOverlay) {
     if (modalOverlay && modalOverlay.parentNode) {
         modalOverlay.parentNode.removeChild(modalOverlay);
     }
+}
+
+// Custom confirmation modal to replace browser confirm() dialogs
+function showCustomConfirmModal(title, message) {
+    return new Promise((resolve) => {
+        const modalOverlay = document.createElement('div');
+        modalOverlay.className = 'modal-overlay';
+        modalOverlay.style.display = 'flex';
+        
+        const modal = document.createElement('div');
+        modal.className = 'modal';
+        modal.style.maxWidth = '500px';
+        
+        modal.innerHTML = `
+            <div class="modal-header">
+                <h3>${title}</h3>
+                <p class="modal-subtitle">${message}</p>
+            </div>
+            <div class="modal-body">
+                <div style="text-align: center; padding: 20px;">
+                    <p style="color: rgba(255, 255, 255, 0.8); margin: 0;">
+                        Please confirm this action to continue.
+                    </p>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" id="confirm-cancel">Cancel</button>
+                <button class="btn btn-primary" id="confirm-ok">OK</button>
+            </div>
+        `;
+        
+        modalOverlay.appendChild(modal);
+        document.body.appendChild(modalOverlay);
+        
+        // Handle button clicks
+        modal.querySelector('#confirm-cancel').addEventListener('click', () => {
+            document.body.removeChild(modalOverlay);
+            resolve(false);
+        });
+        
+        modal.querySelector('#confirm-ok').addEventListener('click', () => {
+            document.body.removeChild(modalOverlay);
+            resolve(true);
+        });
+        
+        // Handle overlay click to cancel
+        modalOverlay.addEventListener('click', (e) => {
+            if (e.target === modalOverlay) {
+                document.body.removeChild(modalOverlay);
+                resolve(false);
+            }
+        });
+    });
 }
