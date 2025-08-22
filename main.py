@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel, Session, select, text, update
-from models import Series, Episode, Movie, MovieCreate, SeriesCreate, EpisodeCreate, User, UserCreate, UserLogin, Token, List, ListItem, ListPermission, ListCreate, ListUpdate, ListItemAdd, ListItemUpdate, ChangePassword
+from models import Series, Episode, Movie, MovieCreate, SeriesCreate, EpisodeCreate, User, UserCreate, UserLogin, Token, List, ListItem, ListPermission, ListCreate, ListUpdate, ListItemAdd, ListItemUpdate, ChangePassword, LibraryImportHistory
 from security import get_current_user, get_current_admin_user, authenticate_user, create_access_token, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -316,6 +316,11 @@ app.add_middleware(
 
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
+
+# Favicon route
+@app.get("/favicon.ico")
+async def get_favicon():
+    return FileResponse("static/icons/favicon.svg", media_type="image/svg+xml")
 
 POSTER_DIR = os.path.join("static", "posters")
 os.makedirs(POSTER_DIR, exist_ok=True)
@@ -2534,6 +2539,12 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
         
         logger.info(f"Retrieved {len(jellyfin_movies)} movies from Jellyfin")
         
+        # Start progress tracking
+        from progress_tracker import progress_tracker
+        estimated_collections = len(jellyfin_movies) // 10  # Rough estimate
+        import_id = progress_tracker.start_import(library_name, len(jellyfin_movies), estimated_collections)
+        logger.info(f"Started progress tracking with ID: {import_id}")
+        
         imported_count = 0
         updated_count = 0
         skipped_count = 0
@@ -2543,17 +2554,28 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
         with Session(engine) as session:
             logger.info(f"Processing {len(jellyfin_movies)} movies from Jellyfin")
             
-            # Filter out movies without IMDB IDs first
+            # Process movies with valid IMDB IDs
             valid_movies = []
+            
             for jellyfin_movie in jellyfin_movies:
                 imdb_id = jellyfin_movie.get('imdb_id')
+                movie_name = jellyfin_movie.get('name', 'Unknown')
+                
+                # Debug: log what we're getting from Jellyfin
+                logger.info(f"Processing Jellyfin item: {movie_name}")
+                logger.info(f"  - IMDB ID: {imdb_id}")
+                logger.info(f"  - Provider IDs: {jellyfin_movie.get('provider_ids', 'None')}")
+                logger.info(f"  - Type: {jellyfin_movie.get('type', 'Unknown')}")
+                
                 if not imdb_id or imdb_id == 'None' or imdb_id == '':
-                    logger.info(f"Skipping movie {jellyfin_movie.get('name')} - invalid IMDB ID: {imdb_id}")
-                    skipped_count += 1
+                    # Silently skip movies without IMDB IDs (likely educational content, typos, etc.)
+                    logger.info(f"Silently filtering out movie without IMDB ID: {movie_name}")
+                    # Don't increment skipped_count - these aren't "skipped", they're pre-filtered
                     continue
-                valid_movies.append(jellyfin_movie)
+                else:
+                    valid_movies.append(jellyfin_movie)
             
-            logger.info(f"Processing {len(valid_movies)} valid movies with IMDB IDs")
+            logger.info(f"Processing {len(valid_movies)} movies with valid IMDB IDs")
             
             # Batch fetch existing movies from database for current user
             existing_imdb_ids = set()
@@ -2719,7 +2741,8 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                                     collection_name=tmdb_movie.get('belongs_to_collection', {}).get('name') if tmdb_movie.get('belongs_to_collection') else None,
                                     type="movie",
                                     user_id=current_user.id,
-                                    is_new=0  # Not new - this is imported content
+                                    is_new=0,  # Not new - this is imported content
+                                    imported_at=datetime.now(timezone.utc)  # Track when imported
                                 )
                                 session.add(new_movie)
                                 session.flush()  # Flush to get the movie ID
@@ -2813,6 +2836,8 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                     session.rollback()
                     return {"error": f"Database error: {str(e)}"}, 500
         
+
+        
         # Import sequels in chunks for better performance
         logger.info("Importing sequels for movies with collections...")
         logger.info(f"DEBUG: imported_movies list has {len(imported_movies)} items")
@@ -2865,12 +2890,15 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                                     logger.info(f"Importing sequel: {sequel.get('title', 'Unknown')}")
                                     
                                     # Create sequel movie
+                                    poster_path = sequel.get('poster_path')
+                                    poster_url = f"https://image.tmdb.org/t/p/w500{poster_path}" if poster_path else None
+                                    
                                     sequel_movie = Movie(
                                         title=sequel.get('title', 'Unknown'),
                                         imdb_id=sequel.get('imdb_id'),
                                         release_date=sequel.get('release_date'),
                                         runtime=sequel.get('runtime'),
-                                        poster_url=sequel.get('poster_path'),
+                                        poster_url=poster_url,
                                         overview=sequel.get('overview'),
                                         collection_id=collection_id,
                                         collection_name=collection_info['name'],
@@ -2957,6 +2985,49 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
         if total_sequels_imported > 0:
             session.commit()
             logger.info(f"Committed {total_sequels_imported} sequel imports")
+        
+        # Track library import history for automated updates
+        try:
+            for library in libraries:
+                # Check if this library was already imported
+                existing_history = session.exec(
+                    select(LibraryImportHistory).where(
+                        LibraryImportHistory.user_id == current_user.id,
+                        LibraryImportHistory.library_id == library.get('id'),
+                        LibraryImportHistory.deleted == False
+                    )
+                ).first()
+                
+                if existing_history:
+                    # Update existing history
+                    existing_history.last_imported = datetime.now(timezone.utc)
+                    existing_history.import_count += 1
+                    existing_history.is_automated = True  # Enable automated updates
+                    session.add(existing_history)
+                    logger.info(f"Updated import history for library '{library.get('name')}' - count: {existing_history.import_count}")
+                else:
+                    # Create new history
+                    new_history = LibraryImportHistory(
+                        user_id=current_user.id,
+                        library_name=library.get('name'),
+                        library_id=library.get('id'),
+                        last_imported=datetime.now(timezone.utc),
+                        import_count=1,
+                        is_automated=True  # Enable automated updates
+                    )
+                    session.add(new_history)
+                    logger.info(f"Created import history for library '{library.get('name')}'")
+            
+            session.commit()
+            logger.info("Library import history updated successfully")
+            
+            # Complete progress tracking
+            progress_tracker.complete_import(import_id)
+            logger.info(f"Completed progress tracking for import: {import_id}")
+            
+        except Exception as e:
+            logger.warning(f"Failed to update library import history: {e}")
+            # Don't fail the import if history tracking fails
         
         return {
             "success": True,
@@ -3263,15 +3334,44 @@ def mark_notifications_seen():
         return {"error": f"Failed to mark notifications as seen: {str(e)}"}, 500
 
 @api_router.get("/notifications/details")
-def get_notification_details():
-    """Get detailed information about new releases"""
+def get_notification_details(current_user: User = Depends(get_current_user)):
+    """Get detailed information about new releases and newly imported content"""
     try:
         with Session(engine) as session:
-            # TEMPORARY FIX: Force empty lists to prevent NEW badges on all movies
-            # TODO: Debug why ORM query is returning all movies instead of just is_new=1
-            new_movies = []
-            new_series = []
-            logger.info("TEMPORARY FIX: Returning empty lists for new movies/series")
+            # Get newly discovered content (from nightly cron)
+            new_movies = session.exec(
+                select(Movie).where(
+                    Movie.user_id == current_user.id,
+                    Movie.is_new == 1,
+                    Movie.deleted == False
+                )
+            ).all()
+            
+            new_series = session.exec(
+                select(Series).where(
+                    Series.user_id == current_user.id,
+                    Series.is_new == 1,
+                    Series.deleted == False
+                )
+            ).all()
+            
+            # Get newly imported content (within last 24 hours)
+            one_day_ago = datetime.now(timezone.utc) - timedelta(days=1)
+            newly_imported_movies = session.exec(
+                select(Movie).where(
+                    Movie.user_id == current_user.id,
+                    Movie.imported_at >= one_day_ago,
+                    Movie.deleted == False
+                )
+            ).all()
+            
+            newly_imported_series = session.exec(
+                select(Series).where(
+                    Series.user_id == current_user.id,
+                    Series.imported_at >= one_day_ago,
+                    Series.deleted == False
+                )
+            ).all()
             
             # Get episodes for new series
             series_details = []
@@ -3307,7 +3407,27 @@ def get_notification_details():
                         "poster_url": movie.poster_url
                     } for movie in new_movies
                 ],
-                "new_series": series_details
+                "new_series": series_details,
+                "newly_imported_movies": [
+                    {
+                        "id": movie.id,
+                        "title": movie.title,
+                        "imdb_id": movie.imdb_id,
+                        "release_date": movie.release_date,
+                        "collection_name": movie.collection_name,
+                        "poster_url": movie.poster_url,
+                        "imported_at": movie.imported_at.isoformat() if movie.imported_at else None
+                    } for movie in newly_imported_movies
+                ],
+                "newly_imported_series": [
+                    {
+                        "id": series.id,
+                        "title": series.title,
+                        "imdb_id": series.imdb_id,
+                        "poster_url": series.poster_url,
+                        "imported_at": series.imported_at.isoformat() if series.imported_at else None
+                    } for series in newly_imported_series
+                ]
             }
     except Exception as e:
         return {"error": f"Failed to get notification details: {str(e)}"}, 500
@@ -3349,10 +3469,143 @@ def debug_movies():
 def get_version():
     """Simple endpoint to check if we're running the latest version"""
     return {
-        "version": "debug-endpoint-fix",
+        "version": "automated-import-features",
         "has_debug_endpoint": True,
-        "timestamp": "2025-08-01"
+        "has_automated_import": True,
+        "timestamp": "2025-08-22"
     }
+
+@api_router.post("/admin/trigger-automated-import")
+async def trigger_automated_import(current_user: User = Depends(get_current_admin_user)):
+    """Manually trigger the automated import checker (admin only)"""
+    try:
+        logger.info("Admin triggered automated import check")
+        
+                # Import and run the automated import checker
+        from automated_import_checker import main as run_automated_import
+        
+        # Run in a separate thread to avoid blocking
+        import threading
+        thread = threading.Thread(target=run_automated_import)
+        thread.daemon = True
+        thread.start()
+        
+        return {
+            "success": True,
+            "message": "Automated import check started in background",
+            "note": "Check logs for results"
+        }
+    except Exception as e:
+        logger.error(f"Failed to trigger automated import: {e}")
+        return {"error": f"Failed to trigger automated import: {str(e)}"}, 500
+
+@api_router.get("/admin/library-import-history")
+async def get_library_import_history(current_user: User = Depends(get_current_admin_user)):
+    """Get library import history for all users (admin only)"""
+    try:
+        with Session(engine) as session:
+            # Get all library import history
+            history = session.exec(
+                select(LibraryImportHistory).where(
+                    LibraryImportHistory.deleted == False
+                ).order_by(LibraryImportHistory.last_imported.desc())
+            ).all()
+            
+            return {
+                "success": True,
+                "history": [
+                    {
+                        "id": h.id,
+                        "user_id": h.user_id,
+                        "library_name": h.library_name,
+                        "library_id": h.library_id,
+                        "last_imported": h.last_imported.isoformat() if h.last_imported else None,
+                        "import_count": h.import_count,
+                        "is_automated": h.is_automated,
+                        "created_at": h.created_at.isoformat() if h.created_at else None
+                    } for h in history
+                ]
+            }
+    except Exception as e:
+        logger.error(f"Failed to get library import history: {e}")
+        return {"error": f"Failed to get library import history: {str(e)}"}, 500
+
+@api_router.get("/library-import-history")
+async def get_user_library_import_history(current_user: User = Depends(get_current_user)):
+    """Get library import history for the current user"""
+    try:
+        with Session(engine) as session:
+            # Get library import history for current user
+            history = session.exec(
+                select(LibraryImportHistory).where(
+                    LibraryImportHistory.user_id == current_user.id,
+                    LibraryImportHistory.deleted == False
+                ).order_by(LibraryImportHistory.last_imported.desc())
+            ).all()
+            
+            return {
+                "success": True,
+                "history": [
+                    {
+                        "id": h.id,
+                        "library_name": h.library_name,
+                        "library_id": h.library_id,
+                        "last_imported": h.last_imported.isoformat() if h.last_imported else None,
+                        "import_count": h.import_count,
+                        "is_automated": h.is_automated,
+                        "created_at": h.created_at.isoformat() if h.created_at else None
+                    } for h in history
+                ]
+            }
+    except Exception as e:
+        logger.error(f"Failed to get user library import history: {e}")
+        return {"error": f"Failed to get library import history: {str(e)}"}, 500
+
+@api_router.post("/library-import-history/{history_id}/toggle-automation")
+async def toggle_library_automation(history_id: int, current_user: User = Depends(get_current_user)):
+    """Toggle automated imports for a specific library"""
+    try:
+        with Session(engine) as session:
+            # Get the library import history
+            history = session.exec(
+                select(LibraryImportHistory).where(
+                    LibraryImportHistory.id == history_id,
+                    LibraryImportHistory.user_id == current_user.id,
+                    LibraryImportHistory.deleted == False
+                )
+            ).first()
+            
+            if not history:
+                return {"error": "Library import history not found"}, 404
+            
+            # Toggle the automation flag
+            history.is_automated = not history.is_automated
+            history.updated_at = datetime.now(timezone.utc)
+            session.add(history)
+            session.commit()
+            
+            return {
+                "success": True,
+                "message": f"Automated imports {'enabled' if history.is_automated else 'disabled'} for {history.library_name}",
+                "is_automated": history.is_automated
+            }
+    except Exception as e:
+        logger.error(f"Failed to toggle library automation: {e}")
+        return {"error": f"Failed to toggle library automation: {str(e)}"}, 500
+
+@api_router.get("/admin/progress-performance")
+async def get_progress_performance(current_user: User = Depends(get_current_admin_user)):
+    """Get progress tracking performance data (admin only)"""
+    try:
+        from progress_tracker import progress_tracker
+        performance_data = progress_tracker.get_performance_summary()
+        return {
+            "success": True,
+            "performance": performance_data
+        }
+    except Exception as e:
+        logger.error(f"Failed to get progress performance: {e}")
+        return {"error": f"Failed to get progress performance: {str(e)}"}, 500
 
 # ============================================================================
 # LIST MANAGEMENT API ENDPOINTS

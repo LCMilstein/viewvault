@@ -199,7 +199,70 @@
 - Watch party coordination
 - Social media integration
 
-### 8. Integration Enhancements
+### 8. Import History & Analytics System
+**Priority**: Medium  
+**Status**: Planned  
+**Description**: Comprehensive tracking and reporting of import operations with detailed breakdowns.
+
+### 9. Progress Bar Learning & Analytics
+**Priority**: Medium  
+**Status**: Planned  
+**Description**: Improve progress bar predictions through persistent learning and user analytics.
+
+**Implementation Notes**:
+- **Persistent Progress Data**: Store progress tracking data in database instead of ephemeral JSON files
+- **Faster Learning**: Reduce threshold from 3 to 1-2 samples for quicker prediction improvements
+- **User Analytics**: Collect anonymized performance data across users to improve global predictions
+- **Real-time Adjustments**: Update predictions during import based on actual performance vs. expected
+
+**Benefits**:
+- **Better UX**: More accurate progress bars for users
+- **Performance Insights**: Understand import performance patterns across different library sizes
+- **Data Persistence**: Learning survives container rebuilds and database resets
+- **Cross-User Learning**: Leverage data from multiple users to improve predictions for everyone
+
+**Technical Approach**:
+- Move progress tracking from JSON files to database models
+- Implement rolling averages with exponential decay for recent performance
+- Add user analytics collection (anonymized) for global learning
+- Consider machine learning models for complex prediction patterns
+
+**Implementation Notes**:
+- **Import History Model**: Store detailed results of each import operation
+- **Detailed Breakdowns**: Track imported, updated, and skipped items with reasons
+- **Clickable History**: View detailed results by clicking on import history entries
+- **Modal Details**: Show comprehensive breakdown of what happened during each import
+- **Skipped Item Context**: Instead of silent filtering, report skipped items with reasons (e.g., "No IMDB ID - TV episode", "Typo in title")
+
+**Benefits**:
+- **Transparency**: Users know exactly what's in their library vs. what was imported
+- **Debugging**: Can identify and fix issues like typos, missing metadata
+- **Audit Trail**: Complete history of import operations
+- **Actionable Insights**: Understand why items were skipped and how to fix them
+
+**Example Output**:
+```json
+{
+  "import_history": [
+    {
+      "id": "import_123",
+      "timestamp": "2025-08-22T15:30:00Z", 
+      "library": "Kids Movies",
+      "summary": "Imported: 45, Updated: 2, Skipped: 18",
+      "details": {
+        "imported": [{"title": "Toy Story", "reason": "New movie"}],
+        "updated": [{"title": "Frozen", "reason": "Quality upgrade"}],
+        "skipped": [
+          {"title": "Word World E01", "reason": "No IMDB ID - TV episode"},
+          {"title": "Landy and the Tramp", "reason": "No IMDB ID - Typo"}
+        ]
+      }
+    }
+  ]
+}
+```
+
+### 9. Integration Enhancements
 **Priority**: Low  
 **Status**: Future  
 **Description**: Expand integrations with external services.
@@ -242,6 +305,8 @@
 | Item Details Page | High | Planned | Q1 2024 | Enhanced user experience |
 | Collection Management | High | Planned | Q1 2024 | Checkbox behavior & confirmations |
 | Filter System Fixes | High | Planned | Q1 2024 | Watchtime filter & improvements |
+| Import History System | Medium | Planned | Q2 2024 | Import transparency & debugging |
+| Progress Bar Learning | Medium | Planned | Q3 2024 | Persistent learning & analytics |
 | Offline Functionality | High | Planned | Q2 2024 | Next major feature |
 | Deleted Items Management | Medium | Planned | Q2 2024 | Soft delete & data preservation |
 | Collection Accuracy | Medium | Planned | Q2 2024 | False positive detection |

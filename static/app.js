@@ -545,7 +545,9 @@ async function checkForNewReleases() {
             const data = await response.json();
             newItems = {
                 movies: data.new_movies || [],
-                series: data.new_series || []
+                series: data.new_series || [],
+                newly_imported_movies: data.newly_imported_movies || [],
+                newly_imported_series: data.newly_imported_series || []
             };
             
             // Reload watchlist to show new items with badges
@@ -586,6 +588,16 @@ function isItemNew(itemType, itemId) {
         return newItems.movies.some(m => m.id === itemId);
     } else if (itemType === 'series') {
         return newItems.series.some(s => s.series.id === itemId);
+    }
+    return false;
+}
+
+// Check if item is newly imported
+function isItemNewlyImported(itemType, itemId) {
+    if (itemType === 'movie') {
+        return newItems.newly_imported_movies && newItems.newly_imported_movies.some(m => m.id === itemId);
+    } else if (itemType === 'series') {
+        return newItems.newly_imported_series && newItems.newly_imported_series.some(s => s.series.id === itemId);
     }
     return false;
 }
@@ -1350,6 +1362,7 @@ function renderUnifiedCollection(collection) {
         const movie = collection.items[0];
         const isNewMovie = isItemNew('movie', movie.id);
         const newBadgeMovie = isNewMovie ? '<span class="new-badge">🆕</span>' : '';
+        const newlyImportedBadge = isItemNewlyImported('movie', movie.id) ? '<span class="newly-imported-badge"><svg class="badge-icon" viewBox="0 0 16 16"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm4 7.5l-1.4 1.4L7 6.8V2h2v4.2L10.6 9z"/></svg>NEW</span>' : '';
         let qualityBadge = '';
         if (movie.quality) {
             const qualityConfig = {
@@ -1367,7 +1380,7 @@ function renderUnifiedCollection(collection) {
         <div class="watchlist-row ${isNewMovie ? 'new-item' : ''}">
             <input type="checkbox" class="checkbox" data-type="movie" data-id="${movie.id}" ${movie.watched ? 'checked' : ''}>
             <img src="${movie.poster_url || '/static/no-image.png'}" alt="Poster" class="watchlist-thumb" onerror="this.onerror=null;this.src='/static/no-image.png';">
-            <div class="title">${movie.title}${newBadgeMovie}</div>
+                                    <div class="title">${movie.title}${newBadgeMovie}${newlyImportedBadge}</div>
             <div class="meta">${qualityBadge}Movie${movie.release_date ? ' • ' + new Date(movie.release_date).getFullYear() : ''} • Part of ${collection.title}</div>
             <span title="Remove" class="remove-btn" data-type="movie" data-id="${movie.id}" style="margin-left:auto;display:inline-block;">
                 <svg class="remove-icon" viewBox="0 0 24 24"><path d="M3 6h18M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="11" x2="10" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="11" x2="14" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -1380,6 +1393,10 @@ function renderUnifiedCollection(collection) {
     const unwatchedCount = collection.items.filter(m => !m.watched).length;
     const isNew = isItemNew('collection', collection.id);
     const newBadge = isNew ? '<span class="new-badge">🆕</span>' : '';
+    
+    // Check if any movie in the collection is newly imported
+    const hasNewlyImportedMovies = collection.items.some(movie => isItemNewlyImported('movie', movie.id));
+    const newlyImportedBadge = hasNewlyImportedMovies ? '<span class="newly-imported-badge"><svg class="badge-icon" viewBox="0 0 16 16"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm4 7.5l-1.4 1.4L7 6.8V2h2v4.2L10.6 9z"/></svg>NEW</span>' : '';
     
     // Determine checkbox state for mixed collections
     let checkboxState = '';
@@ -1395,7 +1412,7 @@ function renderUnifiedCollection(collection) {
         <input type="checkbox" class="${checkboxClass}" data-type="collection" data-id="${collection.id}" ${checkboxState}>
         <div class="clickable-area" data-type="collection" data-id="${collection.id}" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
             <img src="${collection.poster_url || '/static/no-image.png'}" alt="Poster" class="watchlist-thumb" onerror="this.onerror=null;this.src='/static/no-image.png';">
-            <div class="title">${collection.title}${newBadge}</div>
+            <div class="title">${collection.title}${newBadge}${newlyImportedBadge}</div>
             <div class="meta">Collection (${collection.items.length} movies; ${unwatchedCount} unwatched)</div>
         </div>
         <button class="expand-arrow" onclick="toggleCollection('${collection.id}')" style="margin-left: 8px;">${isExpanded ? '▼' : '▶'}</button>
@@ -1414,6 +1431,8 @@ function renderUnifiedCollection(collection) {
         for (const movie of itemsToShow) {
             const isNew = isItemNew('movie', movie.id);
             const newBadge = isNew ? '<span class="new-badge">🆕</span>' : '';
+            const isNewlyImported = isItemNewlyImported('movie', movie.id);
+            const newlyImportedBadge = isNewlyImported ? '<span class="newly-imported-badge"><svg class="badge-icon" viewBox="0 0 16 16"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm4 7.5l-1.4 1.4L7 6.8V2h2v4.2L10.6 9z"/></svg>NEW</span>' : '';
             
             // Quality badge for Jellyfin movies
             let qualityBadge = '';
@@ -1434,7 +1453,7 @@ function renderUnifiedCollection(collection) {
             html += `<div class="watchlist-row ${isNew ? 'new-item' : ''}">
                 <input type="checkbox" class="checkbox" data-type="movie" data-id="${movie.id}" ${movie.watched ? 'checked' : ''}>
                 <img src="${movie.poster_url || '/static/no-image.png'}" alt="Poster" class="watchlist-thumb" onerror="this.onerror=null;this.src='/static/no-image.png';">
-                <div class="title">${movie.title}${newBadge}</div>
+                <div class="title">${movie.title}${newBadge}${newlyImportedBadge}</div>
                 <div class="meta">${qualityBadge}Movie${movie.release_date ? ' • ' + new Date(movie.release_date).getFullYear() : ''}</div>
                 <span title="Remove" class="remove-btn" data-type="movie" data-id="${movie.id}" style="margin-left:auto;display:inline-block;">
                     <svg class="remove-icon" viewBox="0 0 24 24"><path d="M3 6h18M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="11" x2="10" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="11" x2="14" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -1450,13 +1469,15 @@ function renderUnifiedSeries(series) {
     const isExpanded = watchlistState.expandedSeries[series.id] || false;
     const isNew = isItemNew('series', series.id);
     const newBadge = isNew ? '<span class="new-badge">🆕</span>' : '';
+    const isNewlyImported = isItemNewlyImported('series', series.id);
+    const newlyImportedBadge = isNewlyImported ? '<span class="newly-imported-badge"><svg class="badge-icon" viewBox="0 0 16 16"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm4 7.5l-1.4 1.4L7 6.8V2h2v4.2L10.6 9z"/></svg>NEW</span>' : '';
     const episodeCount = series.episodes ? series.episodes.length : 0;
     const unwatchedCount = series.episodes ? series.episodes.filter(ep => !ep.watched).length : 0;
     let html = `<div class="watchlist-row series-row ${isNew ? 'new-item' : ''}" data-series-id="${series.id}">
         <input type="checkbox" class="checkbox" data-type="series" data-id="${series.id}" ${series.watched ? 'checked' : ''}>
         <div class="clickable-area" data-type="series" data-id="${series.id}" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
             <img src="${series.poster_url || '/static/no-image.png'}" alt="Poster" class="watchlist-thumb" onerror="this.onerror=null;this.src='/static/no-image.png';">
-            <div class="title">${series.title}${newBadge}</div>
+            <div class="title">${series.title}${newBadge}${newlyImportedBadge}</div>
             <div class="meta">TV Series (${episodeCount} episodes; ${unwatchedCount} unwatched)</div>
         </div>
         <button class="expand-arrow" onclick="toggleSeries('${series.id}')" style="margin-left: 8px;">${isExpanded ? '▼' : '▶'}</button>
@@ -1484,6 +1505,8 @@ function renderUnifiedSeries(series) {
 function renderUnifiedMovie(movie) {
     const isNew = isItemNew('movie', movie.id);
     const newBadge = isNew ? '<span class="new-badge">🆕</span>' : '';
+    const isNewlyImported = isItemNewlyImported('movie', movie.id);
+    const newlyImportedBadge = isNewlyImported ? '<span class="newly-imported-badge"><svg class="badge-icon" viewBox="0 0 16 16"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm4 7.5l-1.4 1.4L7 6.8V2h2v4.2L10.6 9z"/></svg>NEW</span>' : '';
     
     // Quality badge for Jellyfin movies
     let qualityBadge = '';
@@ -1517,7 +1540,7 @@ function renderUnifiedMovie(movie) {
         <input type="checkbox" class="checkbox" data-type="movie" data-id="${movie.id}" ${movie.watched ? 'checked' : ''}>
         <div class="clickable-area" data-type="movie" data-id="${movie.id}" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
             <img src="${movie.poster_url || '/static/no-image.png'}" alt="Poster" class="watchlist-thumb" onerror="this.onerror=null;this.src='/static/no-image.png';">
-            <div class="title">${movie.title}${newBadge}</div>
+            <div class="title">${movie.title}${newBadge}${newlyImportedBadge}</div>
             <div class="meta">${qualityBadge}Movie${movie.release_date ? ' • ' + new Date(movie.release_date).getFullYear() : ''}</div>
         </div>
         <span title="Remove" class="remove-btn" data-type="movie" data-id="${movie.id}" style="margin-left: 8px; display: inline-block;">
@@ -2295,6 +2318,9 @@ async function importFromJellyfin() {
                 `Found ${preScanData.total_movies} movies to process`,
                 preScanData.total_work
             );
+            
+            // Store pre-scan data for progress tracking
+            progressModal.preScanData = preScanData;
             
             console.log('📡 About to send POST request to:', `${API_BASE}/import/jellyfin/`);
             console.log('📦 Request body:', { library_name: selectedLibrary, list_ids: selectedListIds });
@@ -3791,7 +3817,9 @@ function showCollectionDetails(collection) {
             <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;">
                 ${collection.items.map(movie => {
                     const isNew = isItemNew('movie', movie.id);
-                    const newBadge = isNew ? '<span style="background: #ff6b6b; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 8px;">NEW</span>' : '';
+                    const newBadge = isNew ? '<span style="background: linear-gradient(135deg, #00d4aa 0%, #00b894 100%); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 8px;">NEW</span>' : '';
+                    const isNewlyImported = isItemNewlyImported('movie', movie.id);
+                    const newlyImportedBadge = isNewlyImported ? '<span style="background: linear-gradient(135deg, #6a4c93 0%, #5a4b8a 100%); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 8px; border: 1px solid rgba(255,255,255,0.2);">NEW</span>' : '';
                     
                     // Quality badge for Jellyfin movies
                     let qualityBadge = '';
@@ -3824,7 +3852,7 @@ function showCollectionDetails(collection) {
                                 <div style="flex: 1;">
                                     <div style="display: flex; align-items: center; margin-bottom: 4px;">
                                         <h3 style="color: ${movie.watched ? '#666666' : '#ffffff'}; margin: 0; font-size: 1.1em; text-decoration: ${movie.watched ? 'line-through' : 'none'};">
-                                            ${movie.title}${newBadge}${qualityBadge}
+                                            ${movie.title}${newBadge}${newlyImportedBadge}${qualityBadge}
                                         </h3>
                                     </div>
                                     <p style="color: #cccccc; margin: 0; font-size: 0.9em;">
@@ -6060,31 +6088,59 @@ function showProgressModalWithProgress(title, message, totalWork) {
     return modalOverlay;
 }
 
-// Function to start simple, reliable progress animation
+// Function to start smart, data-driven progress animation
 function startPredictiveProgress(modalOverlay, totalWork) {
     if (!modalOverlay || !modalOverlay.progressElements) return;
     
-    // Simple, reliable progress that always completes
-    const totalTime = Math.max(3, totalWork * 0.1); // At least 3 seconds, 0.1s per item (fast enough to reach high %)
-    console.log(`🚀 Starting simple progress: ${totalWork} items, ~${totalTime} seconds total`);
+    // Use pre-scan data for better timing if available
+    let totalTime, target95Percent, target100Percent;
+    
+    if (modalOverlay.preScanData) {
+        // Calculate smart timing based on pre-scan data
+        const movies = modalOverlay.preScanData.total_movies;
+        const collections = modalOverlay.preScanData.estimated_collections;
+        
+        // Base timing: 0.15s per movie + 0.8s per collection
+        totalTime = Math.max(3, (movies * 0.15) + (collections * 0.8));
+        target95Percent = totalTime * 0.95;
+        target100Percent = totalTime * 1.1; // 10% buffer
+    } else {
+        // Fallback to simple timing
+        totalTime = Math.max(3, totalWork * 0.15);
+        target95Percent = totalTime * 0.95;
+        target100Percent = totalTime * 1.1;
+    }
+    
+    console.log(`🚀 Starting smart progress: ${totalWork} items, ~${totalTime.toFixed(1)}s total, 95% at ${target95Percent.toFixed(1)}s`);
     
     let startTime = Date.now();
     
     const progressInterval = setInterval(() => {
         const elapsed = (Date.now() - startTime) / 1000;
-        const progress = Math.min(95, (elapsed / totalTime) * 100);
         
-        // Update progress smoothly
+        // Smart progression: reach 95% at target time, then slow down
+        let progress;
+        if (elapsed <= target95Percent) {
+            // Linear progression to 95%
+            progress = (elapsed / target95Percent) * 95;
+        } else {
+            // Slow progression from 95% to 100%
+            const remainingTime = target100Percent - target95Percent;
+            const elapsedAfter95 = elapsed - target95Percent;
+            const progressAfter95 = Math.min(5, (elapsedAfter95 / remainingTime) * 5);
+            progress = 95 + progressAfter95;
+        }
+        
+        progress = Math.min(98, progress); // Cap at 98% until actual completion
+        
         const currentPhase = getPhaseForProgress(progress);
         updateProgress(modalOverlay, Math.floor(progress * totalWork / 100), totalWork, currentPhase, 'Processing...');
         
-        // Stop when we reach 95%
-        if (progress >= 95) {
+        if (progress >= 98) {
             clearInterval(progressInterval);
         }
     }, 200); // Update every 200ms for smooth animation
     
-    // Store the interval so we can clear it later
     modalOverlay.progressInterval = progressInterval;
 }
 
