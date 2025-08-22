@@ -2305,13 +2305,6 @@ async function importFromJellyfin() {
             
             // Start predictive progress animation
             console.log('🚀 Starting predictive progress with total work:', preScanData.total_work);
-            
-            // Test the progress bar immediately
-            setTimeout(() => {
-                console.log('🧪 Testing progress bar update...');
-                updateProgress(progressModal, 10, preScanData.total_work, 'Testing progress...', 'Progress bar test');
-            }, 1000);
-            
             startPredictiveProgress(progressModal, preScanData.total_work);
             
             const response = await fetch(`${API_BASE}/import/jellyfin/`, {
@@ -6121,6 +6114,14 @@ function startPredictiveProgress(modalOverlay, totalWork) {
             const currentPhase = getPhaseForProgress(predictedProgress);
             console.log(`🎯 Updating to predicted progress: ${predictedProgress}% - ${currentPhase}`);
             updateProgress(modalOverlay, Math.floor(predictedProgress * totalWork / 100), totalWork, currentPhase, 'Processing...');
+        }
+        
+        // If we're stuck and prediction isn't moving, force some progress
+        if (predictedProgress <= lastProgress && lastProgress < 95) {
+            const forcedProgress = Math.min(95, lastProgress + 1);
+            console.log(`🔄 Forcing progress update to: ${forcedProgress}%`);
+            updateProgress(modalOverlay, Math.floor(forcedProgress * totalWork / 100), totalWork, 'Processing...', 'Continuing...');
+            lastProgress = forcedProgress;
         }
         
     }, 500); // Poll every 500ms
