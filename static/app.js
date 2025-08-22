@@ -279,19 +279,28 @@ async function checkAuth() {
 // Check admin status and show/hide admin console link
 async function checkAdminStatus() {
     try {
+        console.log('🔍 Checking admin status...');
         const response = await fetch(`${API_BASE}/auth/me`, {
             headers: getAuthHeaders()
         });
         
+        console.log('🔍 Admin status response:', response.status);
+        
         if (response.ok) {
             const user = await response.json();
+            console.log('🔍 User data:', user);
+            console.log('🔍 Is admin?', user.is_admin);
+            
             const adminConsoleLink = document.getElementById('adminConsoleLink');
+            console.log('🔍 Admin console link element:', adminConsoleLink);
             
             if (adminConsoleLink) {
                 if (user.is_admin) {
+                    console.log('✅ User is admin, making link visible');
                     adminConsoleLink.classList.add("admin-visible");
                     // Add click handler for admin console
                     adminConsoleLink.onclick = async () => {
+                        console.log('🔍 Admin console clicked!');
                         try {
                             const token = localStorage.getItem("access_token");
                             if (!token) {
@@ -299,17 +308,23 @@ async function checkAdminStatus() {
                                 return;
                             }
                             
+                            console.log('🔍 Navigating to admin page...');
                             // Navigate directly to admin page
                             window.location.href = "/static/admin.html";
                         } catch (error) {
                             console.error("Error accessing admin console:", error);
                         }
                     };
-                    // Add click handler for admin console
+                    console.log('✅ Admin console click handler added');
                 } else {
+                    console.log('❌ User is not admin, hiding link');
                     adminConsoleLink.classList.remove("admin-visible");
                 }
+            } else {
+                console.log('❌ Admin console link element not found');
             }
+        } else {
+            console.log('❌ Admin status check failed:', response.status);
         }
     } catch (error) {
         console.error('Error checking admin status:', error);
