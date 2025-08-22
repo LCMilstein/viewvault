@@ -1780,6 +1780,7 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
                         "collection_name": m.collection_name,
                         "poster_url": poster_url,
                         "added_at": getattr(m, 'added_at', None),  # Use actual added_at timestamp from database
+                        "imported_at": getattr(m, 'imported_at', None),  # Add imported_at for "Newly Imported" badges
                         "is_new": getattr(m, 'is_new', False),  # Handle missing column gracefully
                         "quality": getattr(m, 'quality', None),  # Jellyfin quality info
                         "runtime": getattr(m, 'runtime', None),  # Add runtime field
