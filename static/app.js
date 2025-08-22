@@ -2305,6 +2305,13 @@ async function importFromJellyfin() {
             
             // Start predictive progress animation
             console.log('🚀 Starting predictive progress with total work:', preScanData.total_work);
+            
+            // Test the progress bar immediately
+            setTimeout(() => {
+                console.log('🧪 Testing progress bar update...');
+                updateProgress(progressModal, 10, preScanData.total_work, 'Testing progress...', 'Progress bar test');
+            }, 1000);
+            
             startPredictiveProgress(progressModal, preScanData.total_work);
             
             const response = await fetch(`${API_BASE}/import/jellyfin/`, {
