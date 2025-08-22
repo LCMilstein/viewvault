@@ -299,19 +299,8 @@ async function checkAdminStatus() {
                                 return;
                             }
                             
-                            // Make authenticated request to admin endpoint
-                            const response = await fetch("/admin", {
-                                headers: {
-                                    "Authorization": `Bearer ${token}`
-                                }
-                            });
-                            
-                            if (response.ok) {
-                                // If successful, navigate to admin page
-                                window.location.href = "/admin";
-                            } else {
-                                console.error("Admin access denied:", response.status);
-                            }
+                            // Navigate directly to admin page
+                            window.location.href = "/static/admin.html";
                         } catch (error) {
                             console.error("Error accessing admin console:", error);
                         }
@@ -1183,12 +1172,17 @@ function renderWatchlist(data) {
                 runtime = item.runtime || 0;
             }
             
-            // Check if runtime matches any active filter
+            // Check if runtime matches at least one active filter
             if (runtime > 0) {
-                if (runtime < 30 && !watchlistFilters.runtime_under_30) return false;
-                if (runtime >= 30 && runtime <= 60 && !watchlistFilters.runtime_30_60) return false;
-                if (runtime > 60 && runtime <= 90 && !watchlistFilters.runtime_60_90) return false;
-                if (runtime > 90 && !watchlistFilters.runtime_over_90) return false;
+                const matchesUnder30 = runtime < 30 && watchlistFilters.runtime_under_30;
+                const matches30to60 = runtime >= 30 && runtime <= 60 && watchlistFilters.runtime_30_60;
+                const matches60to90 = runtime > 60 && runtime <= 90 && watchlistFilters.runtime_60_90;
+                const matchesOver90 = runtime > 90 && watchlistFilters.runtime_over_90;
+                
+                // Only show item if it matches at least one active filter
+                if (!(matchesUnder30 || matches30to60 || matches60to90 || matchesOver90)) {
+                    return false;
+                }
             }
             
             return true;
@@ -5484,7 +5478,14 @@ function switchListTab(tabName) {
         content.classList.remove('active');
     });
     
-    const targetTab = document.getElementById(tabName + 'Tab');
+    let targetTab;
+    if (tabName === 'all') {
+        targetTab = document.getElementById('allListsTab');
+    } else if (tabName === 'shared') {
+        targetTab = document.getElementById('sharedListsTab');
+    } else if (tabName === 'settings') {
+        targetTab = document.getElementById('settingsTab');
+    }
     if (targetTab) {
         targetTab.classList.add('active');
     }
