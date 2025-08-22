@@ -594,13 +594,17 @@ function isItemNew(itemType, itemId) {
 
 // Check if item is newly imported
 function isItemNewlyImported(itemType, itemId) {
+    console.log(`🔍 Checking if ${itemType} ${itemId} is newly imported...`);
+    
     // First check the global newItems state (for Jellyfin imports)
     if (itemType === 'movie') {
         if (newItems.newly_imported_movies && newItems.newly_imported_movies.some(m => m.id === itemId)) {
+            console.log(`✅ Found in global newItems.newly_imported_movies`);
             return true;
         }
     } else if (itemType === 'series') {
         if (newItems.newly_imported_series && newItems.newly_imported_series.some(s => s.series.id === itemId)) {
+            console.log(`✅ Found in global newItems.newly_imported_series`);
             return true;
         }
     }
@@ -608,10 +612,17 @@ function isItemNewlyImported(itemType, itemId) {
     // If not in global state, check the individual item's imported_at field
     // This handles manual imports and other cases where imported_at is set
     const item = findItemById(itemType, itemId);
+    console.log(`🔍 Found item:`, item);
+    
     if (item && item.imported_at) {
+        console.log(`🔍 Item has imported_at: ${item.imported_at}`);
         const importedTime = new Date(item.imported_at);
         const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        return importedTime > oneDayAgo;
+        const isNewlyImported = importedTime > oneDayAgo;
+        console.log(`🔍 Imported time: ${importedTime}, One day ago: ${oneDayAgo}, Is newly imported: ${isNewlyImported}`);
+        return isNewlyImported;
+    } else {
+        console.log(`❌ Item not found or no imported_at field`);
     }
     
     return false;
@@ -620,31 +631,50 @@ function isItemNewlyImported(itemType, itemId) {
 // Helper function to find an item by ID in the current watchlist data
 function findItemById(itemType, itemId) {
     const watchlistData = window.currentWatchlistData || window.lastWatchlistData;
-    if (!watchlistData) return null;
+    console.log(`🔍 Looking for ${itemType} ${itemId} in watchlist data:`, watchlistData);
+    
+    if (!watchlistData) {
+        console.log(`❌ No watchlist data available`);
+        return null;
+    }
     
     if (itemType === 'movie') {
         // Check standalone movies
         if (watchlistData.movies) {
+            console.log(`🔍 Checking ${watchlistData.movies.length} standalone movies`);
             const movie = watchlistData.movies.find(m => m.id === itemId);
-            if (movie) return movie;
+            if (movie) {
+                console.log(`✅ Found movie in standalone movies:`, movie);
+                return movie;
+            }
         }
         
         // Check movies in collections
         if (watchlistData.collections) {
+            console.log(`🔍 Checking ${watchlistData.collections.length} collections`);
             for (const collection of watchlistData.collections) {
                 if (collection.movies) {
+                    console.log(`🔍 Checking collection ${collection.name} with ${collection.movies.length} movies`);
                     const movie = collection.movies.find(m => m.id === itemId);
-                    if (movie) return movie;
+                    if (movie) {
+                        console.log(`✅ Found movie in collection ${collection.name}:`, movie);
+                        return movie;
+                    }
                 }
             }
         }
     } else if (itemType === 'series') {
         if (watchlistData.series) {
+            console.log(`🔍 Checking ${watchlistData.series.length} series`);
             const series = watchlistData.series.find(s => s.id === itemId);
-            if (series) return series;
+            if (series) {
+                console.log(`✅ Found series:`, series);
+                return series;
+            }
         }
     }
     
+    console.log(`❌ Item ${itemType} ${itemId} not found in watchlist data`);
     return null;
 }
 
@@ -1408,7 +1438,9 @@ function renderUnifiedCollection(collection) {
         const movie = collection.items[0];
         const isNewMovie = isItemNew('movie', movie.id);
         const newBadgeMovie = isNewMovie ? '<span class="new-badge">🆕</span>' : '';
-        const newlyImportedBadge = isItemNewlyImported('movie', movie.id) ? '<span class="newly-imported-badge"><svg class="badge-icon" viewBox="0 0 16 16"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm4 7.5l-1.4 1.4L7 6.8V2h2v4.2L10.6 9z"/></svg>NEW</span>' : '';
+        const isNewlyImported = isItemNewlyImported('movie', movie.id);
+        console.log(`🎯 Movie ${movie.id} (${movie.title}) - isNewlyImported: ${isNewlyImported}`);
+        const newlyImportedBadge = isNewlyImported ? '<span class="newly-imported-badge"><svg class="badge-icon" viewBox="0 0 16 16"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm4 7.5l-1.4 1.4L7 6.8V2h2v4.2L10.6 9z"/></svg>NEW</span>' : '';
         let qualityBadge = '';
         if (movie.quality) {
             const qualityConfig = {
