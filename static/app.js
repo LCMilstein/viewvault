@@ -476,6 +476,35 @@ function openAccountModal() {
     });
 }
 
+// Toast notification function
+function showToast(message, type = 'info', duration = 3000) {
+    // Remove existing toasts
+    const existingToasts = document.querySelectorAll('.toast');
+    existingToasts.forEach(toast => toast.remove());
+    
+    // Create toast element
+    const toast = document.createElement('div');
+    toast.className = `toast toast-${type}`;
+    toast.innerHTML = `
+        <div class="toast-content">
+            <span class="toast-message">${message}</span>
+            <button class="toast-close" onclick="this.parentElement.parentElement.remove()">×</button>
+        </div>
+    `;
+    
+    // Add to body
+    document.body.appendChild(toast);
+    
+    // Show toast
+    setTimeout(() => toast.classList.add('show'), 100);
+    
+    // Auto-hide
+    setTimeout(() => {
+        toast.classList.remove('show');
+        setTimeout(() => toast.remove(), 300);
+    }, duration);
+}
+
 // Check token expiration and show warning if needed
 function checkTokenExpiration() {
     const token = localStorage.getItem('access_token');
@@ -650,12 +679,12 @@ function findItemById(itemType, itemId) {
         }
         
         // Check movies in collections
-        if (watchlistData.collections) {
+        if (watchlistData.collections && Array.isArray(watchlistData.collections)) {
             console.log(`🔍 Checking ${watchlistData.collections.length} collections`);
             for (const collection of watchlistData.collections) {
-                if (collection.movies) {
+                if (collection && collection.movies && Array.isArray(collection.movies)) {
                     console.log(`🔍 Checking collection ${collection.name} with ${collection.movies.length} movies`);
-                    const movie = collection.movies.find(m => m.id === itemId);
+                    const movie = collection.movies.find(m => m && m.id === itemId);
                     if (movie) {
                         console.log(`✅ Found movie in collection ${collection.name}:`, movie);
                         return movie;
@@ -6102,28 +6131,32 @@ function showImportListSelectionDialog(itemTitle, itemType, itemId) {
                 </div>
                 <div class="modal-body">
                     <div class="list-selection-options">
-                        <div class="option-group">
-                            <label class="option-label">
+                        <div class="option-group personal-option">
+                            <label class="option-label personal-label">
                                 <input type="checkbox" id="addToPersonal" checked disabled>
                                 <span class="option-text">📱 My Watchlist (always added)</span>
+                                <span class="option-description">This item will always be added to your main watchlist</span>
                             </label>
                         </div>
                         
-                        <div class="option-group">
-                            <label class="option-label">
+                        <div class="option-group bulk-option">
+                            <label class="option-label bulk-label">
                                 <input type="checkbox" id="addToAllCustom">
                                 <span class="option-text">📋 Add to all custom lists</span>
+                                <span class="option-description">Quickly add to all your custom lists at once</span>
                             </label>
                         </div>
                         
                         <div class="custom-lists-section">
-                            <h4>Or select specific lists:</h4>
+                            <h4>🎯 Or select specific lists:</h4>
                             <div class="custom-lists-grid">
                                 ${availableLists.map(list => `
                                     <label class="list-option">
                                         <input type="checkbox" class="custom-list-checkbox" data-list-id="${list.id}">
-                                        <span class="list-option-icon" style="color: ${list.color || '#007AFF'}">${list.icon || '📋'}</span>
-                                        <span class="list-option-name">${list.name}</span>
+                                        <div class="list-option-content">
+                                            <span class="list-option-icon" style="color: ${list.color || '#007AFF'}">${list.icon || '📋'}</span>
+                                            <span class="list-option-name">${list.name}</span>
+                                        </div>
                                     </label>
                                 `).join('')}
                             </div>
@@ -6132,7 +6165,7 @@ function showImportListSelectionDialog(itemTitle, itemType, itemId) {
                 </div>
                 <div class="modal-buttons">
                     <button class="btn btn-secondary" onclick="closeImportSelectionDialog()">Cancel</button>
-                    <button class="btn btn-primary" onclick="confirmImportSelection('${itemType}', ${itemId})">Add to Selected Lists</button>
+                    <button class="btn btn-primary gradient-btn" onclick="confirmImportSelection('${itemType}', ${itemId})">Add to Selected Lists</button>
                 </div>
             </div>
         `;
