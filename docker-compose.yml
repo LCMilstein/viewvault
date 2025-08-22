@@ -11,13 +11,8 @@ services:
     volumes:
       - viewvaultdev_db:/app/db
       - viewvaultdev_posters:/app/static/posters
-    environment:
-      - SECRET_KEY=${SECRET_KEY}
-      - IMDB_API_KEY=${IMDB_API_KEY}
-      - TMDB_API_KEY=${TMDB_API_KEY}
-      - JELLYFIN_URL=${JELLYFIN_URL}
-      - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
-      - JELLYFIN_USER_ID=${JELLYFIN_USER_ID}
+    env_file:
+      - secrets.env
     restart: unless-stopped
 volumes:
   viewvaultdev_db:
