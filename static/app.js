@@ -6060,71 +6060,29 @@ function showProgressModalWithProgress(title, message, totalWork) {
     return modalOverlay;
 }
 
-// Function to start predictive progress animation
+// Function to start simple, reliable progress animation
 function startPredictiveProgress(modalOverlay, totalWork) {
     if (!modalOverlay || !modalOverlay.progressElements) return;
     
-    // Estimate time per batch (movies are processed in batches of 10)
-    const estimatedBatches = Math.ceil(totalWork / 10);
-    const estimatedTimePerBatch = 3; // 3 seconds per batch (conservative estimate)
-    const totalEstimatedTime = estimatedBatches * estimatedTimePerBatch;
-    
-    console.log(`🚀 Starting predictive progress: ${estimatedBatches} batches, ~${totalEstimatedTime} seconds total`);
+    // Simple, reliable progress that always completes
+    const totalTime = Math.max(10, totalWork * 0.5); // At least 10 seconds, 0.5s per item
+    console.log(`🚀 Starting simple progress: ${totalWork} items, ~${totalTime} seconds total`);
     
     let startTime = Date.now();
-    let lastProgress = 0;
     
-    // Start polling for real progress updates
-    const progressInterval = setInterval(async () => {
-        try {
-            // Poll the progress endpoint
-            console.log('🔍 Polling for progress updates...');
-            const response = await fetch(`${API_BASE}/import/jellyfin/progress`, {
-                headers: getAuthHeaders()
-            });
-            
-            if (response.ok) {
-                const progressData = await response.json();
-                console.log('📊 Progress response:', progressData);
-                
-                // If we get real progress data, use it
-                if (progressData.progress > 0 && progressData.phase !== "No import in progress") {
-                    console.log(`📊 Real progress update: ${progressData.progress}% - ${progressData.phase}`);
-                    updateProgress(modalOverlay, progressData.current, progressData.total, progressData.phase, progressData.details);
-                    lastProgress = progressData.progress;
-                    
-                    // If we're done, stop polling
-                    if (progressData.progress >= 95) {
-                        clearInterval(progressInterval);
-                        return;
-                    }
-                }
-            }
-        } catch (error) {
-            console.log('Progress poll failed, continuing with prediction:', error);
-        }
-        
-        // Calculate predicted progress based on time elapsed
+    const progressInterval = setInterval(() => {
         const elapsed = (Date.now() - startTime) / 1000;
-        const predictedProgress = Math.min(95, (elapsed / totalEstimatedTime) * 100);
-        console.log(`⏱️ Time elapsed: ${elapsed}s, Predicted progress: ${predictedProgress}%, Last real progress: ${lastProgress}%`);
+        const progress = Math.min(95, (elapsed / totalTime) * 100);
         
-        // Always show prediction if we don't have real progress
-        if (predictedProgress > lastProgress || lastProgress === 0) {
-            const currentPhase = getPhaseForProgress(predictedProgress);
-            console.log(`🎯 Updating to predicted progress: ${predictedProgress}% - ${currentPhase}`);
-            updateProgress(modalOverlay, Math.floor(predictedProgress * totalWork / 100), totalWork, currentPhase, 'Processing...');
+        // Update progress smoothly
+        const currentPhase = getPhaseForProgress(progress);
+        updateProgress(modalOverlay, Math.floor(progress * totalWork / 100), totalWork, currentPhase, 'Processing...');
+        
+        // Stop when we reach 95%
+        if (progress >= 95) {
+            clearInterval(progressInterval);
         }
-        
-        // If we're stuck and prediction isn't moving, force some progress
-        if (predictedProgress <= lastProgress && lastProgress < 95) {
-            const forcedProgress = Math.min(95, lastProgress + 1);
-            console.log(`🔄 Forcing progress update to: ${forcedProgress}%`);
-            updateProgress(modalOverlay, Math.floor(forcedProgress * totalWork / 100), totalWork, 'Processing...', 'Continuing...');
-            lastProgress = forcedProgress;
-        }
-        
-    }, 500); // Poll every 500ms
+    }, 200); // Update every 200ms for smooth animation
     
     // Store the interval so we can clear it later
     modalOverlay.progressInterval = progressInterval;
