@@ -4558,6 +4558,21 @@ async function loadUserLists() {
         
         console.log('Loaded user lists:', userLists);
         
+        // Validate selectedListIds - remove any lists that don't exist anymore
+        const validListIds = userLists.map(list => list.id);
+        const validSelectedIds = selectedListIds.filter(id => id === 'personal' || validListIds.includes(id));
+        
+        // If no valid lists are selected, default to personal
+        if (validSelectedIds.length === 0) {
+            validSelectedIds.push('personal');
+        }
+        
+        // Update selectedListIds if it changed
+        if (JSON.stringify(selectedListIds) !== JSON.stringify(validSelectedIds)) {
+            console.log('🧹 Cleaning up stale selectedListIds:', selectedListIds, '→', validSelectedIds);
+            selectedListIds = validSelectedIds;
+        }
+        
         // Save state after loading lists
         saveState();
         
@@ -4859,6 +4874,28 @@ async function getItemsFromSelectedLists() {
                         }
                     }
                 }
+            } else if (response.status === 404) {
+                // List doesn't exist (probably deleted or DB was reset)
+                console.warn(`⚠️ List ${listId} not found (404) - removing from selected lists`);
+                
+                // Remove this list from selectedListIds
+                const index = selectedListIds.indexOf(listId);
+                if (index > -1) {
+                    selectedListIds.splice(index, 1);
+                }
+                
+                // If no lists are selected now, default to personal
+                if (selectedListIds.length === 0) {
+                    selectedListIds.push('personal');
+                }
+                
+                // Save the updated state
+                saveState();
+                
+                // Update the UI
+                renderListSelector();
+            } else {
+                console.error(`❌ Error fetching list ${listId}:`, response.status, response.statusText);
             }
         }
 

@@ -4072,16 +4072,20 @@ def get_list_items(
 ):
     """Get all items in a specific list"""
     try:
+        logger.info(f"Getting items for list {list_id} for user {current_user.username}")
         with Session(engine) as session:
             # Handle personal list specially
             if list_id == "personal":
+                logger.info("Returning personal watchlist data")
                 # Return the main watchlist data
                 return get_watchlist(current_user)
             
             # For custom lists, get list items
             list_id_int = int(list_id)
+            logger.info(f"Converted list_id to int: {list_id_int}")
             
             # Verify user has access to this list
+            logger.info(f"Looking for list with ID {list_id_int}")
             user_list = session.exec(
                 select(List).where(
                     List.id == list_id_int,
@@ -4089,7 +4093,9 @@ def get_list_items(
                 )
             ).first()
             
+            logger.info(f"Found list: {user_list}")
             if not user_list:
+                logger.error(f"List {list_id_int} not found")
                 raise HTTPException(status_code=404, detail="List not found")
             
             # Check if user owns the list or has shared access
