@@ -2373,7 +2373,19 @@ async function importFromJellyfin() {
                 
                 // Close progress modal and show success
                 closeProgressModal(progressModal);
-                showSuccess(`Jellyfin import complete! Imported: ${result.imported || 0}, Updated: ${result.updated || 0}, Skipped: ${result.skipped || 0}`);
+                
+                // Build success message with skipped items details
+                let successMsg = `Jellyfin import complete! Imported: ${result.imported || 0}, Updated: ${result.updated || 0}, Skipped: ${result.skipped || 0}`;
+                
+                // Add skipped items details if available
+                if (result.skipped_items && result.skipped_items.length > 0) {
+                    successMsg += `\n\nSkipped items:`;
+                    result.skipped_items.forEach(item => {
+                        successMsg += `\n• ${item.title}: ${item.reason}`;
+                    });
+                }
+                
+                showSuccess(successMsg);
                 
                 // Force a direct refresh to show new items immediately
                 console.log('🔄 Forcing watchlist refresh after import...');

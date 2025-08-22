@@ -2568,9 +2568,16 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                 logger.info(f"  - Type: {jellyfin_movie.get('type', 'Unknown')}")
                 
                 if not imdb_id or imdb_id == 'None' or imdb_id == '':
-                    # Silently skip movies without IMDB IDs (likely educational content, typos, etc.)
-                    logger.info(f"Silently filtering out movie without IMDB ID: {movie_name}")
-                    # Don't increment skipped_count - these aren't "skipped", they're pre-filtered
+                    # Count movies without IMDB IDs as skipped (educational content, typos, etc.)
+                    logger.info(f"Counting as skipped - no IMDB ID: {movie_name}")
+                    skipped_count += 1
+                    # Store skipped item info for transparency
+                    if not hasattr(request.state, 'skipped_items'):
+                        request.state.skipped_items = []
+                    request.state.skipped_items.append({
+                        'title': movie_name,
+                        'reason': 'No IMDB ID - likely educational content or typo'
+                    })
                     continue
                 else:
                     valid_movies.append(jellyfin_movie)
@@ -3029,12 +3036,16 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
             logger.warning(f"Failed to update library import history: {e}")
             # Don't fail the import if history tracking fails
         
+        # Get skipped items details if available
+        skipped_items = getattr(request.state, 'skipped_items', [])
+        
         return {
             "success": True,
             "message": f"Jellyfin import complete",
             "imported": imported_count,
             "updated": updated_count,
             "skipped": skipped_count,
+            "skipped_items": skipped_items,  # Include details about what was skipped
             "sequels_imported": total_sequels_imported if 'total_sequels_imported' in locals() else 0,
             "total_jellyfin_movies": len(jellyfin_movies),
             "libraries_found": len(libraries),
