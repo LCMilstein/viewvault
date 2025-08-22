@@ -5328,19 +5328,30 @@ function switchListTab(tabName) {
     document.querySelectorAll('.tab-button').forEach(btn => {
         btn.classList.remove('active');
     });
-    event.target.classList.add('active');
+    
+    // Find and activate the clicked button
+    const clickedButton = document.querySelector(`[onclick*="switchListTab('${tabName}')"]`);
+    if (clickedButton) {
+        clickedButton.classList.add('active');
+    }
     
     // Update tab content
     document.querySelectorAll('.tab-content').forEach(content => {
         content.classList.remove('active');
     });
-    document.getElementById(tabName + 'Tab').classList.add('active');
+    
+    const targetTab = document.getElementById(tabName + 'Tab');
+    if (targetTab) {
+        targetTab.classList.add('active');
+    }
     
     // Render content for the selected tab
     if (tabName === 'all') {
         renderListManagementContent();
     } else if (tabName === 'shared') {
         renderSharedListsContent();
+    } else if (tabName === 'settings') {
+        renderListSettingsContent();
     }
 }
 
@@ -5509,6 +5520,66 @@ function createSharedListCard(list) {
     `;
     
     return card.outerHTML;
+}
+
+// Render list settings content
+function renderListSettingsContent() {
+    const settingsTab = document.getElementById('settingsTab');
+    if (!settingsTab) return;
+    
+    settingsTab.innerHTML = `
+        <div class="list-settings-content">
+            <h4 style="color: #e0e0e0; margin-bottom: 16px;">⚙️ List Settings</h4>
+            
+            <div class="settings-section">
+                <h5 style="color: #00d4aa; margin-bottom: 12px;">Default List Behavior</h5>
+                <div class="setting-item">
+                    <label class="setting-label">
+                        <input type="checkbox" id="autoAddToPersonal" checked disabled>
+                        <span class="setting-text">Always add imported items to Personal Watchlist</span>
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <label class="setting-label">
+                        <input type="checkbox" id="rememberLastUsedLists">
+                        <span class="setting-text">Remember last used lists for next import</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h5 style="color: #00d4aa; margin-bottom: 12px;">List Management</h5>
+                <div class="setting-item">
+                    <label class="setting-label">
+                        <input type="checkbox" id="confirmListDeletion" checked>
+                        <span class="setting-text">Confirm before deleting lists</span>
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <label class="setting-label">
+                        <input type="checkbox" id="showListCounts" checked>
+                        <span class="setting-text">Show item counts in list selector</span>
+                    </label>
+                </div>
+            </div>
+            
+            <div class="settings-section">
+                <h5 style="color: #00d4aa; margin-bottom: 12px;">Import Behavior</h5>
+                <div class="setting-item">
+                    <label class="setting-label">
+                        <input type="checkbox" id="autoSelectNewLists">
+                        <span class="setting-text">Automatically select newly created lists</span>
+                    </label>
+                </div>
+                <div class="setting-item">
+                    <label class="setting-label">
+                        <input type="checkbox" id="showImportSummary" checked>
+                        <span class="setting-text">Show detailed import summary</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 // Edit a list

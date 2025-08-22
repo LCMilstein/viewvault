@@ -804,7 +804,13 @@ async def import_movie(imdb_id: str, request: Request, current_user: User = Depe
         # Commit everything (main movie, list items, and sequels)
         session.commit()
     
-    return movie
+    return {
+        "success": True,
+        "id": movie.id,
+        "title": movie.title,
+        "imdb_id": movie.imdb_id,
+        "message": f"Movie '{movie.title}' imported successfully"
+    }
 
 @api_router.post("/import/movie/{imdb_id}/sequels")
 async def import_movie_with_sequels(imdb_id: str, request: Request, current_user: User = Depends(get_current_user)):
@@ -1390,7 +1396,22 @@ def get_movie(movie_id: int):
         movie = session.get(Movie, movie_id)
         if not movie:
             raise HTTPException(status_code=404, detail="Movie not found")
-        return movie
+        return {
+            "id": movie.id,
+            "title": movie.title,
+            "imdb_id": movie.imdb_id,
+            "release_date": movie.release_date,
+            "runtime": movie.runtime,
+            "watched": movie.watched,
+            "collection_id": movie.collection_id,
+            "collection_name": movie.collection_name,
+            "poster_url": movie.poster_url,
+            "poster_thumb": movie.poster_thumb,
+            "overview": movie.overview,
+            "notes": movie.notes,
+            "added_at": movie.added_at,
+            "user_id": movie.user_id
+        }
 
 @api_router.put("/movies/{movie_id}")
 def update_movie(movie_id: int, movie_update: MovieCreate):
@@ -1405,7 +1426,22 @@ def update_movie(movie_id: int, movie_update: MovieCreate):
         session.add(movie)
         session.commit()
         session.refresh(movie)
-        return movie
+        return {
+            "id": movie.id,
+            "title": movie.title,
+            "imdb_id": movie.imdb_id,
+            "release_date": movie.release_date,
+            "runtime": movie.runtime,
+            "watched": movie.watched,
+            "collection_id": movie.collection_id,
+            "collection_name": movie.collection_name,
+            "poster_url": movie.poster_url,
+            "poster_thumb": movie.poster_thumb,
+            "overview": movie.overview,
+            "notes": movie.notes,
+            "added_at": movie.added_at,
+            "user_id": movie.user_id
+        }
 
 @api_router.delete("/movies/{movie_id}")
 def delete_movie(movie_id: int):
@@ -1429,7 +1465,22 @@ def toggle_movie_watched(movie_id: int):
         session.add(movie)
         session.commit()
         session.refresh(movie)
-        return movie
+        return {
+            "id": movie.id,
+            "title": movie.title,
+            "imdb_id": movie.imdb_id,
+            "release_date": movie.release_date,
+            "runtime": movie.runtime,
+            "watched": movie.watched,
+            "collection_id": movie.collection_id,
+            "collection_name": movie.collection_name,
+            "poster_url": movie.poster_url,
+            "poster_thumb": movie.poster_thumb,
+            "overview": movie.overview,
+            "notes": movie.notes,
+            "added_at": movie.added_at,
+            "user_id": movie.user_id
+        }
 
 # Series endpoints
 @api_router.post("/series/", status_code=status.HTTP_201_CREATED)
