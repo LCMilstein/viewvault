@@ -75,7 +75,29 @@ def get_collection_movies_by_tmdb_id(collection_id: int) -> List[dict]:
         # Sort movies by release date (earliest first)
         sorted_parts = sorted(parts, key=lambda x: x.get('release_date', '') if x.get('release_date') else '9999-12-31')
         print(f"[DEBUG] Sorted collection parts by release date: {sorted_parts}")
-        return sorted_parts
+        
+        # Fetch full details for each movie to get IMDB IDs
+        detailed_movies = []
+        for part in sorted_parts:
+            try:
+                tmdb_id = part.get('id')
+                if tmdb_id:
+                    print(f"[DEBUG] Fetching details for TMDB ID: {tmdb_id}")
+                    movie_details = movie_api.details(tmdb_id)
+                    movie_dict = asdict_safe(movie_details)
+                    if movie_dict:
+                        detailed_movies.append(movie_dict)
+                        print(f"[DEBUG] Added movie: {movie_dict.get('title')} with IMDB ID: {movie_dict.get('imdb_id')}")
+                    else:
+                        print(f"[DEBUG] Failed to convert movie details to dict for TMDB ID: {tmdb_id}")
+                else:
+                    print(f"[DEBUG] No TMDB ID found in part: {part}")
+            except Exception as e:
+                print(f"[DEBUG] Error fetching details for part {part}: {e}")
+                continue
+        
+        print(f"[DEBUG] Returning {len(detailed_movies)} detailed movies")
+        return detailed_movies
     print("[DEBUG] No parts found in collection.")
     return []
 
