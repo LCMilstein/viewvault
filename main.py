@@ -363,10 +363,12 @@ def test_database():
 @limiter.limit("5/minute")
 def register(request: Request, user: UserCreate):
     """Register a new user"""
+    print(f"🔍 REGISTER: Starting registration for user: {user.username}")
     with Session(engine) as session:
         # Check if user already exists
         existing_user = session.exec(select(User).where(User.username == user.username)).first()
         if existing_user:
+            print(f"❌ REGISTER: Username {user.username} already exists")
             raise HTTPException(status_code=400, detail="Username already registered")
         
         # Create new user
@@ -379,21 +381,32 @@ def register(request: Request, user: UserCreate):
         )
         
         # Make first user admin
-        print(f"Checking for existing admin users...")
+        print(f"🔍 REGISTER: Checking for existing admin users...")
         admin_count = session.exec(select(User).where(User.is_admin == True)).all()
-        print(f"Found {len(admin_count)} admin users")
+        print(f"🔍 REGISTER: Found {len(admin_count)} admin users")
         if len(admin_count) == 0:
-            print(f"Making {db_user.username} the first admin user")
+            print(f"✅ REGISTER: Making {db_user.username} the first admin user")
             db_user.is_admin = True
         else:
-            print(f"User {db_user.username} will be regular user (not first)")
+            print(f"❌ REGISTER: User {db_user.username} will be regular user (not first)")
+        
+        # Double-check admin count
         admin_count = session.exec(select(User).where(User.is_admin == True)).all()
         if len(admin_count) == 0:
+            print(f"✅ REGISTER: Double-check confirmed - making {db_user.username} admin")
             db_user.is_admin = True
+        
+        print(f"🔍 REGISTER: Final user object - is_admin: {db_user.is_admin}")
         
         session.add(db_user)
         session.commit()
         session.refresh(db_user)
+        
+        print(f"🔍 REGISTER: User created successfully - ID: {db_user.id}, is_admin: {db_user.is_admin}")
+        
+        # Verify the user was actually saved as admin
+        saved_user = session.get(User, db_user.id)
+        print(f"🔍 REGISTER: Saved user verification - ID: {saved_user.id}, is_admin: {saved_user.is_admin}")
         
         # Create access token
         access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
@@ -422,10 +435,30 @@ def login(request: Request, user_credentials: UserLogin):
 @api_router.get("/auth/me")
 def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Get current user information"""
-    print(f"[AUTH_DEBUG] /api/auth/me called for user: {current_user.username}")
-    print(f"[AUTH_DEBUG] User ID: {current_user.id}")
-    print(f"[AUTH_DEBUG] Is admin: {current_user.is_admin}")
-    print(f"[AUTH_DEBUG] User object: {current_user}")
+    print(f"🔍 AUTH_ME: Called for user: {current_user.username}")
+    print(f"🔍 AUTH_ME: User ID: {current_user.id}")
+    print(f"🔍 AUTH_ME: Is admin: {current_user.is_admin}")
+    print(f"🔍 AUTH_ME: User object: {current_user}")
+    
+    # Double-check from database
+    with Session(engine) as session:
+        db_user = session.get(User, current_user.id)
+        if db_user:
+            print(f"🔍 AUTH_ME: Database verification - ID: {db_user.id}, is_admin: {db_user.is_admin}")
+        else:
+            print(f"❌ AUTH_ME: User not found in database!")
+        
+        # Debug: Check all users in database
+        print(f"🔍 AUTH_ME: Checking all users in database...")
+        all_users = session.exec(select(User)).all()
+        print(f"🔍 AUTH_ME: Found {len(all_users)} total users:")
+        for user in all_users:
+            print(f"  - User: {user.username}, ID: {user.id}, is_admin: {user.is_admin}")
+        
+        admin_users = session.exec(select(User).where(User.is_admin == True)).all()
+        print(f"🔍 AUTH_ME: Found {len(admin_users)} admin users:")
+        for user in admin_users:
+            print(f"  - Admin: {user.username}, ID: {user.id}")
     
     return {
         "id": current_user.id,
@@ -465,6 +498,110 @@ def make_current_user_admin(current_user: User = Depends(get_current_user)):
         session.commit()
         
         return {"status": "ok", "message": f"User {db_user.username} is now an admin"}
+
+@api_router.post("/admin/users/{user_id}/toggle-admin")
+def toggle_user_admin_status(user_id: int, admin_update: dict, current_user: User = Depends(get_current_admin_user)):
+    """Toggle admin status for a user (admin only)"""
+    print(f"🔍 TOGGLE_ADMIN: Admin {current_user.username} toggling admin status for user {user_id}")
+    
+    if user_id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot change your own admin status")
+    
+    try:
+        with Session(engine) as session:
+            user = session.exec(select(User).where(User.id == user_id)).first()
+            if not user:
+                raise HTTPException(status_code=404, detail="User not found")
+            
+            new_admin_status = admin_update.get("is_admin", False)
+            print(f"🔍 TOGGLE_ADMIN: Setting user {user.username} admin status to {new_admin_status}")
+            
+            user.is_admin = new_admin_status
+            session.add(user)
+            session.commit()
+            
+            print(f"✅ TOGGLE_ADMIN: Successfully updated {user.username} admin status to {new_admin_status}")
+            return {"message": f"User {user.username} admin status updated to {new_admin_status}"}
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ TOGGLE_ADMIN: Error updating admin status: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update admin status: {str(e)}")
+
+@app.get("/debug-users")
+def debug_users():
+    """Debug endpoint to see all users in database (no auth required)"""
+    print(f"🔍 DEBUG: Checking all users in database...")
+    with Session(engine) as session:
+        users = session.exec(select(User)).all()
+        print(f"🔍 DEBUG: Found {len(users)} users:")
+        for user in users:
+            print(f"  - User: {user.username}, ID: {user.id}, is_admin: {user.is_admin}")
+        
+        admin_users = session.exec(select(User).where(User.is_admin == True)).all()
+        print(f"🔍 DEBUG: Found {len(admin_users)} admin users:")
+        for user in admin_users:
+            print(f"  - Admin: {user.username}, ID: {user.id}")
+        
+        return {
+            "total_users": len(users),
+            "admin_users": len(admin_users),
+            "users": [{"username": u.username, "id": u.id, "is_admin": u.is_admin} for u in users]
+        }
+
+@api_router.delete("/auth/delete-current-user")
+def delete_current_user(current_user: User = Depends(get_current_user)):
+    """Delete the current user account (for testing purposes)"""
+    print(f"🔍 DELETE_USER: Deleting user: {current_user.username} (ID: {current_user.id})")
+    with Session(engine) as session:
+        db_user = session.get(User, current_user.id)
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        # Delete all user's data first (in reverse dependency order)
+        print(f"🔍 DELETE_USER: Deleting user data for {db_user.username}")
+        
+        # Delete list items
+        list_items = session.exec(select(ListItem).where(ListItem.list_id.in_(
+            select(List.id).where(List.user_id == current_user.id)
+        ))).all()
+        for item in list_items:
+            session.delete(item)
+        print(f"🔍 DELETE_USER: Deleted {len(list_items)} list items")
+        
+        # Delete lists
+        lists = session.exec(select(List).where(List.user_id == current_user.id)).all()
+        for list_item in lists:
+            session.delete(list_item)
+        print(f"🔍 DELETE_USER: Deleted {len(lists)} lists")
+        
+        # Delete episodes
+        episodes = session.exec(select(Episode).where(Episode.series_id.in_(
+            select(Series.id).where(Series.user_id == current_user.id)
+        ))).all()
+        for episode in episodes:
+            session.delete(episode)
+        print(f"🔍 DELETE_USER: Deleted {len(episodes)} episodes")
+        
+        # Delete series
+        series = session.exec(select(Series).where(Series.user_id == current_user.id)).all()
+        for series_item in series:
+            session.delete(series_item)
+        print(f"🔍 DELETE_USER: Deleted {len(series)} series")
+        
+        # Delete movies
+        movies = session.exec(select(Movie).where(Movie.user_id == current_user.id)).all()
+        for movie in movies:
+            session.delete(movie)
+        print(f"🔍 DELETE_USER: Deleted {len(movies)} movies")
+        
+        # Finally, delete the user
+        session.delete(db_user)
+        session.commit()
+        
+        print(f"✅ DELETE_USER: Successfully deleted user {current_user.username} and all their data")
+        return {"message": f"User {current_user.username} and all their data have been deleted"}
 
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
 
