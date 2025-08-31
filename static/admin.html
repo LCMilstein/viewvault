@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Admin Console - ViewVault</title>
+    <title>Admin Console - ViewVault</title>
     <style>
         * {
             margin: 0;
@@ -56,6 +56,25 @@
         .admin-close-btn:hover {
             background: rgba(255, 255, 255, 0.3);
             transform: translateY(-1px);
+        }
+
+        .admin-content {
+            padding: 30px;
+        }
+
+        .loading-message {
+            text-align: center;
+            padding: 50px;
+            font-size: 18px;
+            color: #666;
+        }
+
+        .admin-interface {
+            display: none;
+        }
+
+        .admin-interface.show {
+            display: block;
         }
 
         .admin-nav {
@@ -114,72 +133,6 @@
             transform: translateY(-1px);
         }
 
-        /* Admin Tools Section */
-        .admin-tools-section {
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.03);
-            border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-        }
-
-        .admin-tools-section h4 {
-            color: #e0e0e0;
-            margin-bottom: 20px;
-            font-size: 1.3em;
-            font-weight: 600;
-            border-bottom: 2px solid rgba(0, 212, 170, 0.3);
-            padding-bottom: 10px;
-        }
-
-        .admin-tool-item {
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 10px;
-            padding: 20px;
-            margin-bottom: 20px;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            transition: all 0.3s ease;
-        }
-
-        .admin-tool-item:hover {
-            background: rgba(255, 255, 255, 0.08);
-            border-color: rgba(0, 212, 170, 0.2);
-            transform: translateY(-2px);
-        }
-
-        .admin-tool-item h5 {
-            color: #ffffff;
-            margin: 0 0 10px 0;
-            font-size: 1.1em;
-            font-weight: 600;
-        }
-
-        .admin-tool-item p {
-            color: rgba(255, 255, 255, 0.7);
-            margin: 0 0 15px 0;
-            line-height: 1.5;
-            font-size: 0.9em;
-        }
-
-        .admin-tool-item .btn {
-            min-width: 120px;
-        }
-
-        .btn-danger {
-            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
-            color: #ffffff;
-            border: 2px solid #e74c3c;
-        }
-
-        .btn-danger:hover {
-            background: linear-gradient(135deg, #c0392b 0%, #a93226 100%);
-            border-color: #c0392b;
-            transform: translateY(-2px);
-        }
-
-        .admin-content {
-            padding: 30px;
-        }
-
         .tab-content {
             display: none;
         }
@@ -209,23 +162,6 @@
             color: #e74c3c;
         }
 
-        .users-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 20px;
-        }
-
-        .users-table th, .users-table td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-        }
-
-        .users-table th {
-            background: #f8f9fa;
-            font-weight: 600;
-        }
-
         .btn {
             padding: 8px 16px;
             border: none;
@@ -236,31 +172,9 @@
             transition: all 0.3s;
         }
 
-        .btn-danger {
-            background: #e74c3c;
-            color: white;
-        }
-
-        .btn-danger:hover {
-            background: #c0392b;
-        }
-
-        .btn-warning {
-            background: #f39c12;
-            color: white;
-        }
-
-        .btn-warning:hover {
-            background: #e67e22;
-        }
-
         .btn-success {
             background: #27ae60;
             color: white;
-        }
-
-        .btn-success:hover {
-            background: #229954;
         }
 
         .btn-info {
@@ -268,92 +182,14 @@
             color: white;
         }
 
-        .btn-info:hover {
-            background: #2980b9;
+        .btn-warning {
+            background: #f39c12;
+            color: white;
         }
 
-        .button-group {
-            display: flex;
-            flex-direction: column;
-            gap: 8px;
-            margin-bottom: 16px;
-        }
-
-        .button-description {
-            font-size: 12px;
-            color: #666;
-            margin: 0;
-            padding: 0 4px;
-            line-height: 1.4;
-            font-style: italic;
-        }
-
-        .modal {
-            display: none;
-            position: fixed;
-            z-index: 1000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0,0,0,0.5);
-        }
-
-        .modal-content {
-            background-color: white;
-            margin: 15% auto;
-            padding: 20px;
-            border-radius: 10px;
-            width: 80%;
-            max-width: 500px;
-        }
-
-        .close {
-            color: #aaa;
-            float: right;
-            font-size: 28px;
-            font-weight: bold;
-            cursor: pointer;
-        }
-
-        .close:hover {
-            color: #000;
-        }
-
-        .form-group {
-            margin-bottom: 15px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 500;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #ddd;
-            border-radius: 4px;
-        }
-
-        .alert {
-            padding: 10px;
-            margin: 10px 0;
-            border-radius: 5px;
-            display: none;
-        }
-
-        .alert-success {
-            background: #d4edda;
-            color: #155724;
-            border: 1px solid #c3e6cb;
-        }
-
-        .alert-error {
-            background: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
+        .btn-danger {
+            background: #e74c3c;
+            color: white;
         }
 
         .loading {
@@ -381,265 +217,175 @@
 <body>
     <div class="admin-container">
         <div class="admin-header">
-                            <h1>🔧 ViewVault Admin Console</h1>
+            <h1>🔧 ViewVault Admin Console</h1>
             <p>System Administration & User Management</p>
-            <button class="admin-close-btn" onclick="window.location.href = '/'">← Back to Watchlist</button>
+            <button class="admin-close-btn" onclick="window.location.href='/static/index.html'">← Back to Watchlist</button>
         </div>
-
-        <div class="admin-nav">
-            <div class="admin-menu">
-                <a href="/" class="admin-menu-item">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye"><path d="m15 6-6-3-6 3 12 18 6-3 6 3-12-18z"/><path d="m15 6-6-3-6 3 12 18 6-3 6 3-12-18z"/></svg>
-                    Watchlist
-                </a>
-                <a href="/" class="admin-menu-item">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-home"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2"/><path d="M9 22V12h6v10"/><path d="M21 12H3"/></svg>
-                    Home
-                </a>
-            </div>
-            <div class="nav-tabs">
-                <button class="nav-tab active" onclick="showTab('dashboard')">📊 Dashboard</button>
-                <button class="nav-tab" onclick="showTab('users')">👥 Users</button>
-                <button class="nav-tab" onclick="showTab('maintenance')">🛠️ Maintenance</button>
-            </div>
+        
+        <!-- Loading message -->
+        <div id="loadingMessage" class="loading-message">
+            🔍 Checking admin privileges...
         </div>
-
-        <div class="admin-content">
-            <!-- Dashboard Tab -->
-            <div id="dashboard" class="tab-content active">
-                <h2>System Overview</h2>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-number" id="total-users">-</div>
-                        <div>Total Users</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="total-movies">-</div>
-                        <div>Total Movies</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="total-series">-</div>
-                        <div>Total Series</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-number" id="admin-users">-</div>
-                        <div>Admin Users</div>
-                    </div>
+        
+        <!-- Admin interface (hidden by default) -->
+        <div id="adminInterface" class="admin-interface">
+            <div class="admin-nav">
+                <div class="admin-menu">
+                    <a href="/static/index.html" class="admin-menu-item">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-eye"><path d="m15 6-6-3-6 3 12 18 6-3 6 3-12-18z"/><path d="m15 6-6-3-6 3 12 18 6-3 6 3-12-18z"/></svg>
+                        Watchlist
+                    </a>
+                    <a href="/static/index.html" class="admin-menu-item">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-home"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2"/><path d="M9 22V12h6v10"/><path d="M21 12H3"/></svg>
+                        Home
+                    </a>
                 </div>
-                <div class="loading" id="dashboard-loading">
-                    <div class="spinner"></div>
-                    <p>Loading dashboard data...</p>
+                <div class="nav-tabs">
+                    <button class="nav-tab active" onclick="showTab('dashboard')">📊 Dashboard</button>
+                    <button class="nav-tab" onclick="showTab('users')">👥 Users</button>
+                    <button class="nav-tab" onclick="showTab('maintenance')">🛠️ Maintenance</button>
                 </div>
             </div>
 
-            <!-- Users Tab -->
-            <div id="users" class="tab-content">
-                <h2>User Management</h2>
-                <button class="btn btn-success" onclick="showCreateUserModal()">➕ Create User</button>
-                <button class="btn btn-info" onclick="refreshUsers()">🔄 Refresh</button>
-                
-                <div class="loading" id="users-loading">
-                    <div class="spinner"></div>
-                    <p>Loading users...</p>
-                </div>
-                
-                <table class="users-table" id="users-table" style="display: none;">
-                    <thead>
-                        <tr>
-                            <th>ID</th>
-                            <th>Username</th>
-                            <th>Email</th>
-                            <th>Admin</th>
-                            <th>Active</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
-                    <tbody id="users-tbody">
-                    </tbody>
-                </table>
-            </div>
-
-            <!-- Maintenance Tab -->
-            <div id="maintenance" class="tab-content">
-                <h2>System Maintenance</h2>
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <h3>System Health</h3>
-                        <div class="button-group">
-                            <button class="btn btn-info" onclick="checkSystemHealth()">🏥 Health Check</button>
-                            <p class="button-description">Monitor system performance, API response times, database connectivity, and overall server health. Use daily/weekly for proactive monitoring and when experiencing slow performance or connection issues.</p>
-                            
-                            <button class="btn btn-success" onclick="backupDatabase()">💾 Backup DB</button>
-                            <p class="button-description">Create a backup of the database. Use before major maintenance operations or as part of regular backup schedule.</p>
+            <div class="admin-content">
+                <!-- Dashboard Tab -->
+                <div id="dashboard" class="tab-content active">
+                    <h2>System Overview</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-number" id="total-users">-</div>
+                            <div>Total Users</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="total-movies">-</div>
+                            <div>Total Movies</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="total-series">-</div>
+                            <div>Total Series</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-number" id="admin-users">-</div>
+                            <div>Admin Users</div>
                         </div>
                     </div>
+                    <div class="loading" id="dashboard-loading">
+                        <div class="spinner"></div>
+                        <p>Loading dashboard data...</p>
+                    </div>
+                </div>
+
+                <!-- Users Tab -->
+                <div id="users" class="tab-content">
+                    <h2>User Management</h2>
+                    <button class="btn btn-success" onclick="loadUsers()">🔄 Refresh Users</button>
                     
-                    <div class="stat-card">
-                        <h3>Data Cleanup & Maintenance</h3>
-                        <div class="button-group">
-                            <button class="btn btn-warning" onclick="fixAllMissingPosters()">🖼️ Fix All Missing Posters</button>
-                            <p class="button-description">Download missing poster images for all movies/series. Use when you notice broken or missing poster images across the system.</p>
-                            
-                            <button class="btn btn-warning" onclick="cleanupOrphanedData()">🧹 Cleanup Orphaned Data</button>
-                            <p class="button-description">Remove data that's no longer linked to any user. Use periodically to free up database space and maintain data integrity.</p>
-                            
-                            <button class="btn btn-info" onclick="validateDatabase()">✅ Validate Database</button>
-                            <p class="button-description">Check database integrity, foreign key relationships, and data consistency. Use after major data operations, when troubleshooting data corruption, or to verify database health after maintenance tasks.</p>
+                    <div class="loading" id="users-loading">
+                        <div class="spinner"></div>
+                        <p>Loading users...</p>
+                    </div>
+                    
+                    <div id="users-content" style="display: none;">
+                        <p>Users loaded successfully!</p>
+                    </div>
+                </div>
+
+                <!-- Maintenance Tab -->
+                <div id="maintenance" class="tab-content">
+                    <h2>System Maintenance</h2>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <h3>System Health</h3>
+                            <div class="button-group">
+                                <button class="btn btn-info" onclick="checkSystemHealth()">🏥 Health Check</button>
+                                <button class="btn btn-success" onclick="backupDatabase()">💾 Backup DB</button>
+                            </div>
+                        </div>
+                        
+                        <div class="stat-card">
+                            <h3>Data Cleanup & Maintenance</h3>
+                            <div class="button-group">
+                                <button class="btn btn-warning" onclick="fixAllMissingPosters()">🖼️ Fix All Missing Posters</button>
+                                <button class="btn btn-warning" onclick="cleanupOrphanedData()">🧹 Cleanup Orphaned Data</button>
+                                <button class="btn btn-info" onclick="validateDatabase()">✅ Validate Database</button>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
-
-            <div id="settingsTab" class="tab-content">
-                <div class="admin-tools-section">
-                    <h4>🔧 Admin Tools & Maintenance</h4>
-                    
-                    <div class="admin-tool-item">
-                        <h5>🐛 Debug Sort State</h5>
-                        <p>Logs current sorting and filter state to browser console for troubleshooting sorting issues.</p>
-                        <button class="btn btn-secondary" onclick="debugSortState()">Debug Sort</button>
-                    </div>
-                    
-                    <div class="admin-tool-item">
-                        <h5>🔄 Reset Sort Option</h5>
-                        <p>Resets the watchlist sort option to default (A-Z) if sorting gets corrupted or stuck.</p>
-                        <button class="btn btn-secondary" onclick="resetSortOption()">Reset Sort</button>
-                    </div>
-                    
-                    <div class="admin-tool-item">
-                        <h5>🗑️ Clear All Data</h5>
-                        <p>⚠️ DANGEROUS: Permanently deletes all watchlist data for the current user. Cannot be undone.</p>
-                        <button class="btn btn-danger" onclick="clearAllData()">Clear All Data</button>
-                    </div>
-                    
-                    <div class="admin-tool-item">
-                        <h5>📊 System Status</h5>
-                        <p>Check system health, database status, and performance metrics.</p>
-                        <button class="btn btn-primary" onclick="checkSystemStatus()">Check Status</button>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
-
-    <!-- Create User Modal -->
-    <div id="createUserModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('createUserModal')">&times;</span>
-            <h2>Create New User</h2>
-            <form id="createUserForm">
-                <div class="form-group">
-                    <label for="newUsername">Username:</label>
-                    <input type="text" id="newUsername" required>
-                </div>
-                <div class="form-group">
-                    <label for="newEmail">Email (optional):</label>
-                    <input type="email" id="newEmail">
-                </div>
-                <div class="form-group">
-                    <label for="newPassword">Password:</label>
-                    <input type="password" id="newPassword" required>
-                </div>
-                <div class="form-group">
-                    <label>
-                        <input type="checkbox" id="newUserAdmin"> Make Admin
-                    </label>
-                </div>
-                <button type="submit" class="btn btn-success">Create User</button>
-                <button type="button" class="btn btn-secondary" onclick="closeModal('createUserModal')">Cancel</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Clear User Data Modal -->
-    <div id="clearUserDataModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('clearUserDataModal')">&times;</span>
-            <h2>Clear User Data</h2>
-            <p><strong>⚠️ Warning:</strong> This will permanently delete all movies, series, and episodes for the selected user.</p>
-            <form id="clearUserDataForm">
-                <div class="form-group">
-                    <label for="clearUserSelect">Select User:</label>
-                    <select id="clearUserSelect" required>
-                        <option value="">Choose a user...</option>
-                    </select>
-                </div>
-                <button type="submit" class="btn btn-danger">Clear All Data</button>
-                <button type="button" class="btn btn-secondary" onclick="closeModal('clearUserDataModal')">Cancel</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Reset Password Modal -->
-    <div id="resetPasswordModal" class="modal">
-        <div class="modal-content">
-            <span class="close" onclick="closeModal('resetPasswordModal')">&times;</span>
-            <h2>Reset User Password</h2>
-            <form id="resetPasswordForm">
-                <div class="form-group">
-                    <label for="resetUserSelect">Select User:</label>
-                    <select id="resetUserSelect" required>
-                        <option value="">Choose a user...</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="newPasswordReset">New Password:</label>
-                    <input type="password" id="newPasswordReset" required>
-                </div>
-                <button type="submit" class="btn btn-warning">Reset Password</button>
-                <button type="button" class="btn btn-secondary" onclick="closeModal('resetPasswordModal')">Cancel</button>
-            </form>
-        </div>
-    </div>
-
-    <!-- Alerts -->
-    <div id="alert-container" style="position: fixed; top: 20px; right: 20px; z-index: 1001;"></div>
 
     <script>
-        const API_BASE = 'http://192.168.1.211:3637/api';
-        let currentUser = null;
-
-        // Check authentication on page load
-        document.addEventListener('DOMContentLoaded', function() {
-            checkAuth();
-        });
-
-        function checkAuth() {
+        // Check authentication and admin status on page load
+        async function checkAuthAndAdmin() {
+            console.log('🔍 Starting admin auth check...');
             const token = localStorage.getItem('access_token');
+            console.log('🔍 Token found:', !!token);
+            
             if (!token) {
-                window.location.href = '/login';
+                console.log('❌ No token found, redirecting to login in 5 seconds...');
+                setTimeout(() => {
+                    window.location.href = '/static/login.html';
+                }, 5000);
                 return;
             }
 
-            // Verify token and check if user is admin
-            fetch(`${API_BASE}/auth/me`, {
-                headers: {
-                    'Authorization': `Bearer ${token}`
-                }
-            })
-            .then(response => {
+            try {
+                console.log('🔍 Checking auth with backend...');
+                const response = await fetch('/api/auth/me', {
+                    headers: {
+                        'Authorization': `Bearer ${token}`,
+                        'Content-Type': 'application/json'
+                    }
+                });
+
+                console.log('🔍 Auth response status:', response.status);
+                
                 if (!response.ok) {
-                    throw new Error('Authentication failed');
-                }
-                return response.json();
-            })
-            .then(user => {
-                if (!user.is_admin) {
-                    alert('Access denied. Admin privileges required.');
-                    window.location.href = '/';
+                    console.log('❌ Auth failed, redirecting to login in 5 seconds...');
+                    setTimeout(() => {
+                        window.location.href = '/static/login.html';
+                    }, 5000);
                     return;
                 }
-                currentUser = user;
+
+                const user = await response.json();
+                console.log('🔍 User data received:', user);
+                console.log('🔍 Is admin?', user.is_admin);
+                
+                if (!user.is_admin) {
+                    console.log('❌ User not admin, redirecting to main page in 5 seconds...');
+                    alert('Access denied. Admin privileges required.');
+                    setTimeout(() => {
+                        window.location.href = '/static/index.html';
+                    }, 5000);
+                    return;
+                }
+
+                console.log('✅ Admin access granted for user:', user.username);
+                console.log('✅ Admin console ready');
+                
+                // Show the admin interface
+                document.getElementById('adminInterface').classList.add('show');
+                document.getElementById('loadingMessage').style.display = 'none';
+                
+                // Load dashboard data and users data
                 loadDashboard();
                 loadUsers();
-            })
-            .catch(error => {
-                console.error('Auth error:', error);
-                localStorage.removeItem('access_token');
-                window.location.href = '/login';
-            });
+            } catch (error) {
+                console.error('❌ Auth check failed:', error);
+                console.log('❌ Redirecting to login in 5 seconds...');
+                setTimeout(() => {
+                    window.location.href = '/static/login.html';
+                }, 5000);
+            }
         }
 
+        // Run auth check when page loads
+        document.addEventListener('DOMContentLoaded', checkAuthAndAdmin);
+
+        // Tab functions
         function showTab(tabName) {
             // Hide all tab contents
             const tabContents = document.querySelectorAll('.tab-content');
@@ -660,15 +406,24 @@
             if (selectedTabButton) {
                 selectedTabButton.classList.add('active');
             }
+            
+            // Auto-load data for specific tabs
+            if (tabName === 'dashboard') {
+                loadDashboard();
+            } else if (tabName === 'users') {
+                loadUsers();
+            }
         }
 
+        // Admin functions
         function loadDashboard() {
             const loading = document.getElementById('dashboard-loading');
             loading.style.display = 'block';
 
-            fetch(`${API_BASE}/admin/dashboard`, {
+            fetch('/api/admin/dashboard', {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                    'Content-Type': 'application/json'
                 }
             })
             .then(response => {
@@ -678,6 +433,7 @@
                 return response.json();
             })
             .then(data => {
+                console.log('Dashboard data received:', data);
                 document.getElementById('total-users').textContent = data.total_users || 0;
                 document.getElementById('total-movies').textContent = data.total_movies || 0;
                 document.getElementById('total-series').textContent = data.total_series || 0;
@@ -687,21 +443,21 @@
             .catch(error => {
                 console.error('Dashboard error:', error);
                 loading.style.display = 'none';
-                showAlert(`Error loading dashboard data: ${error.message}`, 'error');
+                alert(`Error loading dashboard data: ${error.message}`);
             });
         }
 
         function loadUsers() {
             const loading = document.getElementById('users-loading');
-            const table = document.getElementById('users-table');
-            const tbody = document.getElementById('users-tbody');
+            const content = document.getElementById('users-content');
             
             loading.style.display = 'block';
-            table.style.display = 'none';
+            content.style.display = 'none';
 
-            fetch(`${API_BASE}/admin/users`, {
+            fetch('/api/admin/users', {
                 headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
+                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                    'Content-Type': 'application/json'
                 }
             })
             .then(response => {
@@ -711,413 +467,203 @@
                 return response.json();
             })
             .then(data => {
+                console.log('Users data received:', data);
                 const users = data.users || data; // Handle both formats
-                tbody.innerHTML = '';
+                
+                // Create users table
+                let tableHTML = `
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                        <thead>
+                            <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6;">ID</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6;">Username</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6;">Email</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6;">Admin</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6;">Active</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
                 users.forEach(user => {
-                    const row = document.createElement('tr');
-                    row.innerHTML = `
-                        <td>${user.id}</td>
-                        <td>${user.username}</td>
-                        <td>${user.email || '-'}</td>
-                        <td>${user.is_admin ? '✅' : '❌'}</td>
-                        <td>${user.is_active ? '✅' : '❌'}</td>
-                        <td>
-                            <button class="btn btn-info" onclick="resetUserPassword(${user.id}, '${user.username}')" title="Reset Password">🔑</button>
-                            <button class="btn btn-warning" onclick="clearUserData(${user.id}, '${user.username}')" title="Clear User Data">🗑️</button>
-                            <button class="btn btn-info" onclick="fixUserPosters(${user.id}, '${user.username}')" title="Fix User Posters">🖼️</button>
-                            <button class="btn btn-danger" onclick="removeUserDuplicates(${user.id}, '${user.username}')" title="Remove Duplicates">🔄</button>
-                            <button class="btn btn-danger" onclick="deleteUser(${user.id}, '${user.username}')" title="Delete User">🗑️</button>
-                        </td>
+                    tableHTML += `
+                        <tr style="border-bottom: 1px solid #dee2e6;">
+                            <td style="padding: 12px;">${user.id}</td>
+                            <td style="padding: 12px;">${user.username}</td>
+                            <td style="padding: 12px;">${user.email || '-'}</td>
+                            <td style="padding: 12px;">${user.is_admin ? '✅' : '❌'}</td>
+                            <td style="padding: 12px;">${user.is_active ? '✅' : '❌'}</td>
+                            <td style="padding: 12px;">
+                                <button class="btn btn-info" onclick="resetUserPassword(${user.id}, '${user.username}')" title="Reset Password" style="margin: 2px;">🔑</button>
+                                <button class="btn btn-warning" onclick="clearUserData(${user.id}, '${user.username}')" title="Clear User Data" style="margin: 2px;">🗑️</button>
+                                <button class="btn btn-info" onclick="removeUserDuplicates(${user.id}, '${user.username}')" title="Remove Duplicates" style="margin: 2px;">🔄</button>
+                                <button class="btn btn-danger" onclick="deleteUser(${user.id}, '${user.username}')" title="Delete User" style="margin: 2px;">🗑️</button>
+                            </td>
+                        </tr>
                     `;
-                    tbody.appendChild(row);
                 });
                 
+                tableHTML += `
+                        </tbody>
+                    </table>
+                `;
+                
+                content.innerHTML = tableHTML;
                 loading.style.display = 'none';
-                table.style.display = 'table';
+                content.style.display = 'block';
             })
             .catch(error => {
                 console.error('Users error:', error);
                 loading.style.display = 'none';
-                showAlert(`Error loading users: ${error.message}`, 'error');
+                content.innerHTML = `<p style="color: red;">Error loading users: ${error.message}</p>`;
             });
         }
 
-        function refreshUsers() {
-            loadUsers();
+        function checkSystemHealth() {
+            alert('System health check functionality coming soon!');
         }
 
-        function showCreateUserModal() {
-            document.getElementById('createUserModal').style.display = 'block';
+        function backupDatabase() {
+            alert('Database backup functionality coming soon!');
         }
 
-        function showClearUserDataModal() {
-            // Populate user select
-            const select = document.getElementById('clearUserSelect');
-            select.innerHTML = '<option value="">Choose a user...</option>';
-            
-            fetch(`${API_BASE}/admin/users`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-                }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                const users = data.users || data; // Handle both formats
-                users.forEach(user => {
-                    const option = document.createElement('option');
-                    option.value = user.id;
-                    option.textContent = user.username;
-                    select.appendChild(option);
-                });
-            })
-            .catch(error => {
-                console.error('Error loading users for clear data modal:', error);
-                showAlert(`Error loading users: ${error.message}`, 'error');
-            });
-            
-            document.getElementById('clearUserDataModal').style.display = 'block';
+        function fixAllMissingPosters() {
+            alert('Fix missing posters functionality coming soon!');
         }
 
-        function showResetPasswordModal() {
-            // Populate user select
-            const select = document.getElementById('resetUserSelect');
-            select.innerHTML = '<option value="">Choose a user...</option>';
-            
-            fetch(`${API_BASE}/admin/users`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-                }
-            })
-            .then(response => {
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                return response.json();
-            })
-            .then(data => {
-                const users = data.users || data; // Handle both formats
-                users.forEach(user => {
-                    const option = document.createElement('option');
-                    option.value = user.id;
-                    option.textContent = user.username;
-                    select.appendChild(option);
-                });
-            })
-            .catch(error => {
-                console.error('Error loading users for reset password modal:', error);
-                showAlert(`Error loading users: ${error.message}`, 'error');
-            });
-            
-            document.getElementById('resetPasswordModal').style.display = 'block';
+        function cleanupOrphanedData() {
+            alert('Cleanup orphaned data functionality coming soon!');
         }
 
-        function closeModal(modalId) {
-            document.getElementById(modalId).style.display = 'none';
+        function validateDatabase() {
+            alert('Database validation functionality coming soon!');
         }
 
-        // Form submissions
-        document.getElementById('createUserForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const userData = {
-                username: document.getElementById('newUsername').value,
-                email: document.getElementById('newEmail').value || null,
-                password: document.getElementById('newPassword').value,
-                is_admin: document.getElementById('newUserAdmin').checked
-            };
-
-            fetch(`${API_BASE}/admin/users`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-                },
-                body: JSON.stringify(userData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (response.ok) {
-                    showAlert('User created successfully!', 'success');
-                    closeModal('createUserModal');
-                    document.getElementById('createUserForm').reset();
-                    loadUsers();
-                } else {
-                    showAlert(data.detail || 'Error creating user', 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Create user error:', error);
-                showAlert('Error creating user', 'error');
-            });
-        });
-
-        document.getElementById('clearUserDataForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const userId = document.getElementById('clearUserSelect').value;
-            if (!userId) {
-                showAlert('Please select a user', 'error');
-                return;
-            }
-
-            if (confirm('Are you sure you want to clear ALL data for this user? This action cannot be undone!')) {
-                fetch(`${API_BASE}/admin/users/${userId}/clear-data`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-                    }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (response.ok) {
-                        showAlert('User data cleared successfully!', 'success');
-                        closeModal('clearUserDataModal');
-                        loadDashboard();
-                    } else {
-                        showAlert(data.detail || 'Error clearing user data', 'error');
-                    }
-                })
-                .catch(error => {
-                    console.error('Clear data error:', error);
-                    showAlert('Error clearing user data', 'error');
-                });
-            }
-        });
-
-        document.getElementById('resetPasswordForm').addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            const userId = document.getElementById('resetUserSelect').value;
-            const newPassword = document.getElementById('newPasswordReset').value;
-            
-            if (!userId) {
-                showAlert('Please select a user', 'error');
-                return;
-            }
-
-            fetch(`${API_BASE}/admin/users/${userId}/reset-password`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-                },
-                body: JSON.stringify({ new_password: newPassword })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (response.ok) {
-                    showAlert('Password reset successfully!', 'success');
-                    closeModal('resetPasswordModal');
-                    document.getElementById('resetPasswordForm').reset();
-                } else {
-                    showAlert(data.detail || 'Error resetting password', 'error');
-                }
-            })
-            .catch(error => {
-                console.error('Reset password error:', error);
-                showAlert('Error resetting password', 'error');
-            });
-        });
-
-        // Utility functions
+        // User management functions
         function resetUserPassword(userId, username) {
             if (confirm(`Reset password for user "${username}"?`)) {
-                fetch(`${API_BASE}/admin/users/${userId}/reset-password`, {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${localStorage.getItem('access_token')}`
-                    }
-                })
-                .then(response => {
-                    if (response.ok) {
+                const newPassword = prompt('Enter new password (min 8 characters):');
+                if (newPassword && newPassword.length >= 8) {
+                    fetch(`/api/admin/users/${userId}/reset-password`, {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({ new_password: newPassword })
+                    })
+                    .then(response => {
+                        if (!response.ok) {
+                            throw new Error(`HTTP error! status: ${response.status}`);
+                        }
                         return response.json();
-                    } else {
-                        throw new Error('Failed to reset password');
-                    }
-                })
-                .then(data => {
-                    showAlert(`Password reset for ${username}: ${data.message}`, 'success');
-                })
-                .catch(error => {
-                    console.error('Reset password error:', error);
-                    showAlert(`Error resetting password: ${error.message}`, 'error');
-                });
+                    })
+                    .then(data => {
+                        alert(`Password reset successfully for ${username}`);
+                    })
+                    .catch(error => {
+                        console.error('Reset password error:', error);
+                        alert(`Error resetting password: ${error.message}`);
+                    });
+                } else if (newPassword !== null) {
+                    alert('Password must be at least 8 characters long');
+                }
             }
         }
 
         function clearUserData(userId, username) {
             if (confirm(`⚠️ Clear ALL data for user "${username}"? This action cannot be undone and will remove all their movies, series, and lists.`)) {
-                fetch(`${API_BASE}/admin/users/${userId}/clear-data`, {
+                fetch(`/api/admin/users/${userId}/clear-data`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('access_token')}`
                     }
                 })
                 .then(response => {
-                    if (response.ok) {
-                        return response.json();
-                    } else {
-                        throw new Error('Failed to clear user data');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
+                    return response.json();
                 })
                 .then(data => {
-                    showAlert(`Data cleared for ${username}: ${data.message}`, 'success');
-                    loadUsers(); // Refresh the users table
+                    alert(`Data cleared successfully for ${username}`);
+                    // Refresh both the users table and dashboard
+                    setTimeout(() => {
+                        loadUsers();
+                        loadDashboard();
+                    }, 100);
                 })
                 .catch(error => {
                     console.error('Clear user data error:', error);
-                    showAlert(`Error clearing user data: ${error.message}`, 'error');
+                    alert(`Error clearing user data: ${error.message}`);
                 });
             }
         }
 
         function removeUserDuplicates(userId, username) {
             if (confirm(`Remove duplicate movies and series for user "${username}"? This will keep the oldest entry and remove newer duplicates.`)) {
-                showAlert(`Removing duplicates for ${username}...`, 'info');
-                
-                fetch(`${API_BASE}/admin/users/${userId}/remove-duplicates`, {
+                fetch(`/api/admin/users/${userId}/remove-duplicates`, {
                     method: 'POST',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('access_token')}`
                     }
                 })
                 .then(response => {
-                    if (response.ok) {
-                        return response.json();
-                    } else {
-                        throw new Error('Failed to remove duplicates');
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
+                    return response.json();
                 })
                 .then(data => {
-                    showAlert(`✅ ${data.message}`, 'success');
-                    console.log('Duplicate removal details:', data.details);
-                    
-                    // Show detailed results
-                    if (data.details && data.details.length > 0) {
-                        const detailsText = data.details.join('\n');
-                        alert(`Duplicate removal completed for ${username}!\n\nRemoved ${data.removed_count} duplicates.\n\nDetails:\n${detailsText}`);
-                    }
+                    alert(`✅ ${data.message}\n\nRemoved ${data.removed_count} duplicates.\n\nDetails:\n${data.details.join('\n')}`);
+                    // Refresh both the users table and dashboard
+                    setTimeout(() => {
+                        loadUsers();
+                        loadDashboard();
+                    }, 100);
                 })
                 .catch(error => {
-                    console.error('Remove user duplicates error:', error);
-                    showAlert(`❌ Failed to remove duplicates for ${username}: ${error.message}`, 'error');
+                    console.error('Remove duplicates error:', error);
+                    alert(`Error removing duplicates: ${error.message}`);
                 });
             }
         }
 
         function deleteUser(userId, username) {
-            if (confirm(`Delete user "${username}"? This will also delete all their data!`)) {
-                fetch(`${API_BASE}/admin/users/${userId}`, {
+            // Prevent deleting the current user
+            const currentUser = JSON.parse(localStorage.getItem('user_info') || '{}');
+            if (currentUser.username === username) {
+                alert('❌ You cannot delete your own account!');
+                return;
+            }
+            
+            if (confirm(`⚠️ Delete user "${username}"? This will also delete all their data! This action cannot be undone.`)) {
+                fetch(`/api/admin/users/${userId}`, {
                     method: 'DELETE',
                     headers: {
                         'Authorization': `Bearer ${localStorage.getItem('access_token')}`
                     }
                 })
                 .then(response => {
-                    if (response.ok) {
-                        return response.json().then(data => {
-                            showAlert('User deleted successfully!', 'success');
-                            loadUsers();
-                            loadDashboard();
-                        });
-                    } else {
-                        return response.json().then(data => {
-                            showAlert(data.detail || 'Error deleting user', 'error');
-                        });
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
                     }
+                    return response.json();
+                })
+                .then(data => {
+                    alert(`User ${username} deleted successfully`);
+                    // Refresh both the users table and dashboard
+                    setTimeout(() => {
+                        loadUsers();
+                        loadDashboard();
+                    }, 100);
                 })
                 .catch(error => {
                     console.error('Delete user error:', error);
-                    showAlert('Error deleting user', 'error');
+                    alert(`Error deleting user: ${error.message}`);
                 });
             }
-        }
-
-        // Maintenance functions
-        function checkSystemHealth() {
-            showAlert('System health check started...', 'success');
-            // Implement system health check
-        }
-
-        function backupDatabase() {
-            showAlert('Database backup started...', 'success');
-            // Implement database backup
-        }
-
-        // Script functions
-        function fixAllMissingPosters() {
-            if (confirm('Fix missing posters for all users? This may take a while.')) {
-                showAlert('Fixing missing posters...', 'success');
-                // Implement poster fix script
-            }
-        }
-
-        function fixUserPosters(userId, username) {
-            if (confirm(`Fix posters for user "${username}"? This will re-download and update poster images for all their movies and series.`)) {
-                showAlert(`Fixing posters for user ${userId}...`, 'success');
-                // Implement user-specific poster fix
-            }
-        }
-
-        function cleanupOrphanedData() {
-            if (confirm('Clean up orphaned data? This will remove data not linked to any user.')) {
-                showAlert('Cleaning up orphaned data...', 'success');
-                // Implement orphaned data cleanup
-            }
-        }
-
-        function validateDatabase() {
-            showAlert('Database validation started...', 'success');
-            // Implement database validation
-        }
-
-        function showAlert(message, type) {
-            const alertContainer = document.getElementById('alert-container');
-            const alert = document.createElement('div');
-            alert.className = `alert alert-${type}`;
-            alert.textContent = message;
-            alert.style.display = 'block';
-            
-            alertContainer.appendChild(alert);
-            
-            setTimeout(() => {
-                alert.remove();
-            }, 5000);
-        }
-
-        // Close modals when clicking outside
-        window.onclick = function(event) {
-            if (event.target.classList.contains('modal')) {
-                event.target.style.display = 'none';
-            }
-        }
-
-        // Admin console functions moved from main app
-        function debugSortState() {
-            console.log('=== SORT STATE DEBUG ===');
-            console.log('This function is now in admin console scope');
-            console.log('=======================');
-        }
-
-        function resetSortOption() {
-            console.log('Resetting sort option to default');
-            // This would need to communicate with the main app or backend
-            showAlert('Sort reset functionality requires main app integration', 'info');
-        }
-
-        function clearAllData() {
-            if (confirm('Are you sure you want to clear all data? This action cannot be undone.')) {
-                showAlert('Clear data functionality requires main app integration', 'info');
-            }
-        }
-
-        function checkSystemStatus() {
-            showAlert('System status check functionality coming soon', 'info');
         }
     </script>
 </body>

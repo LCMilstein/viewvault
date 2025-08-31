@@ -422,6 +422,11 @@ def login(request: Request, user_credentials: UserLogin):
 @api_router.get("/auth/me")
 def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Get current user information"""
+    print(f"[AUTH_DEBUG] /api/auth/me called for user: {current_user.username}")
+    print(f"[AUTH_DEBUG] User ID: {current_user.id}")
+    print(f"[AUTH_DEBUG] Is admin: {current_user.is_admin}")
+    print(f"[AUTH_DEBUG] User object: {current_user}")
+    
     return {
         "id": current_user.id,
         "username": current_user.username,
@@ -446,6 +451,20 @@ def change_password(payload: ChangePassword, current_user: User = Depends(get_cu
         session.add(db_user)
         session.commit()
         return {"status": "ok"}
+
+@api_router.post("/auth/make-admin")
+def make_current_user_admin(current_user: User = Depends(get_current_user)):
+    """Make the current user an admin (for testing purposes)"""
+    with Session(engine) as session:
+        db_user = session.get(User, current_user.id)
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        db_user.is_admin = True
+        session.add(db_user)
+        session.commit()
+        
+        return {"status": "ok", "message": f"User {db_user.username} is now an admin"}
 
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
 
@@ -4690,7 +4709,7 @@ def reset_user_password(user_id: int, current_user: User = Depends(get_current_a
 
 @api_router.delete("/admin/users/{user_id}")
 def delete_admin_user(user_id: int, current_user: User = Depends(get_current_admin_user)):
-    """Soft delete a user (admin only)"""
+    """Hard delete a user and all their data (admin only)"""
     try:
         with Session(engine) as session:
             user = session.exec(select(User).where(User.id == user_id)).first()
@@ -4702,9 +4721,43 @@ def delete_admin_user(user_id: int, current_user: User = Depends(get_current_adm
             if user_id == current_user.id:
                 raise HTTPException(status_code=400, detail="Cannot delete your own account")
             
-            # For now, just return success since User model doesn't have deleted field
-            # In the future, you could add a deleted field to User model
-            return {"message": f"User {user.username} marked for deletion (feature not yet implemented)"}
+            # Delete all user's data first (in reverse dependency order)
+            
+            # Delete list items first
+            list_items = session.exec(select(ListItem).where(ListItem.list_id.in_(
+                select(List.id).where(List.user_id == user_id)
+            ))).all()
+            for item in list_items:
+                session.delete(item)
+            
+            # Delete lists
+            lists = session.exec(select(List).where(List.user_id == user_id)).all()
+            for list_item in lists:
+                session.delete(list_item)
+            
+            # Delete episodes first (they reference series)
+            episodes = session.exec(select(Episode).where(Episode.series_id.in_(
+                select(Series.id).where(Series.user_id == user_id)
+            ))).all()
+            for episode in episodes:
+                session.delete(episode)
+            
+            # Delete series
+            series = session.exec(select(Series).where(Series.user_id == user_id)).all()
+            for series_item in series:
+                session.delete(series_item)
+            
+            # Delete movies
+            movies = session.exec(select(Movie).where(Movie.user_id == user_id)).all()
+            for movie in movies:
+                session.delete(movie)
+            
+            # Finally, delete the user
+            session.delete(user)
+            
+            session.commit()
+            
+            return {"message": f"User {user.username} and all their data have been permanently deleted"}
             
     except HTTPException:
         raise
