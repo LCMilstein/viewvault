@@ -52,24 +52,16 @@ def verify_token(token: str) -> Optional[dict]:
 
 def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> User:
     """Get the current authenticated user"""
-    print(f"[AUTH_DEBUG] get_current_user called with token: {credentials.credentials[:20]}...")
     token = credentials.credentials
     payload = verify_token(token)
-    print(f"[AUTH_DEBUG] Token payload: {payload}")
-    
     if payload is None:
-        print("[AUTH_DEBUG] Token validation failed")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    
     username = payload.get("sub")
-    print(f"[AUTH_DEBUG] Username from token: {username}")
-    
     if username is None:
-        print("[AUTH_DEBUG] No username in token")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
@@ -78,15 +70,12 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
     
     with Session(engine) as session:
         user = session.exec(select(User).where(User.username == username)).first()
-        print(f"[AUTH_DEBUG] User found in DB: {user}")
         if user is None:
-            print("[AUTH_DEBUG] User not found in database")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="User not found",
-                headers={"WWW-AUThenticate": "Bearer"},
+                headers={"WWW-Authenticate": "Bearer"},
             )
-        print(f"[AUTH_DEBUG] Returning user: {user.username}, is_admin: {user.is_admin}")
         return user
 
 def get_current_admin_user(current_user: User = Depends(get_current_user)) -> User:

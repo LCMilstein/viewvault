@@ -1359,6 +1359,9 @@ def get_series_from_tvmaze_by_imdb(imdb_id: str):
 @api_router.post("/movies/", status_code=status.HTTP_201_CREATED)
 def add_movie(movie: MovieCreate):
     db_movie = Movie(**movie.model_dump())
+    # Set manual import as new and set imported timestamp
+    db_movie.is_new = True
+    db_movie.imported_at = datetime.now(timezone.utc)
     with Session(engine) as session:
         session.add(db_movie)
         session.commit()
@@ -1515,6 +1518,9 @@ def toggle_movie_watched(movie_id: int):
 @api_router.post("/series/", status_code=status.HTTP_201_CREATED)
 def add_series(series: SeriesCreate):
     db_series = Series(**series.model_dump())
+    # Set manual import as new and set imported timestamp
+    db_series.is_new = True
+    db_series.imported_at = datetime.now(timezone.utc)
     with Session(engine) as session:
         session.add(db_series)
         session.commit()
