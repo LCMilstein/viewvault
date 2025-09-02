@@ -2866,12 +2866,8 @@ async function handleImportTypeSubmit() {
     const value = input.value.trim();
     if (!value) return;
     
-    // Check omnibox mode
-    if (omniboxMode === 'search') {
-        // Search watchlist
-        searchWatchlist(value);
-        return;
-    }
+    // Smart omnibox handles both local and external search automatically
+    // No need to check mode - the input handler will manage this
     
     console.log(`[DEBUG] Auto-detect search called with value: ${value}`);
     
@@ -3099,8 +3095,8 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Check token expiration every hour
     setInterval(checkTokenExpiration, 60 * 60 * 1000);
     
-    // Initialize omnibox toggle
-    initializeOmniboxToggle();
+    // Initialize smart omnibox
+    initializeSmartOmnibox();
     
     // Initialize online status
     updateOnlineStatus();
@@ -4302,9 +4298,13 @@ async function toggleEpisodeWatchedInDetails(seriesId, seasonNumber, episodeNumb
     }
 }
 
-// Omnibox toggle functionality
-let omniboxMode = 'import'; // 'import' or 'search'
+// Smart Omnibox functionality
 let currentWatchlistData = null;
+let searchDebounceTimer = null;
+let lastSearchQuery = '';
+let isSearchingResults = false;
+let localSearchResults = [];
+let importSearchResults = [];
 
 function matchesSearchTerm(item, searchTerm) {
     if (!searchTerm) return true;
@@ -4320,123 +4320,331 @@ function matchesSearchTerm(item, searchTerm) {
     return searchFields.some(field => field.includes(searchTerm));
 }
 
-// Initialize omnibox toggle when page loads
-// Note: This is now handled in the main DOMContentLoaded listener above
-
-function initializeOmniboxToggle() {
-    const toggleBtn = document.getElementById('omniboxToggleBtn');
+// Initialize Smart Omnibox when page loads
+function initializeSmartOmnibox() {
     const searchInput = document.getElementById('importTypeInput');
     const submitBtn = document.getElementById('importTypeSubmitBtn');
-    
-    // Initialize the toggle to import mode (not active state)
-    if (toggleBtn) {
-        toggleBtn.classList.remove('active');
-        toggleBtn.innerHTML = '<span class="toggle-text">Import</span><span class="switch-indicator"><span class="toggle-icon">➕</span></span>';
-        toggleBtn.addEventListener('click', function() {
-            toggleOmniboxMode();
-        });
-    }
     
     // Set initial placeholder and button text
     if (searchInput) {
-        searchInput.placeholder = 'Find and add to watchlist...';
-    }
-    if (submitBtn) {
-        submitBtn.textContent = 'Search';
-    }
-    
-    // Handle Enter key in search input
-    if (searchInput) {
+        searchInput.placeholder = 'Search watchlist or find new content...';
+        searchInput.addEventListener('input', handleSmartOmniboxInput);
         searchInput.addEventListener('keypress', function(e) {
             if (e.key === 'Enter') {
-                if (omniboxMode === 'import') {
-                    handleImportTypeSubmit();
-                } else {
-                    // Search watchlist
-                    const searchTerm = searchInput.value.trim();
-                    if (searchTerm) {
-                        searchWatchlist(searchTerm);
-                    }
-                }
+                handleSmartOmniboxSubmit();
             }
         });
     }
-}
-
-function toggleOmniboxMode() {
-    const toggleBtn = document.getElementById('omniboxToggleBtn');
-    const searchInput = document.getElementById('importTypeInput');
-    const submitBtn = document.getElementById('importTypeSubmitBtn');
     
-    if (omniboxMode === 'import') {
-        // Switch to search mode
-        omniboxMode = 'search';
-        toggleBtn.innerHTML = '<span class="toggle-text">Search</span><span class="switch-indicator"><span class="toggle-icon">🔍</span></span>';
-        toggleBtn.classList.add('active');
-        searchInput.placeholder = 'Search your watchlist...';
+    if (submitBtn) {
         submitBtn.textContent = 'Search';
-        
-        // Clear any previous search results
-        clearSearchResults();
-        
-    } else {
-        // Switch to import mode
-        omniboxMode = 'import';
-        toggleBtn.innerHTML = '<span class="toggle-text">Import</span><span class="switch-indicator"><span class="toggle-icon">➕</span></span>';
-        toggleBtn.classList.remove('active');
-        searchInput.placeholder = 'Find and add to watchlist...';
-        submitBtn.textContent = 'Search';
-        
-        // Clear search input and results
-        searchInput.value = '';
-        clearSearchResults();
-        
-        // Reload watchlist to show all items
-        if (currentWatchlistData) {
-            renderWatchlist(currentWatchlistData);
-        }
+        submitBtn.addEventListener('click', handleSmartOmniboxSubmit);
     }
 }
 
-function searchWatchlist(searchTerm) {
-    if (!currentWatchlistData) return;
+// Smart Omnibox Input Handler
+function handleSmartOmniboxInput(event) {
+    const query = event.target.value.trim();
+    console.log('🔍 SMART OMNIBOX DEBUG: Input changed to:', query);
     
-    const filteredData = {
-        collections: currentWatchlistData.collections.map(collection => {
-            const filteredItems = collection.items.filter(item => 
-                matchesSearchTerm(item, searchTerm.toLowerCase())
-            );
-            
-            if (filteredItems.length > 0) {
-                return {
-                    ...collection,
-                    items: filteredItems
-                };
+    // Clear previous debounce timer
+    if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer);
+    }
+    
+    // Always perform local search immediately
+    performLocalSearch(query);
+    
+    // Debounce external search
+    if (query.length >= 3) {
+        searchDebounceTimer = setTimeout(() => {
+            performExternalSearch(query);
+        }, 1200); // 1.2 second delay
+    } else {
+        // Clear external results if query is too short
+        importSearchResults = [];
+        updateSearchResultsDisplay();
+    }
+}
+
+// Smart Omnibox Submit Handler
+function handleSmartOmniboxSubmit() {
+    const searchInput = document.getElementById('importTypeInput');
+    const query = searchInput.value.trim();
+    
+    if (!query) return;
+    
+    console.log('🔍 SMART OMNIBOX DEBUG: Submit triggered with query:', query);
+    
+    // Clear debounce timer
+    if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer);
+    }
+    
+    // Perform both searches immediately
+    performLocalSearch(query);
+    performExternalSearch(query);
+}
+
+// Perform Local Search (immediate)
+function performLocalSearch(query) {
+    console.log('🔍 SMART OMNIBOX DEBUG: Performing local search for:', query);
+    
+    if (!query || !currentWatchlistData) {
+        localSearchResults = [];
+        updateSearchResultsDisplay();
+        return;
+    }
+    
+    // Search through watchlist data
+    const results = [];
+    const searchTerm = query.toLowerCase();
+    
+    // Search movies
+    if (currentWatchlistData.movies) {
+        currentWatchlistData.movies.forEach(movie => {
+            if (matchesSearchTerm(movie, searchTerm)) {
+                results.push({
+                    ...movie,
+                    type: 'movie',
+                    source: 'local'
+                });
             }
-            return null;
-        }).filter(collection => collection !== null)
-    };
+        });
+    }
     
-    renderWatchlist(filteredData);
+    // Search series
+    if (currentWatchlistData.series) {
+        currentWatchlistData.series.forEach(series => {
+            if (matchesSearchTerm(series, searchTerm)) {
+                results.push({
+                    ...series,
+                    type: 'series',
+                    source: 'local'
+                });
+            }
+        });
+    }
     
-    // Show search results count
-    const resultsCount = filteredData.collections.reduce((total, collection) => total + collection.items.length, 0);
-    const searchMessage = `<div class="search-results-info" style="margin-bottom: 15px; color: #e0e6ff; font-size: 14px;">
-        Found ${resultsCount} item${resultsCount !== 1 ? 's' : ''} matching "${searchTerm}"
-    </div>`;
+    // Search collections
+    if (currentWatchlistData.collections) {
+        currentWatchlistData.collections.forEach(collection => {
+            if (matchesSearchTerm(collection, searchTerm)) {
+                results.push({
+                    ...collection,
+                    type: 'collection',
+                    source: 'local'
+                });
+            }
+        });
+    }
     
-    const container = document.getElementById('watchlistContent');
-    if (container.innerHTML) {
-        container.innerHTML = searchMessage + container.innerHTML;
+    localSearchResults = results;
+    console.log('🔍 SMART OMNIBOX DEBUG: Local search found', results.length, 'results');
+    updateSearchResultsDisplay();
+}
+
+// Perform External Search (debounced)
+async function performExternalSearch(query) {
+    console.log('🔍 SMART OMNIBOX DEBUG: Performing external search for:', query);
+    
+    if (!query || query.length < 3 || isSearchingResults || query === lastSearchQuery) {
+        return;
+    }
+    
+    lastSearchQuery = query;
+    isSearchingResults = true;
+    
+    try {
+        console.log('🔍 IMPORT DEBUG: Making request to:', `${API_BASE}/search/all/?query=${encodeURIComponent(query)}`);
+        const response = await fetch(`${API_BASE}/search/all/?query=${encodeURIComponent(query)}`, {
+            headers: getAuthHeaders()
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
+        const results = await response.json();
+        console.log('🔍 IMPORT DEBUG: External search results:', results);
+        
+        importSearchResults = results || [];
+        updateSearchResultsDisplay();
+        
+    } catch (error) {
+        console.error('🔍 IMPORT DEBUG: External search failed:', error);
+        importSearchResults = [];
+        updateSearchResultsDisplay();
+    } finally {
+        isSearchingResults = false;
+    }
+}
+
+// Update Search Results Display (Hybrid UI)
+function updateSearchResultsDisplay() {
+    console.log('🔍 SMART OMNIBOX DEBUG: Updating search results display');
+    console.log('🔍 SMART OMNIBOX DEBUG: Local results:', localSearchResults.length);
+    console.log('🔍 SMART OMNIBOX DEBUG: Import results:', importSearchResults.length);
+    
+    const searchInput = document.getElementById('importTypeInput');
+    const query = searchInput ? searchInput.value.trim() : '';
+    
+    // If no query, hide search results and show normal watchlist
+    if (!query) {
+        hideSearchResults();
+        if (currentWatchlistData) {
+            renderWatchlist(currentWatchlistData);
+        }
+        return;
+    }
+    
+    // Show search results overlay
+    showSearchResultsOverlay();
+    
+    // Display local results (horizontal scrollable cards)
+    displayLocalSearchResults();
+    
+    // Display import results (2-column grid)
+    displayImportSearchResults();
+}
+
+// Show Search Results Overlay
+function showSearchResultsOverlay() {
+    const watchlistContent = document.getElementById('watchlistContent');
+    if (!watchlistContent) return;
+    
+    // Create or update search results container
+    let searchContainer = document.getElementById('smartOmniboxResults');
+    if (!searchContainer) {
+        searchContainer = document.createElement('div');
+        searchContainer.id = 'smartOmniboxResults';
+        searchContainer.className = 'smart-omnibox-results';
+        watchlistContent.appendChild(searchContainer);
+    }
+    
+    // Clear previous content
+    searchContainer.innerHTML = '';
+}
+
+// Hide Search Results Overlay
+function hideSearchResults() {
+    const searchContainer = document.getElementById('smartOmniboxResults');
+    if (searchContainer) {
+        searchContainer.style.display = 'none';
+    }
+}
+
+// Display Local Search Results (Horizontal Cards)
+function displayLocalSearchResults() {
+    const searchContainer = document.getElementById('smartOmniboxResults');
+    if (!searchContainer || localSearchResults.length === 0) return;
+    
+    const localSection = document.createElement('div');
+    localSection.className = 'local-search-section';
+    localSection.innerHTML = `
+        <div class="search-section-header">
+            <h3>In Your Watchlist (${localSearchResults.length})</h3>
+        </div>
+        <div class="local-results-container">
+            ${localSearchResults.map(item => createLocalResultCard(item)).join('')}
+        </div>
+    `;
+    
+    searchContainer.appendChild(localSection);
+    searchContainer.style.display = 'block';
+}
+
+// Display Import Search Results (2-Column Grid)
+function displayImportSearchResults() {
+    const searchContainer = document.getElementById('smartOmniboxResults');
+    if (!searchContainer || importSearchResults.length === 0) return;
+    
+    const importSection = document.createElement('div');
+    importSection.className = 'import-search-section';
+    importSection.innerHTML = `
+        <div class="search-section-header">
+            <h3>Available to Import (${importSearchResults.length})</h3>
+        </div>
+        <div class="import-results-grid">
+            ${importSearchResults.map(item => createImportResultCard(item)).join('')}
+        </div>
+    `;
+    
+    searchContainer.appendChild(importSection);
+    searchContainer.style.display = 'block';
+}
+
+// Create Local Result Card
+function createLocalResultCard(item) {
+    const poster = item.poster_url && item.poster_url.startsWith('http') ? item.poster_url : '/static/no-image.png';
+    const title = item.title || item.collection_name || 'Unknown';
+    const year = item.release_date ? new Date(item.release_date).getFullYear() : '';
+    const type = item.type === 'collection' ? 'Collection' : (item.type === 'series' ? 'Series' : 'Movie');
+    
+    return `
+        <div class="local-result-card" onclick="navigateToItem('${item.id || item.imdb_id}', '${item.type}')">
+            <img src="${poster}" alt="${title}" class="local-result-poster" onerror="this.onerror=null;this.src='/static/no-image.png';">
+            <div class="local-result-info">
+                <div class="local-result-title">${title}</div>
+                <div class="local-result-meta">${type}${year ? ` • ${year}` : ''}</div>
+            </div>
+        </div>
+    `;
+}
+
+// Create Import Result Card
+function createImportResultCard(item) {
+    const poster = item.poster_url && item.poster_url.startsWith('http') ? item.poster_url : '/static/no-image.png';
+    const title = item.title || 'Unknown';
+    const year = item.release_date ? new Date(item.release_date).getFullYear() : '';
+    const type = item.type === 'series' ? 'Series' : 'Movie';
+    const buttonText = item.type === 'series' ? 'Import Series' : 'Import Movie';
+    const buttonOnclick = item.type === 'series' ? `importFullSeries('${item.imdb_id}')` : `importItemWithSequels('${item.imdb_id}')`;
+    
+    return `
+        <div class="import-result-card">
+            <img src="${poster}" alt="${title}" class="import-result-poster" onerror="this.onerror=null;this.src='/static/no-image.png';">
+            <div class="import-result-info">
+                <div class="import-result-title">${title}</div>
+                <div class="import-result-meta">${type}${year ? ` • ${year}` : ''}</div>
+                <button class="import-btn ${item.type === 'series' ? 'import-series-btn' : 'import-movie-btn'}" onclick="event.stopPropagation(); ${buttonOnclick}">${buttonText}</button>
+            </div>
+        </div>
+    `;
+}
+
+// Navigate to Item (for local results)
+function navigateToItem(itemId, itemType) {
+    console.log('🔍 SMART OMNIBOX DEBUG: Navigating to item:', itemId, itemType);
+    // This would navigate to the item's details page
+    // For now, we'll just clear the search
+    clearSmartOmniboxSearch();
+}
+
+// Clear Smart Omnibox Search
+function clearSmartOmniboxSearch() {
+    const searchInput = document.getElementById('importTypeInput');
+    if (searchInput) {
+        searchInput.value = '';
+    }
+    
+    localSearchResults = [];
+    importSearchResults = [];
+    lastSearchQuery = '';
+    
+    if (searchDebounceTimer) {
+        clearTimeout(searchDebounceTimer);
+    }
+    
+    hideSearchResults();
+    
+    if (currentWatchlistData) {
+        renderWatchlist(currentWatchlistData);
     }
 }
 
 function clearSearchResults() {
-    const movieResults = document.getElementById('searchResultsMovies');
-    const seriesResults = document.getElementById('searchResultsSeries');
-    
-    if (movieResults) movieResults.innerHTML = '';
-    if (seriesResults) seriesResults.innerHTML = '';
+    clearSmartOmniboxSearch();
 }
 
 // Check for service worker updates

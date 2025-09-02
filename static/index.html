@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self'; font-src 'self' data: https:;">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src 'self';">
     <meta name="theme-color" content="#533483">
     <meta name="description" content="Your Personal Watchlist Manager">
     <link rel="manifest" href="/static/manifest.json">
@@ -157,7 +157,21 @@
             width: auto;
         }
 
+        .search-icon {
+            position: absolute;
+            left: 12px;
+            color: #6c757d;
+            font-size: 14px; /* Reduced from 16px to 14px */
+            pointer-events: none;
+            z-index: 1;
+            top: 50%;
+            transform: translateY(-50%);
+        }
 
+        .search-icon::before {
+            content: "🔍";
+            font-size: 12px; /* Reduced from 14px to 12px */
+        }
 
         .search-input {
             flex: 1;
@@ -186,119 +200,9 @@
             white-space: nowrap;
         }
 
-        /* Omnibox Toggle Button */
-        .omnibox-toggle {
-            background: linear-gradient(145deg, #f0f4ff 0%, #e0e6ff 100%);
-            border: 2px solid #533483;
-            color: #333;
-            padding: 4px;
-            border-radius: 30px;
-            cursor: pointer;
-            font-size: 12px;
-            font-weight: 600;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            white-space: nowrap;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            position: relative;
-            min-width: 112px;
-            height: 36px;
-            overflow: hidden;
-            box-shadow: 
-                inset 0 3px 6px rgba(0, 0, 0, 0.1),
-                0 2px 8px rgba(83, 52, 131, 0.3),
-                0 1px 3px rgba(0, 0, 0, 0.1);
-            flex: 0 0 auto;
-        }
+        /* Smart Omnibox - No toggle needed */
 
-        .omnibox-toggle:hover {
-            background: linear-gradient(145deg, #f8fcff 0%, #f0f4ff 100%);
-            box-shadow: 
-                inset 0 2px 4px rgba(255, 255, 255, 0.9),
-                0 4px 12px rgba(83, 52, 131, 0.4),
-                0 2px 6px rgba(0, 0, 0, 0.15);
-        }
 
-        .omnibox-toggle.active {
-            background: linear-gradient(145deg, #00d4aa 0%, #00b894 100%);
-            border-color: #533483;
-            box-shadow: 
-                inset 0 1px 3px rgba(0, 0, 0, 0.3),
-                0 2px 8px rgba(83, 52, 131, 0.3),
-                0 1px 3px rgba(0, 0, 0, 0.2);
-        }
-
-        .omnibox-toggle.active:hover {
-            background: linear-gradient(145deg, #00b894 0%, #00a085 100%);
-            box-shadow: 
-                inset 0 1px 3px rgba(0, 0, 0, 0.4),
-                0 4px 12px rgba(83, 52, 131, 0.4),
-                0 2px 6px rgba(0, 0, 0, 0.25);
-        }
-
-        .omnibox-toggle .toggle-text {
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: relative;
-            z-index: 2;
-            color: #533483;
-            font-weight: 600;
-            margin-left: 32px;
-            margin-right: 8px;
-        }
-
-        .omnibox-toggle.active .toggle-text {
-            color: #533483;
-            margin-left: 8px;
-            margin-right: 32px;
-        }
-
-        .omnibox-toggle:not(.active) .toggle-text {
-            margin-left: 40px;
-        }
-
-        .omnibox-toggle .switch-indicator {
-            width: 28px;
-            height: 28px;
-            border-radius: 50%;
-            background: linear-gradient(145deg, #533483 0%, #4a2d75 100%);
-            border: 2px solid #533483;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            flex-shrink: 0;
-            position: absolute;
-            left: 4px;
-            z-index: 3;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 
-                0 3px 8px rgba(0, 0, 0, 0.4),
-                inset 0 1px 2px rgba(255, 255, 255, 0.2);
-        }
-
-        .omnibox-toggle.active .switch-indicator {
-            left: calc(100% - 32px);
-            background: linear-gradient(145deg, #533483 0%, #4a2d75 100%);
-            border-color: #533483;
-            box-shadow: 
-                0 3px 8px rgba(83, 52, 131, 0.4),
-                inset 0 1px 2px rgba(255, 255, 255, 0.2);
-        }
-
-        .omnibox-toggle .toggle-icon {
-            font-size: 14px;
-            color: #533483;
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            position: absolute;
-            left: 50%;
-            top: 50%;
-            transform: translate(-50%, -50%);
-            z-index: 4;
-        }
-
-        .omnibox-toggle.active .toggle-icon {
-            color: #533483;
-        }
 
         /* Watchlist Search */
         .watchlist-search-container {
@@ -333,6 +237,14 @@
             box-shadow: 0 0 0 3px rgba(0, 212, 170, 0.1);
         }
 
+        .watchlist-search-container .search-icon {
+            position: absolute;
+            left: 15px;
+            color: #6c757d;
+            font-size: 16px;
+            pointer-events: none;
+            z-index: 1;
+        }
 
         /* Settings cog menu */
         .settings-menu {
@@ -522,7 +434,7 @@
             box-shadow: none !important;
         }
         .new-badge {
-            background: linear-gradient(135deg, #00d4aa 0%, #00b894 100%);
+            background: #00d4aa;
             color: white;
             padding: 1px 6px; /* Reduced from 2px 8px to 1px 6px */
             border-radius: 10px; /* Reduced from 12px to 10px */
@@ -531,46 +443,6 @@
             margin-left: 8px; /* Reduced from 10px to 8px */
             display: inline-block;
             box-shadow: 0 2px 4px rgba(0,212,170,0.3);
-        }
-
-        .newly-imported-badge {
-            background: linear-gradient(135deg, #6a4c93 0%, #5a4b8a 100%);
-            color: white;
-            padding: 2px 8px;
-            border-radius: 12px;
-            font-size: 10px;
-            font-weight: 600;
-            margin-left: 6px;
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 2px 8px rgba(106,76,147,0.4);
-            border: 1px solid rgba(255,255,255,0.2);
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .newly-imported-badge::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: -100%;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
-            animation: shimmer 2s infinite;
-        }
-        
-        @keyframes shimmer {
-            0% { left: -100%; }
-            100% { left: 100%; }
-        }
-        
-        .newly-imported-badge .badge-icon {
-            width: 8px;
-            height: 8px;
-            margin-right: 4px;
-            fill: currentColor;
         }
 
         .quality-badge {
@@ -1388,50 +1260,23 @@
 
         .option-group {
             margin-bottom: 24px;
-            padding: 20px;
-            background: rgba(255, 255, 255, 0.05);
-            border-radius: 16px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            transition: all 0.3s ease;
-        }
-
-        .option-group:hover {
-            background: rgba(255, 255, 255, 0.07);
-            border-color: rgba(0, 212, 170, 0.2);
-        }
-
-        .personal-option {
-            background: rgba(0, 212, 170, 0.1);
-            border-color: rgba(0, 212, 170, 0.3);
-        }
-
-        .bulk-option {
-            background: rgba(138, 43, 226, 0.1);
-            border-color: rgba(138, 43, 226, 0.3);
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.03);
+            border-radius: 12px;
+            border: 1px solid rgba(255, 255, 255, 0.05);
         }
 
         .option-label {
             display: flex;
-            flex-direction: column;
-            gap: 8px;
+            align-items: center;
+            gap: 12px;
             cursor: pointer;
             color: #e0e0e0;
             font-size: 1em;
         }
 
         .option-text {
-            font-weight: 600;
-            font-size: 1.1em;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-        }
-
-        .option-description {
-            color: #b0b0b0;
-            font-size: 0.9em;
-            font-weight: 400;
-            margin-left: 24px;
+            font-weight: 500;
         }
 
         .custom-lists-section h4 {
@@ -1450,11 +1295,11 @@
         .list-option {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 16px;
+            gap: 10px;
+            padding: 12px;
             background: rgba(255, 255, 255, 0.05);
             border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 12px;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
         }
@@ -1462,58 +1307,30 @@
         .list-option:hover {
             background: rgba(255, 255, 255, 0.08);
             border-color: rgba(0, 212, 170, 0.3);
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
         }
 
         .list-option input[type="checkbox"] {
-            width: 18px;
-            height: 18px;
+            width: 16px;
+            height: 16px;
             accent-color: #00d4aa;
         }
 
-        .list-option-content {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            flex: 1;
-        }
-
         .list-option-icon {
-            font-size: 1.3em;
-            width: 28px;
+            font-size: 1.2em;
+            width: 24px;
             text-align: center;
         }
 
         .list-option-name {
             color: #e0e0e0;
             font-weight: 500;
-            font-size: 1em;
+            flex: 1;
         }
 
         /* Force admin console alignment */
-        }
-
-            padding: 10px 16px !important;
-            display: none !important;
-            align-items: center !important;
-            gap: 12px !important;
-        }
-        
-                .admin-only {
-            display: none !important;
-        }
-        
-        .admin-only.admin-visible {
-            display: flex !important;
-        }
-        
-        #adminConsoleLink:not(.admin-visible) {
-            display: none !important;
-        }
-        
         #adminConsoleLink {
             padding: 10px 16px !important;
+            display: flex !important;
             align-items: center !important;
             gap: 12px !important;
         }
@@ -1643,7 +1460,7 @@
       .modal, .episodes-modal, .search-result-card, .search-result-poster,
       .list-chip, .list-action-btn { border-radius: var(--radius-card) !important; }
 
-      .omnibox-toggle, .list-chip { border-radius: var(--radius-chip) !important; }
+      .list-chip { border-radius: var(--radius-chip) !important; }
 
       /* Reduce intense glows */
       .container { box-shadow: 0 6px 24px rgba(0,0,0,0.25); }
@@ -1660,17 +1477,17 @@
       /* Ensure search row stays single-line; maximize input */
       .search-container { width: 100%; }
       .search-box { flex-wrap: nowrap; width: 100%; }
-      .omnibox-toggle { min-width: 90px; }
+
       .search-box .btn-primary { flex: 0 0 120px; white-space: nowrap; }
       .search-input-wrapper { flex: 1 1 auto; min-width: 0; }
     </style>
     <style>
 @media (min-width: 900px) {
   /* Desktop: use grid to force middle to fill */
-  .search-box { display: grid; grid-template-columns: auto 1fr auto; align-items: center; width: 100%; }
+  .search-box { display: grid; grid-template-columns: 1fr auto; align-items: center; width: 100%; }
   .search-input-wrapper { width: 100%; min-width: 0; }
   .search-input { width: 100%; }
-  .omnibox-toggle { width: auto; }
+
   .search-box .btn-primary { width: 140px; }
 }
     </style>
@@ -1796,12 +1613,7 @@
             flex: 1 1 auto;
             min-width: 0; /* allow shrinking */
         }
-        .omnibox-toggle {
-            min-width: 72px;
-            height: 32px;
-            font-size: 11px;
-            padding: 0 8px;
-        }
+
         .search-box .btn-primary { flex: 0 0 auto; white-space: nowrap; padding: 10px 12px; }
         .btn { padding: 12px 16px; font-size: 14px; }
         .modal {
@@ -1941,7 +1753,7 @@
     @media (max-width: 600px) {
         /* Watchlist row as horizontal list */
         .watchlist-row, .watchlist-item {
-            display: none !important;
+            display: flex !important;
             flex-direction: row !important;
             align-items: center !important;
             padding: 4px 2px !important;
@@ -2575,97 +2387,266 @@
     @media (max-width: 600px) {
       /* Force single-line search row with fixed edges and flexible center */
       .search-box { display: flex; flex-wrap: nowrap; gap: 6px; align-items: center; }
-      .omnibox-toggle { flex: 0 0 74px; height: 34px; font-size: 12px; padding: 0 8px; }
+
       .search-input-wrapper { flex: 1 1 auto; min-width: 0; }
       .search-input { width: 100%; padding: 10px 10px 10px 32px; font-size: 14px; }
       .search-input::placeholder { font-size: 0.95em; }
+      .search-icon { left: 8px; font-size: 12px; }
+      .search-box .btn-primary { flex: 0 0 96px; padding: 10px 12px; font-size: 14px; white-space: nowrap; }
       /* Slightly reduce header vertical space */
       .header { padding-top: 6px; padding-bottom: 8px; }
     }
     /* Narrower phones: shrink edges further */
     @media (max-width: 420px) {
-      .omnibox-toggle { flex: 0 0 64px; height: 32px; font-size: 11px; }
+
       .search-box .btn-primary { flex: 0 0 84px; font-size: 13px; }
       .search-input { font-size: 13px; padding-left: 30px; }
       /* Swap button label to icon on narrow screens */
       .btn .btn-label { display: none; }
       .btn .btn-icon { display: inline !important; }
-      /* Hide toggle text label, rely on icon */
-      .omnibox-toggle .toggle-text { display: none; }
+
     }
     @media (max-width: 360px) {
-      .omnibox-toggle { flex: 0 0 56px; font-size: 10px; }
+
       .search-box .btn-primary { flex: 0 0 72px; font-size: 12px; }
       .search-input { font-size: 12px; }
     }
 
-    /* Toast Notifications */
-    .toast {
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: #2c3e50;
-        color: white;
-        padding: 16px 20px;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
-        z-index: 10000;
-        transform: translateX(400px);
-        transition: transform 0.3s ease;
-        max-width: 350px;
-    }
-
-    .toast.show {
-        transform: translateX(0);
-    }
-
-    .toast-content {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        gap: 12px;
-    }
-
-    .toast-message {
-        flex: 1;
-        font-size: 0.95em;
-    }
-
-    .toast-close {
-        background: none;
-        border: none;
-        color: #b0b0b0;
-        font-size: 18px;
-        cursor: pointer;
+    /* Smart Omnibox Results Styles */
+    .smart-omnibox-results {
+        margin-top: 20px;
         padding: 0;
-        width: 20px;
-        height: 20px;
+    }
+
+    .search-section-header {
+        margin-bottom: 16px;
+    }
+
+    .search-section-header h3 {
+        color: #e0e6ff;
+        font-size: 18px;
+        font-weight: 600;
+        margin: 0;
+        padding: 0;
+    }
+
+    /* Local Results - Horizontal Scrollable Cards */
+    .local-search-section {
+        margin-bottom: 32px;
+    }
+
+    .local-results-container {
         display: flex;
-        align-items: center;
-        justify-content: center;
-        border-radius: 4px;
+        gap: 12px;
+        overflow-x: auto;
+        padding: 8px 0;
+        scrollbar-width: thin;
+        scrollbar-color: #4ECDC4 transparent;
+    }
+
+    .local-results-container::-webkit-scrollbar {
+        height: 6px;
+    }
+
+    .local-results-container::-webkit-scrollbar-track {
+        background: transparent;
+    }
+
+    .local-results-container::-webkit-scrollbar-thumb {
+        background: #4ECDC4;
+        border-radius: 3px;
+    }
+
+    .local-result-card {
+        background: #2a2a2a;
+        border-radius: 8px;
+        padding: 12px;
+        min-width: 150px;
+        border-left: 3px solid #4ECDC4;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        flex-shrink: 0;
+    }
+
+    .local-result-card:hover {
+        background: #333;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(78, 205, 196, 0.2);
+    }
+
+    .local-result-poster {
+        width: 100%;
+        height: 100px;
+        object-fit: cover;
+        border-radius: 6px;
+        margin-bottom: 8px;
+    }
+
+    .local-result-info {
+        text-align: center;
+    }
+
+    .local-result-title {
+        color: #fff;
+        font-size: 14px;
+        font-weight: 600;
+        margin-bottom: 4px;
+        line-height: 1.2;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .local-result-meta {
+        color: #b0b0b0;
+        font-size: 12px;
+    }
+
+    /* Import Results - 2-Column Grid */
+    .import-search-section {
+        margin-bottom: 20px;
+    }
+
+    .import-results-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        justify-content: space-between;
+    }
+
+    .import-result-card {
+        background: #2a2a2a;
+        border-radius: 12px;
+        margin-bottom: 16px;
+        margin: 0;
+        border: 1px solid #444;
+        overflow: hidden;
+        transition: all 0.2s ease;
+        flex: 0 0 calc(50% - 8px);
+        max-width: calc(50% - 8px);
+    }
+
+    .import-result-card:hover {
+        border-color: #4ECDC4;
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(78, 205, 196, 0.2);
+    }
+
+    .import-result-poster {
+        width: 100%;
+        height: 200px;
+        object-fit: cover;
+    }
+
+    .import-result-info {
+        padding: 12px;
+    }
+
+    .import-result-title {
+        color: #fff;
+        font-size: 16px;
+        font-weight: 600;
+        margin-bottom: 6px;
+        line-height: 1.3;
+        display: -webkit-box;
+        -webkit-line-clamp: 2;
+        -webkit-box-orient: vertical;
+        overflow: hidden;
+    }
+
+    .import-result-meta {
+        color: #b0b0b0;
+        font-size: 14px;
+        margin-bottom: 12px;
+    }
+
+    .import-result-card .import-btn {
+        width: 100%;
+        padding: 8px 12px;
+        font-size: 14px;
+        font-weight: 600;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
         transition: all 0.2s ease;
     }
 
-    .toast-close:hover {
-        background: rgba(255, 255, 255, 0.1);
-        color: white;
+    .import-result-card .import-movie-btn {
+        background: #4ECDC4;
+        color: #1a1a1a;
     }
 
-    .toast-info {
-        border-left: 4px solid #3498db;
+    .import-result-card .import-movie-btn:hover {
+        background: #3bb5ad;
     }
 
-    .toast-success {
-        border-left: 4px solid #2ecc71;
+    .import-result-card .import-series-btn {
+        background: #ff6b6b;
+        color: #fff;
     }
 
-    .toast-warning {
-        border-left: 4px solid #f39c12;
+    .import-result-card .import-series-btn:hover {
+        background: #ff5252;
     }
 
-    .toast-error {
-        border-left: 4px solid #e74c3c;
+    /* Responsive Design for Smart Omnibox */
+    @media (max-width: 768px) {
+        .import-result-card {
+            flex: 0 0 100%;
+            max-width: 100%;
+        }
+        
+        .local-result-card {
+            min-width: 120px;
+        }
+        
+        .local-result-poster {
+            height: 80px;
+        }
+        
+        .import-result-poster {
+            height: 150px;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .local-results-container {
+            gap: 8px;
+        }
+        
+        .local-result-card {
+            min-width: 100px;
+            padding: 8px;
+        }
+        
+        .local-result-poster {
+            height: 60px;
+        }
+        
+        .local-result-title {
+            font-size: 12px;
+        }
+        
+        .local-result-meta {
+            font-size: 10px;
+        }
+        
+        .import-result-poster {
+            height: 120px;
+        }
+        
+        .import-result-info {
+            padding: 8px;
+        }
+        
+        .import-result-title {
+            font-size: 14px;
+        }
+        
+        .import-result-meta {
+            font-size: 12px;
+        }
     }
 </style>
 </head>
@@ -2701,7 +2682,7 @@
                             <div class="settings-item" data-action="showListManagementOverlay" aria-label="Manage Lists">
                                 <span><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 4h16v2H4V4zm0 4h10v2H4V8zm0 4h16v2H4v-2zm0 4h10v2H4v-2z"/></svg></span> Manage Lists
                             </div>
-                            <div class="settings-item admin-only" id="adminConsoleLink"  aria-label="Admin Console">
+                            <div class="settings-item admin-only" id="adminConsoleLink" style="display: none;" aria-label="Admin Console">
                                 <span><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.14,12.94a7.07,7.07,0,0,0,.05-1,7.07,7.07,0,0,0-.05-1l2.11-1.65a.5.5,0,0,0,.12-.64l-2-3.46a.5.5,0,0,0-.6-.22l-2.49,1a7.28,7.28,0,0,0-1.73-1l-.38-2.65A.5.5,0,0,0,13,1H11a.5.5,0,0,0-.5.42L10.12,4.07a7.28,7.28,0,0,0-1.73,1l-2.49-1a.5.5,0,0,0-.6.22l-2,3.46a.5.5,0,0,0,.12.64L5.14,10a7.07,7.07,0,0,0-.05,1,7.07,7.07,0,0,0,.05,1L3,13.65a.5.5,0,0,0-.12.64l2,3.46a.5.5,0,0,0,.6.22l2.49-1a7.28,7.28,0,0,0,1.73,1l.38,2.65A.5.5,0,0,0,11,23h2a.5.5,0,0,0,.5-.42l.38-2.65a7.28,7.28,0,0,0,1.73-1l2.49,1a.5.5,0,0,0,.6-.22l2-3.46a.5.5,0,0,0-.12-.64ZM12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/></svg></span> Admin Console
                             </div>
                             <div class="settings-item" data-action="account" aria-label="Account">
@@ -2720,19 +2701,13 @@
             <!-- Search Section -->
             <div class="search-container">
                 <div class="search-box">
-                    <button class="omnibox-toggle" id="omniboxToggleBtn" aria-label="Toggle search type">
-                        <span class="toggle-text">Search</span>
-                        <span class="switch-indicator">
-                            <span class="toggle-icon"></span>
-                        </span>
-                    </button>
                     <div class="search-input-wrapper">
-                        
-                        <input id="importTypeInput" class="search-input" type="text" placeholder="Find and add to watchlist..." />
+                        <span class="search-icon"></span>
+                        <input id="importTypeInput" class="search-input" type="text" placeholder="Search watchlist or find new content..." />
                     </div>
                     <button class="btn btn-primary" id="importTypeSubmitBtn" aria-label="Search">
                         <span class="btn-label">Search</span>
-                        
+                        <span class="btn-icon" style="display:none">🔍</span>
                     </button>
                 </div>
             </div>
@@ -3049,6 +3024,6 @@
         </div>
     </div>
 
-            <script src="/static/app.js"></script>
+    <script src="/static/app.js"></script>
 </body>
 </html> 
