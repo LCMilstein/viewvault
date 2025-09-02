@@ -152,3 +152,15 @@ class ListItemUpdate(SQLModel):
     watched: Optional[bool] = None
     watched_by: Optional[str] = None
     notes: Optional[str] = None
+
+class LibraryImportHistory(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    user_id: int = Field(foreign_key="user.id")
+    library_name: str  # Name of the Jellyfin library
+    library_id: str  # Jellyfin library ID
+    last_imported: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    import_count: int = Field(default=1)  # How many times this library was imported
+    is_automated: bool = Field(default=False)  # Whether this library gets automated updates
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    deleted: bool = Field(default=False)  # Soft delete flag
