@@ -4498,10 +4498,16 @@ function updateSearchResultsDisplay() {
         return;
     }
     
+    // Hide the normal watchlist content
+    const watchlistContent = document.getElementById('watchlistContent');
+    if (watchlistContent) {
+        watchlistContent.style.display = 'none';
+    }
+    
     // Show search results overlay
     showSearchResultsOverlay();
     
-    // Display local results (horizontal scrollable cards)
+    // Display local results (filtered watchlist format)
     displayLocalSearchResults();
     
     // Display import results (2-column grid)
@@ -4532,9 +4538,15 @@ function hideSearchResults() {
     if (searchContainer) {
         searchContainer.style.display = 'none';
     }
+    
+    // Show the normal watchlist content again
+    const watchlistContent = document.getElementById('watchlistContent');
+    if (watchlistContent) {
+        watchlistContent.style.display = 'block';
+    }
 }
 
-// Display Local Search Results (Horizontal Cards)
+// Display Local Search Results (Filtered Watchlist Format)
 function displayLocalSearchResults() {
     const searchContainer = document.getElementById('smartOmniboxResults');
     if (!searchContainer || localSearchResults.length === 0) return;
@@ -4545,8 +4557,8 @@ function displayLocalSearchResults() {
         <div class="search-section-header">
             <h3>In Your Watchlist (${localSearchResults.length})</h3>
         </div>
-        <div class="local-results-container">
-            ${localSearchResults.map(item => createLocalResultCard(item)).join('')}
+        <div class="watchlist-list">
+            ${localSearchResults.map(item => createLocalResultItem(item)).join('')}
         </div>
     `;
     
@@ -4574,19 +4586,31 @@ function displayImportSearchResults() {
     searchContainer.style.display = 'block';
 }
 
-// Create Local Result Card
-function createLocalResultCard(item) {
+// Create Local Result Item (matches old search format)
+function createLocalResultItem(item) {
     const poster = item.poster_url && item.poster_url.startsWith('http') ? item.poster_url : '/static/no-image.png';
     const title = item.title || item.collection_name || 'Unknown';
     const year = item.release_date ? new Date(item.release_date).getFullYear() : '';
     const type = item.type === 'collection' ? 'Collection' : (item.type === 'series' ? 'Series' : 'Movie');
+    const watched = item.watched ? 'checked' : '';
+    const watchedBy = item.watched_by || 'you';
     
     return `
-        <div class="local-result-card" onclick="navigateToItem('${item.id || item.imdb_id}', '${item.type}')">
-            <img src="${poster}" alt="${title}" class="local-result-poster" onerror="this.onerror=null;this.src='/static/no-image.png';">
-            <div class="local-result-info">
-                <div class="local-result-title">${title}</div>
-                <div class="local-result-meta">${type}${year ? ` • ${year}` : ''}</div>
+        <div class="watchlist-item" data-item-id="${item.id || item.imdb_id}" data-item-type="${item.type}">
+            <div class="watchlist-item-content">
+                <div class="watchlist-item-poster">
+                    <img src="${poster}" alt="${title}" onerror="this.onerror=null;this.src='/static/no-image.png';">
+                </div>
+                <div class="watchlist-item-info">
+                    <div class="watchlist-item-title">${title}</div>
+                    <div class="watchlist-item-meta">${type}${year ? ` • ${year}` : ''}</div>
+                </div>
+                <div class="watchlist-item-actions">
+                    <label class="watchlist-checkbox">
+                        <input type="checkbox" ${watched} onchange="toggleWatched('${item.id || item.imdb_id}', '${item.type}', this.checked)">
+                        <span class="checkmark"></span>
+                    </label>
+                </div>
             </div>
         </div>
     `;
