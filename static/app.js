@@ -632,6 +632,31 @@ function isItemNew(itemType, itemId) {
     return false;
 }
 
+// Clear newly imported status when details are viewed
+function clearNewlyImportedStatus(itemType, itemId) {
+    console.log(`🔍 Clearing newly imported status for ${itemType} ${itemId}`);
+    
+    // Remove from global newItems state
+    if (itemType === 'movie') {
+        if (newItems.newly_imported_movies) {
+            newItems.newly_imported_movies = newItems.newly_imported_movies.filter(m => m.id !== itemId);
+        }
+    } else if (itemType === 'series') {
+        if (newItems.newly_imported_series) {
+            newItems.newly_imported_series = newItems.newly_imported_series.filter(s => s.series.id !== itemId);
+        }
+    }
+    
+    // Also clear the imported_at field by making an API call
+    // This ensures the badge won't show again even after page refresh
+    fetch(`/api/${itemType}s/${itemId}/clear-newly-imported`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+    }).catch(error => {
+        console.log('Could not clear newly imported status on server:', error);
+    });
+}
+
 // Check if item is newly imported
 function isItemNewlyImported(itemType, itemId) {
     console.log(`🔍 Checking if ${itemType} ${itemId} is newly imported...`);
@@ -657,9 +682,9 @@ function isItemNewlyImported(itemType, itemId) {
     if (item && item.imported_at) {
         console.log(`🔍 Item has imported_at: ${item.imported_at}`);
         const importedTime = new Date(item.imported_at);
-        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
-        const isNewlyImported = importedTime > oneDayAgo;
-        console.log(`🔍 Imported time: ${importedTime}, One day ago: ${oneDayAgo}, Is newly imported: ${isNewlyImported}`);
+        const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
+        const isNewlyImported = importedTime > twoDaysAgo;
+        console.log(`🔍 Imported time: ${importedTime}, Two days ago: ${twoDaysAgo}, Is newly imported: ${isNewlyImported}`);
         return isNewlyImported;
     } else {
         console.log(`❌ Item not found or no imported_at field`);
@@ -3717,6 +3742,9 @@ function showDetails(type, id, itemData) {
     console.log('🔍 itemData overview field:', itemData?.overview);
     console.log('🔍 itemData keys:', itemData ? Object.keys(itemData) : 'null');
     
+    // Clear newly imported status when details are viewed
+    clearNewlyImportedStatus(type, id);
+    
     // Special handling for collections - show dedicated collection page
     if (type === 'collection' && itemData) {
         showCollectionDetails(itemData);
@@ -4525,10 +4553,10 @@ function updateSearchResultsDisplay() {
     // Show search results overlay
     showSearchResultsOverlay();
     
-    // Display local results (filtered watchlist format)
+    // Display local results (filtered watchlist format) FIRST
     displayLocalSearchResults();
     
-    // Display import results (2-column grid)
+    // Display import results (6-across grid) SECOND
     displayImportSearchResults();
 }
 
@@ -4619,6 +4647,10 @@ function createLocalResultItem(item) {
     const type = item.type === 'collection' ? 'Collection' : (item.type === 'series' ? 'Series' : 'Movie');
     const watched = item.watched ? 'checked' : '';
     
+    // Check if item is newly imported
+    const isNewlyImported = isItemNewlyImported(item.type, item.id);
+    const newlyImportedBadge = isNewlyImported ? '<span class="newly-imported-badge"><svg class="badge-icon" viewBox="0 0 16 16"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm4 7.5l-1.4 1.4L7 6.8V2h2v4.2L10.6 9z"/></svg>NEW</span>' : '';
+    
     // Use the actual watchlist row HTML structure
     if (item.type === 'collection') {
         const unwatchedCount = item.items ? item.items.filter(movie => !movie.watched).length : 0;
@@ -4627,7 +4659,7 @@ function createLocalResultItem(item) {
                 <input type="checkbox" class="checkbox" data-type="collection" data-id="${item.id}" ${watched}>
                 <div class="clickable-area" data-type="collection" data-id="${item.id}" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
                     <img src="${poster}" alt="Poster" class="watchlist-thumb" onerror="this.onerror=null;this.src='/static/no-image.png';">
-                    <div class="title">${title}</div>
+                    <div class="title">${title}${newlyImportedBadge}</div>
                     <div class="meta">Collection (${item.items ? item.items.length : 0} movies; ${unwatchedCount} unwatched)</div>
                 </div>
                 <span class="expand-icon" data-type="collection" data-id="${item.id}">▼</span>
@@ -4640,7 +4672,7 @@ function createLocalResultItem(item) {
                 <input type="checkbox" class="checkbox" data-type="${item.type}" data-id="${item.id}" ${watched}>
                 <div class="clickable-area" data-type="${item.type}" data-id="${item.id}" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
                     <img src="${poster}" alt="Poster" class="watchlist-thumb" onerror="this.onerror=null;this.src='/static/no-image.png';">
-                    <div class="title">${title}</div>
+                    <div class="title">${title}${newlyImportedBadge}</div>
                     <div class="meta">${type}${year ? ` • ${year}` : ''}</div>
                 </div>
                 <span title="Remove" class="remove-btn" data-type="${item.type}" data-id="${item.id}">🗑️</span>
