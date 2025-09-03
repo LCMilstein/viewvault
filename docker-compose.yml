@@ -11,8 +11,8 @@ services:
     volumes:
       - watchlist-app_watchlist-db:/app/db
       - watchlist-app_posters:/app/static/posters
-    env_file:
-      - ./secrets.env
+    # env_file:
+      # - ./secrets.env
     restart: unless-stopped
 
 volumes:
