@@ -2437,36 +2437,23 @@
     }
 
     .local-results-container {
-        display: flex;
-        gap: 12px;
-        overflow-x: auto;
+        display: block;
         padding: 8px 0;
-        scrollbar-width: thin;
-        scrollbar-color: #4ECDC4 transparent;
     }
 
-    .local-results-container::-webkit-scrollbar {
-        height: 6px;
-    }
 
-    .local-results-container::-webkit-scrollbar-track {
-        background: transparent;
-    }
-
-    .local-results-container::-webkit-scrollbar-thumb {
-        background: #4ECDC4;
-        border-radius: 3px;
-    }
 
     .local-result-card {
         background: #2a2a2a;
         border-radius: 8px;
         padding: 12px;
-        min-width: 150px;
+        margin-bottom: 8px;
         border-left: 3px solid #4ECDC4;
         cursor: pointer;
         transition: all 0.2s ease;
-        flex-shrink: 0;
+        display: flex;
+        align-items: center;
+        gap: 12px;
     }
 
     .local-result-card:hover {
@@ -2476,32 +2463,29 @@
     }
 
     .local-result-poster {
-        width: 100%;
-        height: 100px;
+        width: 60px;
+        height: 90px;
         object-fit: cover;
         border-radius: 6px;
-        margin-bottom: 8px;
+        flex-shrink: 0;
     }
 
     .local-result-info {
-        text-align: center;
+        flex: 1;
+        text-align: left;
     }
 
     .local-result-title {
         color: #fff;
-        font-size: 14px;
+        font-size: 16px;
         font-weight: 600;
         margin-bottom: 4px;
-        line-height: 1.2;
-        display: -webkit-box;
-        -webkit-line-clamp: 2;
-        -webkit-box-orient: vertical;
-        overflow: hidden;
+        line-height: 1.3;
     }
 
     .local-result-meta {
         color: #b0b0b0;
-        font-size: 12px;
+        font-size: 14px;
     }
 
     /* Import Results - 2-Column Grid */
@@ -2510,22 +2494,19 @@
     }
 
     .import-results-grid {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 16px;
-        justify-content: space-between;
+        display: grid;
+        grid-template-columns: repeat(6, 1fr);
+        gap: 12px;
+        padding: 16px 0;
     }
 
     .import-result-card {
         background: #2a2a2a;
-        border-radius: 12px;
-        margin-bottom: 16px;
-        margin: 0;
+        border-radius: 8px;
         border: 1px solid #444;
         overflow: hidden;
         transition: all 0.2s ease;
-        flex: 0 0 calc(50% - 8px);
-        max-width: calc(50% - 8px);
+        aspect-ratio: 2/3;
     }
 
     .import-result-card:hover {
@@ -2536,20 +2517,20 @@
 
     .import-result-poster {
         width: 100%;
-        height: 200px;
+        height: 120px;
         object-fit: cover;
     }
 
     .import-result-info {
-        padding: 12px;
+        padding: 8px;
     }
 
     .import-result-title {
         color: #fff;
-        font-size: 16px;
+        font-size: 12px;
         font-weight: 600;
-        margin-bottom: 6px;
-        line-height: 1.3;
+        margin-bottom: 4px;
+        line-height: 1.2;
         display: -webkit-box;
         -webkit-line-clamp: 2;
         -webkit-box-orient: vertical;
@@ -2558,17 +2539,17 @@
 
     .import-result-meta {
         color: #b0b0b0;
-        font-size: 14px;
-        margin-bottom: 12px;
+        font-size: 10px;
+        margin-bottom: 8px;
     }
 
     .import-result-card .import-btn {
         width: 100%;
-        padding: 8px 12px;
-        font-size: 14px;
+        padding: 6px 8px;
+        font-size: 11px;
         font-weight: 600;
         border: none;
-        border-radius: 6px;
+        border-radius: 4px;
         cursor: pointer;
         transition: all 0.2s ease;
     }
@@ -2592,10 +2573,15 @@
     }
 
     /* Responsive Design for Smart Omnibox */
+    @media (max-width: 1200px) {
+        .import-results-grid {
+            grid-template-columns: repeat(4, 1fr);
+        }
+    }
+    
     @media (max-width: 768px) {
-        .import-result-card {
-            flex: 0 0 100%;
-            max-width: 100%;
+        .import-results-grid {
+            grid-template-columns: repeat(3, 1fr);
         }
         
         .local-result-card {
@@ -2607,11 +2593,15 @@
         }
         
         .import-result-poster {
-            height: 150px;
+            height: 100px;
         }
     }
 
     @media (max-width: 480px) {
+        .import-results-grid {
+            grid-template-columns: repeat(2, 1fr);
+        }
+        
         .local-results-container {
             gap: 8px;
         }
