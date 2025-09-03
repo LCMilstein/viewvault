@@ -4389,6 +4389,7 @@ function handleSmartOmniboxSubmit() {
 // Perform Local Search (immediate)
 function performLocalSearch(query) {
     console.log('🔍 SMART OMNIBOX DEBUG: Performing local search for:', query);
+    console.log('🔍 SMART OMNIBOX DEBUG: currentWatchlistData:', currentWatchlistData);
     
     if (!query || !currentWatchlistData) {
         localSearchResults = [];
@@ -4402,8 +4403,10 @@ function performLocalSearch(query) {
     
     // Search movies
     if (currentWatchlistData.movies) {
+        console.log('🔍 SMART OMNIBOX DEBUG: Searching', currentWatchlistData.movies.length, 'movies');
         currentWatchlistData.movies.forEach(movie => {
             if (matchesSearchTerm(movie, searchTerm)) {
+                console.log('🔍 SMART OMNIBOX DEBUG: Found matching movie:', movie.title);
                 results.push({
                     ...movie,
                     type: 'movie',
@@ -4415,8 +4418,10 @@ function performLocalSearch(query) {
     
     // Search series
     if (currentWatchlistData.series) {
+        console.log('🔍 SMART OMNIBOX DEBUG: Searching', currentWatchlistData.series.length, 'series');
         currentWatchlistData.series.forEach(series => {
             if (matchesSearchTerm(series, searchTerm)) {
+                console.log('🔍 SMART OMNIBOX DEBUG: Found matching series:', series.title);
                 results.push({
                     ...series,
                     type: 'series',
@@ -4428,8 +4433,11 @@ function performLocalSearch(query) {
     
     // Search collections
     if (currentWatchlistData.collections) {
+        console.log('🔍 SMART OMNIBOX DEBUG: Searching', currentWatchlistData.collections.length, 'collections');
         currentWatchlistData.collections.forEach(collection => {
+            console.log('🔍 SMART OMNIBOX DEBUG: Checking collection:', collection.title || collection.collection_name);
             if (matchesSearchTerm(collection, searchTerm)) {
+                console.log('🔍 SMART OMNIBOX DEBUG: Found matching collection:', collection.title || collection.collection_name);
                 results.push({
                     ...collection,
                     type: 'collection',
@@ -4440,7 +4448,7 @@ function performLocalSearch(query) {
     }
     
     localSearchResults = results;
-    console.log('🔍 SMART OMNIBOX DEBUG: Local search found', results.length, 'results');
+    console.log('🔍 SMART OMNIBOX DEBUG: Local search found', results.length, 'results:', results.map(r => r.title || r.collection_name));
     updateSearchResultsDisplay();
 }
 
@@ -4588,7 +4596,14 @@ function displayImportSearchResults() {
 
 // Create Local Result Item (matches old search format)
 function createLocalResultItem(item) {
-    const poster = item.poster_url && item.poster_url.startsWith('http') ? item.poster_url : '/static/no-image.png';
+    // Use the same poster URL logic as the rest of the app
+    let poster = item.poster_url || '/static/no-image.png';
+    if (poster && poster.startsWith('/')) {
+        poster = poster;
+    } else if (poster && !poster.startsWith('http')) {
+        poster = '/static/posters/' + poster;
+    }
+    
     const title = item.title || item.collection_name || 'Unknown';
     const year = item.release_date ? new Date(item.release_date).getFullYear() : '';
     const type = item.type === 'collection' ? 'Collection' : (item.type === 'series' ? 'Series' : 'Movie');
