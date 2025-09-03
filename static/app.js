@@ -4394,7 +4394,7 @@ function handleSmartOmniboxInput(event) {
         searchDebounceTimer = setTimeout(() => {
             performExternalSearch(query);
         }, 1200); // 1.2 second delay
-    } else {
+                } else {
         // Clear external results if query is too short
         importSearchResults = [];
         updateSearchResultsDisplay();
@@ -4562,20 +4562,18 @@ function updateSearchResultsDisplay() {
 
 // Show Search Results Overlay
 function showSearchResultsOverlay() {
-    const watchlistContent = document.getElementById('watchlistContent');
-    if (!watchlistContent) return;
-    
-    // Create or update search results container
-    let searchContainer = document.getElementById('smartOmniboxResults');
+    // Get the existing search results container
+    const searchContainer = document.getElementById('smartOmniboxResults');
     if (!searchContainer) {
-        searchContainer = document.createElement('div');
-        searchContainer.id = 'smartOmniboxResults';
-        searchContainer.className = 'smart-omnibox-results';
-        watchlistContent.appendChild(searchContainer);
+        console.error('🔍 SMART OMNIBOX DEBUG: smartOmniboxResults container not found!');
+        return;
     }
     
     // Clear previous content
     searchContainer.innerHTML = '';
+    
+    // Show the search results container
+    searchContainer.style.display = 'block';
 }
 
 // Hide Search Results Overlay
@@ -4595,7 +4593,7 @@ function hideSearchResults() {
 // Display Local Search Results (Filtered Watchlist Format)
 function displayLocalSearchResults() {
     const searchContainer = document.getElementById('smartOmniboxResults');
-    if (!searchContainer || localSearchResults.length === 0) return;
+    if (!searchContainer) return;
     
     const localSection = document.createElement('div');
     localSection.className = 'local-search-section';
@@ -4612,10 +4610,10 @@ function displayLocalSearchResults() {
     searchContainer.style.display = 'block';
 }
 
-// Display Import Search Results (2-Column Grid)
+// Display Import Search Results (6-Across Grid)
 function displayImportSearchResults() {
     const searchContainer = document.getElementById('smartOmniboxResults');
-    if (!searchContainer || importSearchResults.length === 0) return;
+    if (!searchContainer) return;
     
     const importSection = document.createElement('div');
     importSection.className = 'import-search-section';
