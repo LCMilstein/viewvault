@@ -75,6 +75,7 @@ class Series(SQLModel, table=True):
     average_episode_runtime: Optional[int] = None  # Average episode runtime in minutes
     notes: Optional[str] = None  # User notes for the series
     added_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))  # When the series was added
+    imported_at: Optional[datetime] = None  # When the series was imported (for NEW badges)
     deleted: bool = Field(default=False)  # Soft delete flag
 
 class Episode(SQLModel, table=True):
@@ -107,6 +108,7 @@ class Movie(SQLModel, table=True):
     overview: Optional[str] = None  # Movie description/synopsis from TMDB
     notes: Optional[str] = None  # User notes for the movie
     added_at: Optional[datetime] = Field(default_factory=lambda: datetime.now(timezone.utc))  # When the movie was added
+    imported_at: Optional[datetime] = None  # When the movie was imported (for NEW badges)
     deleted: bool = Field(default=False)  # Soft delete flag
 
 class MovieCreate(SQLModel):
