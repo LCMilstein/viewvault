@@ -11,6 +11,12 @@ services:
     volumes:
       - watchlist-app_watchlist-db:/app/db
       - watchlist-app_posters:/app/static/posters
+    environment:
+      - DATABASE_URL=sqlite:///./db/viewvault.db
+      - SECRET_KEY=test-secret-key-for-local-testing
+      - JELLYFIN_URL=${JELLYFIN_URL:-http://localhost:8096}
+      - JELLYFIN_API_KEY=${JELLYFIN_API_KEY:-test-key}
+      - TMDB_API_KEY=${TMDB_API_KEY:-test-key}
     # env_file:
       # - ./secrets.env
     restart: unless-stopped
