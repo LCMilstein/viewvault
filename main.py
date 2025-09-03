@@ -73,9 +73,15 @@ def rate_limit_tmdb():
 
 # Initialize IMDB service (use mock for development, real service with API key)
 imdb_api_key = os.getenv("IMDB_API_KEY")
+print(f"🔍 IMDB DEBUG: IMDB_API_KEY = {imdb_api_key}")
+print(f"🔍 IMDB DEBUG: IMDB_API_KEY type = {type(imdb_api_key)}")
+print(f"🔍 IMDB DEBUG: IMDB_API_KEY length = {len(imdb_api_key) if imdb_api_key else 0}")
+
 if imdb_api_key:
+    print("🔍 IMDB DEBUG: Using real IMDBService")
     imdb_service = IMDBService(imdb_api_key)
 else:
+    print("🔍 IMDB DEBUG: Using MockIMDBService")
     imdb_service = MockIMDBService()
 
 def create_db_and_tables():
