@@ -12,7 +12,7 @@ services:
       - watchlist-app_watchlist-db:/app/db
       - watchlist-app_posters:/app/static/posters
     environment:
-      - DATABASE_URL=sqlite:///./db/viewvault.db
+      - DATABASE_URL=sqlite:///./db/watchlist.db
       - SECRET_KEY=test-secret-key-for-local-testing
       - JELLYFIN_URL=${JELLYFIN_URL}
       - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
