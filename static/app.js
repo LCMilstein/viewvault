@@ -4395,7 +4395,7 @@ function handleSmartOmniboxInput(event) {
         searchDebounceTimer = setTimeout(() => {
             performExternalSearch(query);
         }, 1200); // 1.2 second delay
-                } else {
+    } else {
         // Clear external results if query is too short
         importSearchResults = [];
         updateSearchResultsDisplay();
@@ -4488,8 +4488,7 @@ function performLocalSearch(query) {
     
     localSearchResults = results;
     console.log('🔍 SMART OMNIBOX DEBUG: Local search found', results.length, 'results:', results.map(r => r.title || r.collection_name));
-    console.log('🔍 SMART OMNIBOX DEBUG: About to call updateSearchResultsDisplay with local results:', localSearchResults.length);
-    updateSearchResultsDisplay();
+    console.log('🔍 SMART OMNIBOX DEBUG: Local search complete, waiting for external search to update display');
 }
 
 // Perform External Search (debounced)
@@ -4517,11 +4516,13 @@ async function performExternalSearch(query) {
         console.log('🔍 IMPORT DEBUG: External search results:', results);
         
         importSearchResults = results || [];
+        console.log('🔍 SMART OMNIBOX DEBUG: External search complete, updating display with', importSearchResults.length, 'import results');
         updateSearchResultsDisplay();
         
     } catch (error) {
         console.error('🔍 IMPORT DEBUG: External search failed:', error);
         importSearchResults = [];
+        console.log('🔍 SMART OMNIBOX DEBUG: External search failed, updating display with 0 import results');
         updateSearchResultsDisplay();
     } finally {
         isSearchingResults = false;
