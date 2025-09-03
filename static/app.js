@@ -4547,8 +4547,12 @@ function updateSearchResultsDisplay() {
     
     // Hide the normal watchlist content
     const watchlistContent = document.getElementById('watchlistContent');
+    console.log('🔍 SMART OMNIBOX DEBUG: watchlistContent element:', watchlistContent);
     if (watchlistContent) {
         watchlistContent.style.display = 'none';
+        console.log('🔍 SMART OMNIBOX DEBUG: Hidden watchlistContent');
+    } else {
+        console.error('🔍 SMART OMNIBOX DEBUG: watchlistContent not found!');
     }
     
     // Show search results overlay
@@ -4565,6 +4569,7 @@ function updateSearchResultsDisplay() {
 function showSearchResultsOverlay() {
     // Get the existing search results container
     const searchContainer = document.getElementById('smartOmniboxResults');
+    console.log('🔍 SMART OMNIBOX DEBUG: searchContainer element:', searchContainer);
     if (!searchContainer) {
         console.error('🔍 SMART OMNIBOX DEBUG: smartOmniboxResults container not found!');
         return;
@@ -4572,9 +4577,11 @@ function showSearchResultsOverlay() {
     
     // Clear previous content
     searchContainer.innerHTML = '';
+    console.log('🔍 SMART OMNIBOX DEBUG: Cleared search container content');
     
     // Show the search results container
     searchContainer.style.display = 'block';
+    console.log('🔍 SMART OMNIBOX DEBUG: Showed search container');
 }
 
 // Hide Search Results Overlay
@@ -4596,6 +4603,7 @@ function displayLocalSearchResults() {
     const searchContainer = document.getElementById('smartOmniboxResults');
     if (!searchContainer) return;
     
+    // Create local section container
     const localSection = document.createElement('div');
     localSection.className = 'local-search-section';
     localSection.innerHTML = `
@@ -4607,6 +4615,11 @@ function displayLocalSearchResults() {
         </div>
     `;
     
+    // Clear any existing local section and append new one
+    const existingLocal = searchContainer.querySelector('.local-search-section');
+    if (existingLocal) {
+        existingLocal.remove();
+    }
     searchContainer.appendChild(localSection);
     searchContainer.style.display = 'block';
 }
@@ -4616,6 +4629,7 @@ function displayImportSearchResults() {
     const searchContainer = document.getElementById('smartOmniboxResults');
     if (!searchContainer) return;
     
+    // Create import section container
     const importSection = document.createElement('div');
     importSection.className = 'import-search-section';
     importSection.innerHTML = `
@@ -4627,6 +4641,11 @@ function displayImportSearchResults() {
         </div>
     `;
     
+    // Clear any existing import section and append new one
+    const existingImport = searchContainer.querySelector('.import-search-section');
+    if (existingImport) {
+        existingImport.remove();
+    }
     searchContainer.appendChild(importSection);
     searchContainer.style.display = 'block';
 }
