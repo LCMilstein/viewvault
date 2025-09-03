@@ -4640,12 +4640,15 @@ function createImportResultCard(item) {
     const buttonText = item.type === 'series' ? 'Import Series' : 'Import Movie';
     const buttonOnclick = item.type === 'series' ? `importFullSeries('${item.imdb_id}')` : `importItemWithSequels('${item.imdb_id}')`;
     
+    // Get the ID for display (IMDB or TMDB)
+    const displayId = item.imdb_id ? `IMDB: ${item.imdb_id}` : (item.tmdb_id ? `TMDB: ${item.tmdb_id}` : '');
+    
     return `
         <div class="import-result-card">
             <img src="${poster}" alt="${title}" class="import-result-poster" onerror="this.onerror=null;this.src='/static/no-image.png';">
             <div class="import-result-info">
                 <div class="import-result-title">${title}</div>
-                <div class="import-result-meta">${type}${year ? ` • ${year}` : ''}</div>
+                <div class="import-result-meta">${displayId}</div>
                 <button class="import-btn ${item.type === 'series' ? 'import-series-btn' : 'import-movie-btn'}" onclick="event.stopPropagation(); ${buttonOnclick}">${buttonText}</button>
             </div>
         </div>
