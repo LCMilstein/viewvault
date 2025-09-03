@@ -4604,7 +4604,7 @@ function displayImportSearchResults() {
     searchContainer.style.display = 'block';
 }
 
-// Create Local Result Item (matches old search format)
+// Create Local Result Item (uses actual watchlist row HTML)
 function createLocalResultItem(item) {
     // Use the same poster URL logic as the rest of the app
     let poster = item.poster_url || '/static/no-image.png';
@@ -4618,27 +4618,35 @@ function createLocalResultItem(item) {
     const year = item.release_date ? new Date(item.release_date).getFullYear() : '';
     const type = item.type === 'collection' ? 'Collection' : (item.type === 'series' ? 'Series' : 'Movie');
     const watched = item.watched ? 'checked' : '';
-    const watchedBy = item.watched_by || 'you';
     
-    return `
-        <div class="watchlist-item" data-item-id="${item.id || item.imdb_id}" data-item-type="${item.type}">
-            <div class="watchlist-item-content">
-                <div class="watchlist-item-poster">
-                    <img src="${poster}" alt="${title}" onerror="this.onerror=null;this.src='/static/no-image.png';">
+    // Use the actual watchlist row HTML structure
+    if (item.type === 'collection') {
+        const unwatchedCount = item.items ? item.items.filter(movie => !movie.watched).length : 0;
+        return `
+            <div class="watchlist-row collection-row" data-collection-id="${item.id}">
+                <input type="checkbox" class="checkbox" data-type="collection" data-id="${item.id}" ${watched}>
+                <div class="clickable-area" data-type="collection" data-id="${item.id}" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
+                    <img src="${poster}" alt="Poster" class="watchlist-thumb" onerror="this.onerror=null;this.src='/static/no-image.png';">
+                    <div class="title">${title}</div>
+                    <div class="meta">Collection (${item.items ? item.items.length : 0} movies; ${unwatchedCount} unwatched)</div>
                 </div>
-                <div class="watchlist-item-info">
-                    <div class="watchlist-item-title">${title}</div>
-                    <div class="watchlist-item-meta">${type}${year ? ` • ${year}` : ''}</div>
-                </div>
-                <div class="watchlist-item-actions">
-                    <label class="watchlist-checkbox">
-                        <input type="checkbox" ${watched} onchange="toggleWatched('${item.id || item.imdb_id}', '${item.type}', this.checked)">
-                        <span class="checkmark"></span>
-                    </label>
-                </div>
+                <span class="expand-icon" data-type="collection" data-id="${item.id}">▼</span>
+                <span title="Remove" class="remove-btn" data-type="collection" data-id="${item.id}">🗑️</span>
             </div>
-        </div>
-    `;
+        `;
+    } else {
+        return `
+            <div class="watchlist-row" data-item-id="${item.id}" data-item-type="${item.type}">
+                <input type="checkbox" class="checkbox" data-type="${item.type}" data-id="${item.id}" ${watched}>
+                <div class="clickable-area" data-type="${item.type}" data-id="${item.id}" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
+                    <img src="${poster}" alt="Poster" class="watchlist-thumb" onerror="this.onerror=null;this.src='/static/no-image.png';">
+                    <div class="title">${title}</div>
+                    <div class="meta">${type}${year ? ` • ${year}` : ''}</div>
+                </div>
+                <span title="Remove" class="remove-btn" data-type="${item.type}" data-id="${item.id}">🗑️</span>
+            </div>
+        `;
+    }
 }
 
 // Create Import Result Card
