@@ -9,10 +9,10 @@ services:
     ports:
       - "8009:8000"
     volumes:
-      - watchlist-app_watchlist-db:/app/db
+      - watchlist-app_viewvault-db:/app/db
       - watchlist-app_posters:/app/static/posters
     environment:
-      - DATABASE_URL=sqlite:///./db/watchlist.db
+      - DATABASE_URL=sqlite:///./db/viewvault.db
       - SECRET_KEY=test-secret-key-for-local-testing
       - JELLYFIN_URL=${JELLYFIN_URL}
       - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
@@ -23,5 +23,5 @@ services:
     restart: unless-stopped
 
 volumes:
-  watchlist-app_watchlist-db:
+  watchlist-app_viewvault-db:
   watchlist-app_posters:
