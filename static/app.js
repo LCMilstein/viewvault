@@ -660,6 +660,7 @@ function clearNewlyImportedStatus(itemType, itemId) {
 // Check if item is newly imported
 function isItemNewlyImported(itemType, itemId) {
     console.log(`🔍 Checking if ${itemType} ${itemId} is newly imported...`);
+    console.log(`🔍 Current newItems state:`, newItems);
     
     // First check the global newItems state (for Jellyfin imports)
     if (itemType === 'movie') {
@@ -4647,6 +4648,7 @@ function createLocalResultItem(item) {
     
     // Check if item is newly imported
     const isNewlyImported = isItemNewlyImported(item.type, item.id);
+    console.log(`🔍 LOCAL RESULT DEBUG: Item ${item.id} (${title}) - isNewlyImported: ${isNewlyImported}`);
     const newlyImportedBadge = isNewlyImported ? '<span class="newly-imported-badge"><svg class="badge-icon" viewBox="0 0 16 16"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm4 7.5l-1.4 1.4L7 6.8V2h2v4.2L10.6 9z"/></svg>NEW</span>' : '';
     
     // Use the actual watchlist row HTML structure
