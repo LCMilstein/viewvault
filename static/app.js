@@ -4317,7 +4317,13 @@ function matchesSearchTerm(item, searchTerm) {
         item.overview
     ].filter(field => field).map(field => field.toLowerCase());
     
-    return searchFields.some(field => field.includes(searchTerm));
+    // Split search term into individual words for more flexible matching
+    const searchWords = searchTerm.toLowerCase().split(/\s+/).filter(word => word.length > 0);
+    
+    // Check if all search words are found in any of the fields
+    return searchWords.every(word => 
+        searchFields.some(field => field.includes(word))
+    );
 }
 
 // Initialize Smart Omnibox when page loads
@@ -4436,7 +4442,11 @@ function performLocalSearch(query) {
         console.log('🔍 SMART OMNIBOX DEBUG: Searching', currentWatchlistData.collections.length, 'collections');
         currentWatchlistData.collections.forEach(collection => {
             console.log('🔍 SMART OMNIBOX DEBUG: Checking collection:', collection.title || collection.collection_name);
-            if (matchesSearchTerm(collection, searchTerm)) {
+            console.log('🔍 SMART OMNIBOX DEBUG: Collection data:', collection);
+            console.log('🔍 SMART OMNIBOX DEBUG: Search term:', searchTerm);
+            const matches = matchesSearchTerm(collection, searchTerm);
+            console.log('🔍 SMART OMNIBOX DEBUG: Matches?', matches);
+            if (matches) {
                 console.log('🔍 SMART OMNIBOX DEBUG: Found matching collection:', collection.title || collection.collection_name);
                 results.push({
                     ...collection,
