@@ -4488,6 +4488,7 @@ function performLocalSearch(query) {
     
     localSearchResults = results;
     console.log('🔍 SMART OMNIBOX DEBUG: Local search found', results.length, 'results:', results.map(r => r.title || r.collection_name));
+    console.log('🔍 SMART OMNIBOX DEBUG: About to call updateSearchResultsDisplay with local results:', localSearchResults.length);
     updateSearchResultsDisplay();
 }
 
@@ -4558,10 +4559,11 @@ function updateSearchResultsDisplay() {
     // Show search results overlay
     showSearchResultsOverlay();
     
-    // Display local results (filtered watchlist format) FIRST
+    // Always display local results FIRST, then import results SECOND
+    // This ensures correct order regardless of which search completes first
+    console.log('🔍 SMART OMNIBOX DEBUG: About to display local results:', localSearchResults.length);
     displayLocalSearchResults();
-    
-    // Display import results (6-across grid) SECOND
+    console.log('🔍 SMART OMNIBOX DEBUG: About to display import results:', importSearchResults.length);
     displayImportSearchResults();
 }
 
@@ -4600,8 +4602,12 @@ function hideSearchResults() {
 
 // Display Local Search Results (Filtered Watchlist Format)
 function displayLocalSearchResults() {
+    console.log('🔍 SMART OMNIBOX DEBUG: displayLocalSearchResults called with', localSearchResults.length, 'results');
     const searchContainer = document.getElementById('smartOmniboxResults');
-    if (!searchContainer) return;
+    if (!searchContainer) {
+        console.error('🔍 SMART OMNIBOX DEBUG: searchContainer not found in displayLocalSearchResults');
+        return;
+    }
     
     // Create local section container
     const localSection = document.createElement('div');
