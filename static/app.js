@@ -3002,15 +3002,9 @@ document.addEventListener('DOMContentLoaded', async function() {
     // Note: importTypeSubmitBtn is handled by smart omnibox system
     document.getElementById('settingsBtn').addEventListener('click', toggleSettingsMenu);
     
-    // Enter key submits
+    // Enter key is handled by smart omnibox system
     const importTypeInput = document.getElementById('importTypeInput');
     if (importTypeInput) {
-        importTypeInput.addEventListener('keydown', function(e) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                handleImportTypeSubmit();
-            }
-        });
         // Clear search input on page load
         importTypeInput.value = '';
     }
