@@ -611,7 +611,7 @@ async function markItemAsSeen(itemType, itemId) {
             if (itemType === 'movie') {
                 newItems.movies = newItems.movies.filter(m => m.id !== itemId);
             } else if (itemType === 'series') {
-                newItems.series = newItems.series.filter(s => s.series.id !== itemId);
+                newItems.series = newItems.series.filter(s => s.id !== itemId);
             }
             
             // Reload watchlist to update ordering
@@ -627,7 +627,7 @@ function isItemNew(itemType, itemId) {
     if (itemType === 'movie') {
         return newItems.movies.some(m => m.id === itemId);
     } else if (itemType === 'series') {
-        return newItems.series.some(s => s.series.id === itemId);
+        return newItems.series.some(s => s.id === itemId);
     }
     return false;
 }
@@ -643,7 +643,7 @@ function clearNewlyImportedStatus(itemType, itemId) {
         }
     } else if (itemType === 'series') {
         if (newItems.newly_imported_series) {
-            newItems.newly_imported_series = newItems.newly_imported_series.filter(s => s.series.id !== itemId);
+            newItems.newly_imported_series = newItems.newly_imported_series.filter(s => s.id !== itemId);
         }
     }
     
@@ -669,7 +669,7 @@ function isItemNewlyImported(itemType, itemId) {
             return true;
         }
     } else if (itemType === 'series') {
-        if (newItems.newly_imported_series && newItems.newly_imported_series.some(s => s.series.id === itemId)) {
+        if (newItems.newly_imported_series && newItems.newly_imported_series.some(s => s.id === itemId)) {
             console.log(`✅ Found in global newItems.newly_imported_series`);
             return true;
         }
