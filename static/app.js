@@ -4488,7 +4488,10 @@ function performLocalSearch(query) {
     
     localSearchResults = results;
     console.log('🔍 SMART OMNIBOX DEBUG: Local search found', results.length, 'results:', results.map(r => r.title || r.collection_name));
-    console.log('🔍 SMART OMNIBOX DEBUG: Local search complete, waiting for external search to update display');
+    console.log('🔍 SMART OMNIBOX DEBUG: Local search complete, updating display');
+    
+    // Update display immediately for local results
+    updateSearchResultsDisplay();
 }
 
 // Perform External Search (debounced)
