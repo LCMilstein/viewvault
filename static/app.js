@@ -4416,8 +4416,9 @@ function handleSmartOmniboxSubmit() {
         clearTimeout(searchDebounceTimer);
     }
     
-    // Just trigger the input handler - it already handles both searches correctly
-    handleSmartOmniboxInput();
+    // Perform both searches immediately (no debouncing for submit)
+    performLocalSearch(query);
+    performExternalSearch(query);
 }
 
 // Perform Local Search (immediate)
@@ -4531,8 +4532,8 @@ async function performExternalSearch(query) {
 // Update Search Results Display (Hybrid UI)
 function updateSearchResultsDisplay() {
     console.log('🔍 SMART OMNIBOX DEBUG: Updating search results display');
-    console.log('🔍 SMART OMNIBOX DEBUG: Local results:', localSearchResults.length);
-    console.log('🔍 SMART OMNIBOX DEBUG: Import results:', importSearchResults.length);
+    console.log('🔍 SMART OMNIBOX DEBUG: Local results:', localSearchResults.length, localSearchResults);
+    console.log('🔍 SMART OMNIBOX DEBUG: Import results:', importSearchResults.length, importSearchResults);
     
     const searchInput = document.getElementById('importTypeInput');
     const query = searchInput ? searchInput.value.trim() : '';
