@@ -2029,7 +2029,8 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
                             'title': row[1], 
                             'imdb_id': row[2],
                             'poster_url': row[3],
-                            'average_episode_runtime': row[4]
+                            'average_episode_runtime': row[4],
+                            'imported_at': None  # Fallback for missing column
                         })()
                         series_list.append(series)
                 else:
@@ -2063,6 +2064,7 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
                         "watched": watched,
                         "episodes": episodes_data,
                         "is_new": getattr(s, 'is_new', False),  # Handle missing column gracefully
+                        "imported_at": getattr(s, 'imported_at', None),  # Add imported_at for "Newly Imported" badges
                         "average_episode_runtime": getattr(s, 'average_episode_runtime', None)  # Add average episode runtime field
                     })
                 except Exception as e:
