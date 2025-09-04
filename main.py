@@ -953,7 +953,8 @@ async def import_movie(imdb_id: str, request: Request, current_user: User = Depe
                                 collection_id=sequel_collection_id,
                                 collection_name=sequel_collection_name,
                                 type="movie",
-                                user_id=current_user.id
+                                user_id=current_user.id,
+                                imported_at=datetime.now(timezone.utc)  # Set imported timestamp for NEW badges
                             )
                             session.add(sequel_movie)
                             logger.info(f"Successfully added sequel: {sequel_movie.title} to database")
@@ -1241,7 +1242,8 @@ async def import_series(imdb_id: str, request: Request, current_user: User = Dep
                 poster_url=poster_url,
                 poster_thumb=None,
                 average_episode_runtime=average_episode_runtime,
-                user_id=current_user.id
+                user_id=current_user.id,
+                imported_at=datetime.now(timezone.utc)  # Set imported timestamp for NEW badges
             )
             session.add(series)
             session.commit()
@@ -1349,7 +1351,7 @@ async def import_full_series(imdb_id: str, request: Request, current_user: User 
         num_seasons = len(set(ep['season'] for ep in episodes)) if episodes else 0
         # Insert into Series table
         with Session(engine) as session:
-            db_series = Series(title=title, imdb_id=imdb_id, type="series", user_id=current_user.id)
+            db_series = Series(title=title, imdb_id=imdb_id, type="series", user_id=current_user.id, imported_at=datetime.now(timezone.utc))
             session.add(db_series)
             session.commit()
             session.refresh(db_series)
@@ -1416,7 +1418,7 @@ async def import_full_series(imdb_id: str, request: Request, current_user: User 
         title = tvmaze_data.get('title', f"Series ({imdb_id})")
         poster_url = tvmaze_data.get('poster_url')
         with Session(engine) as session:
-            db_series = Series(title=title, imdb_id=imdb_id, type="series", user_id=current_user.id)
+            db_series = Series(title=title, imdb_id=imdb_id, type="series", user_id=current_user.id, imported_at=datetime.now(timezone.utc))
             session.add(db_series)
             session.commit()
             session.refresh(db_series)
@@ -3167,7 +3169,8 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                                         collection_name=collection_info['name'],
                                         type="movie",
                                         user_id=current_user.id,
-                                        is_new=0  # Not new - this is imported content
+                                        is_new=0,  # Not new - this is imported content
+                                        imported_at=datetime.now(timezone.utc)  # Set imported timestamp for NEW badges
                                     )
                                     session.add(sequel_movie)
                                     total_sequels_imported += 1
