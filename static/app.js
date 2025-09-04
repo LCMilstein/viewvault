@@ -4675,7 +4675,7 @@ function createLocalResultItem(item) {
     // Check if item is newly imported
     const isNewlyImported = isItemNewlyImported(item.type, item.id);
     console.log(`🔍 LOCAL RESULT DEBUG: Item ${item.id} (${title}) - isNewlyImported: ${isNewlyImported}`);
-    const newlyImportedBadge = isNewlyImported ? '<span class="newly-imported-badge"><svg class="badge-icon" viewBox="0 0 16 16"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm4 7.5l-1.4 1.4L7 6.8V2h2v4.2L10.6 9z"/></svg>NEW</span>' : '';
+    const newlyImportedBadge = isNewlyImported ? '<span style="background: linear-gradient(135deg, #6a4c93 0%, #5a4b8a 100%); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 8px; border: 1px solid rgba(255,255,255,0.2);">NEW</span>' : '';
     
     // Use the actual watchlist row HTML structure
     if (item.type === 'collection') {
