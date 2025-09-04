@@ -4416,9 +4416,8 @@ function handleSmartOmniboxSubmit() {
         clearTimeout(searchDebounceTimer);
     }
     
-    // Perform both searches immediately
-    performLocalSearch(query);
-    performExternalSearch(query);
+    // Just trigger the input handler - it already handles both searches correctly
+    handleSmartOmniboxInput();
 }
 
 // Perform Local Search (immediate)
