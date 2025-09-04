@@ -4638,7 +4638,7 @@ function displayImportSearchResults() {
         <div class="search-section-header">
             <h3>Available to Import (${importSearchResults.length})</h3>
         </div>
-        <div class="import-results-grid">
+        <div class="search-results-grid">
             ${importSearchResults.map(item => createImportResultCard(item)).join('')}
         </div>
     `;
@@ -4715,11 +4715,11 @@ function createImportResultCard(item) {
     const displayId = item.imdb_id ? `IMDB: ${item.imdb_id}` : (item.tmdb_id ? `TMDB: ${item.tmdb_id}` : '');
     
     return `
-        <div class="import-result-card">
-            <img src="${poster}" alt="${title}" class="import-result-poster" onerror="this.onerror=null;this.src='/static/no-image.png';">
-            <div class="import-result-info">
-                <div class="import-result-title">${title}</div>
-                <div class="import-result-meta">${displayId}</div>
+        <div class="search-result-card" onclick="${buttonOnclick}" title="${buttonText}">
+            <img src="${poster}" alt="Poster" class="search-result-poster" onerror="this.onerror=null;this.src='/static/no-image.png';">
+            <div class="search-result-info">
+                <div class="search-result-title">${title}</div>
+                <div class="search-result-meta">${displayId}</div>
                 <button class="import-btn ${item.type === 'series' ? 'import-series-btn' : 'import-movie-btn'}" onclick="event.stopPropagation(); ${buttonOnclick}">${buttonText}</button>
             </div>
         </div>
