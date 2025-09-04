@@ -2999,7 +2999,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     console.log('Setting up event listeners...');
     
     // Add event listeners
-    document.getElementById('importTypeSubmitBtn').addEventListener('click', handleImportTypeSubmit);
+    // Note: importTypeSubmitBtn is handled by smart omnibox system
     document.getElementById('settingsBtn').addEventListener('click', toggleSettingsMenu);
     
     // Enter key submits
