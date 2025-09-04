@@ -2178,6 +2178,32 @@ def remove_movie_from_watchlist(movie_id: int, current_user: User = Depends(get_
         session.commit()
         return {"message": "Movie removed from watchlist"}
 
+@api_router.post("/movies/{movie_id}/clear-newly-imported")
+def clear_movie_newly_imported(movie_id: int, current_user: User = Depends(get_current_user)):
+    """Clear the newly imported status for a movie"""
+    with Session(engine) as session:
+        movie = session.exec(select(Movie).where(Movie.id == movie_id, Movie.user_id == current_user.id)).first()
+        if not movie:
+            raise HTTPException(status_code=404, detail="Movie not found")
+        
+        movie.imported_at = None
+        session.add(movie)
+        session.commit()
+        return {"message": "Newly imported status cleared"}
+
+@api_router.post("/series/{series_id}/clear-newly-imported")
+def clear_series_newly_imported(series_id: int, current_user: User = Depends(get_current_user)):
+    """Clear the newly imported status for a series"""
+    with Session(engine) as session:
+        series = session.exec(select(Series).where(Series.id == series_id, Series.user_id == current_user.id)).first()
+        if not series:
+            raise HTTPException(status_code=404, detail="Series not found")
+        
+        series.imported_at = None
+        session.add(series)
+        session.commit()
+        return {"message": "Newly imported status cleared"}
+
 @api_router.delete("/watchlist/series/{series_id}")
 def remove_series_from_watchlist(series_id: int, current_user: User = Depends(get_current_user)):
     """Remove a series and all its episodes from the watchlist"""

@@ -719,11 +719,11 @@ function findItemById(itemType, itemId) {
         if (watchlistData.collections && Array.isArray(watchlistData.collections)) {
             console.log(`🔍 Checking ${watchlistData.collections.length} collections`);
             for (const collection of watchlistData.collections) {
-                if (collection && collection.movies && Array.isArray(collection.movies)) {
-                    console.log(`🔍 Checking collection ${collection.name} with ${collection.movies.length} movies`);
-                    const movie = collection.movies.find(m => m && m.id === itemId);
+                if (collection && collection.items && Array.isArray(collection.items)) {
+                    console.log(`🔍 Checking collection ${collection.title || collection.name} with ${collection.items.length} movies`);
+                    const movie = collection.items.find(m => m && m.id === itemId);
                     if (movie) {
-                        console.log(`✅ Found movie in collection ${collection.name}:`, movie);
+                        console.log(`✅ Found movie in collection ${collection.title || collection.name}:`, movie);
                         return movie;
                     }
                 }
@@ -3897,6 +3897,14 @@ function showDetails(type, id, itemData) {
  * This provides a better UX for viewing and interacting with movies in collections
  */
 function showCollectionDetails(collection) {
+    // Clear newly imported status for all movies in the collection
+    // This ensures that when collection details are viewed, all movies lose their NEW badges
+    if (collection.items && Array.isArray(collection.items)) {
+        collection.items.forEach(movie => {
+            clearNewlyImportedStatus('movie', movie.id);
+        });
+    }
+    
     // Create full-page overlay
     const overlay = document.createElement('div');
     overlay.id = 'collection-overlay';
