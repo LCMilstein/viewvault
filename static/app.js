@@ -923,6 +923,8 @@ async function importItemWithSequels(imdbId) {
             // Clear search results and show watchlist
             document.getElementById('searchResultsMovies').innerHTML = '';
             document.getElementById('searchResultsSeries').innerHTML = '';
+            // Clear smart omnibox search results
+            clearSmartOmniboxSearch();
             loadWatchlist();
         } else {
             const error = await response.json();
@@ -947,6 +949,8 @@ async function importFullSeries(imdbId) {
             // Clear search results
             document.getElementById('searchResultsMovies').innerHTML = '';
             document.getElementById('searchResultsSeries').innerHTML = '';
+            // Clear smart omnibox search results
+            clearSmartOmniboxSearch();
             
             // Only show list selection dialog if multiple lists are currently visible
             const visibleLists = userLists.filter(list => selectedListIds.includes(list.id));
@@ -2972,6 +2976,8 @@ async function importByUrlUnified(url) {
             // Clear search results and show watchlist
             document.getElementById('searchResultsMovies').innerHTML = '';
             document.getElementById('searchResultsSeries').innerHTML = '';
+            // Clear smart omnibox search results
+            clearSmartOmniboxSearch();
             loadWatchlist();
         } else {
             const error = await response.json();
@@ -4795,6 +4801,12 @@ function clearSmartOmniboxSearch() {
     }
 }
 
+// Go Home - Clear search and return to main watchlist
+function goHome() {
+    console.log('🏠 Going home - clearing search and returning to main watchlist');
+    clearSmartOmniboxSearch();
+}
+
 function clearSearchResults() {
     clearSmartOmniboxSearch();
 }
@@ -5670,6 +5682,8 @@ async function importFullSeries(imdbId) {
             // Clear search results
             document.getElementById('searchResultsMovies').innerHTML = '';
             document.getElementById('searchResultsSeries').innerHTML = '';
+            // Clear smart omnibox search results
+            clearSmartOmniboxSearch();
             
             // Only show list selection dialog if multiple lists are currently visible
             const visibleLists = userLists.filter(list => selectedListIds.includes(list.id));
@@ -5709,6 +5723,8 @@ async function importItemWithSequels(imdbId) {
             // Clear search results
             document.getElementById('searchResultsMovies').innerHTML = '';
             document.getElementById('searchResultsSeries').innerHTML = '';
+            // Clear smart omnibox search results
+            clearSmartOmniboxSearch();
             
             // Only show list selection dialog if multiple lists are currently visible
             const visibleLists = userLists.filter(list => selectedListIds.includes(list.id));
