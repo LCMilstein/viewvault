@@ -1,5 +1,5 @@
 // Service Worker for CineSync Offline Functionality
-const CACHE_NAME = 'cinesync-v1';
+const CACHE_NAME = 'cinesync-v2';
 const OFFLINE_CACHE = 'cinesync-offline-v1';
 
 // Files to cache for offline functionality
