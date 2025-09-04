@@ -4517,6 +4517,7 @@ async function performExternalSearch(query) {
         
         importSearchResults = results || [];
         console.log('🔍 SMART OMNIBOX DEBUG: External search complete, updating display with', importSearchResults.length, 'import results');
+        console.log('🔍 SMART OMNIBOX DEBUG: Local results still available:', localSearchResults.length);
         updateSearchResultsDisplay();
         
     } catch (error) {
@@ -4562,9 +4563,9 @@ function updateSearchResultsDisplay() {
     
     // Always display local results FIRST, then import results SECOND
     // This ensures correct order regardless of which search completes first
-    console.log('🔍 SMART OMNIBOX DEBUG: About to display local results:', localSearchResults.length);
+    console.log('🔍 SMART OMNIBOX DEBUG: About to display local results:', localSearchResults.length, localSearchResults);
     displayLocalSearchResults();
-    console.log('🔍 SMART OMNIBOX DEBUG: About to display import results:', importSearchResults.length);
+    console.log('🔍 SMART OMNIBOX DEBUG: About to display import results:', importSearchResults.length, importSearchResults);
     displayImportSearchResults();
 }
 
