@@ -4410,9 +4410,19 @@ function handleSmartOmniboxSubmit() {
         clearTimeout(searchDebounceTimer);
     }
     
-    // Perform both searches immediately (no debouncing for submit)
+    // Always perform local search immediately
     performLocalSearch(query);
-    performExternalSearch(query);
+    
+    // Only perform external search if we haven't already searched for this query
+    // or if the previous search failed
+    if (query !== lastSearchQuery || !isSearchingResults) {
+        console.log('🔍 SMART OMNIBOX DEBUG: Triggering external search for submit');
+        performExternalSearch(query);
+    } else {
+        console.log('🔍 SMART OMNIBOX DEBUG: External search already in progress or completed for this query');
+        // Still update display with current results
+        updateSearchResultsDisplay();
+    }
 }
 
 // Perform Local Search (immediate)
@@ -4559,7 +4569,7 @@ function updateSearchResultsDisplay() {
         console.error('🔍 SMART OMNIBOX DEBUG: watchlistContent not found!');
     }
     
-    // Show search results overlay
+    // Show search results overlay and clear all existing content
     showSearchResultsOverlay();
     
     // Always display local results FIRST, then import results SECOND
@@ -4580,9 +4590,9 @@ function showSearchResultsOverlay() {
         return;
     }
     
-    // Clear previous content
+    // Clear ALL previous content completely
     searchContainer.innerHTML = '';
-    console.log('🔍 SMART OMNIBOX DEBUG: Cleared search container content');
+    console.log('🔍 SMART OMNIBOX DEBUG: Cleared search container content completely');
     
     // Show the search results container
     searchContainer.style.display = 'block';
@@ -4612,6 +4622,16 @@ function displayLocalSearchResults() {
         return;
     }
     
+    // Remove ALL existing local sections first
+    const existingLocals = searchContainer.querySelectorAll('.local-search-section');
+    existingLocals.forEach(section => section.remove());
+    
+    // Only create local section if there are results
+    if (localSearchResults.length === 0) {
+        console.log('🔍 SMART OMNIBOX DEBUG: No local results to display');
+        return;
+    }
+    
     // Create local section container
     const localSection = document.createElement('div');
     localSection.className = 'local-search-section';
@@ -4624,19 +4644,26 @@ function displayLocalSearchResults() {
         </div>
     `;
     
-    // Clear any existing local section and append new one
-    const existingLocal = searchContainer.querySelector('.local-search-section');
-    if (existingLocal) {
-        existingLocal.remove();
-    }
+    // Append new local section
     searchContainer.appendChild(localSection);
     searchContainer.style.display = 'block';
+    console.log('🔍 SMART OMNIBOX DEBUG: Added local section with', localSearchResults.length, 'results');
 }
 
 // Display Import Search Results (6-Across Grid)
 function displayImportSearchResults() {
     const searchContainer = document.getElementById('smartOmniboxResults');
     if (!searchContainer) return;
+    
+    // Remove ALL existing import sections first
+    const existingImports = searchContainer.querySelectorAll('.import-search-section');
+    existingImports.forEach(section => section.remove());
+    
+    // Only create import section if there are results
+    if (importSearchResults.length === 0) {
+        console.log('🔍 SMART OMNIBOX DEBUG: No import results to display');
+        return;
+    }
     
     // Create import section container
     const importSection = document.createElement('div');
@@ -4650,13 +4677,10 @@ function displayImportSearchResults() {
         </div>
     `;
     
-    // Clear any existing import section and append new one
-    const existingImport = searchContainer.querySelector('.import-search-section');
-    if (existingImport) {
-        existingImport.remove();
-    }
+    // Append new import section
     searchContainer.appendChild(importSection);
     searchContainer.style.display = 'block';
+    console.log('🔍 SMART OMNIBOX DEBUG: Added import section with', importSearchResults.length, 'results');
 }
 
 // Create Local Result Item (uses actual watchlist row HTML)
