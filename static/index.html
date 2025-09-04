@@ -446,6 +446,46 @@
             box-shadow: 0 2px 4px rgba(0,212,170,0.3);
         }
 
+        .newly-imported-badge {
+            background: linear-gradient(135deg, #6a4c93 0%, #5a4b8a 100%);
+            color: white;
+            padding: 2px 8px;
+            border-radius: 12px;
+            font-size: 10px;
+            font-weight: 600;
+            margin-left: 6px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 4px;
+            border: 1px solid rgba(255,255,255,0.2);
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .newly-imported-badge::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: -100%;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+            animation: shimmer 2s infinite;
+        }
+        
+        @keyframes shimmer {
+            0% { left: -100%; }
+            100% { left: 100%; }
+        }
+        
+        .newly-imported-badge .badge-icon {
+            width: 8px;
+            height: 8px;
+            margin-right: 4px;
+            fill: currentColor;
+        }
+
         .quality-badge {
             display: inline-block;
             padding: 2px 4px; /* Reduced horizontal padding for narrower badges */

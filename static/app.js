@@ -683,9 +683,9 @@ function isItemNewlyImported(itemType, itemId) {
     if (item && item.imported_at) {
         console.log(`🔍 Item has imported_at: ${item.imported_at}`);
         const importedTime = new Date(item.imported_at);
-        const twoDaysAgo = new Date(Date.now() - 48 * 60 * 60 * 1000);
-        const isNewlyImported = importedTime > twoDaysAgo;
-        console.log(`🔍 Imported time: ${importedTime}, Two days ago: ${twoDaysAgo}, Is newly imported: ${isNewlyImported}`);
+        const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+        const isNewlyImported = importedTime > oneDayAgo;
+        console.log(`🔍 Imported time: ${importedTime}, One day ago: ${oneDayAgo}, Is newly imported: ${isNewlyImported}`);
         return isNewlyImported;
     } else {
         console.log(`❌ Item not found or no imported_at field`);
@@ -1509,8 +1509,9 @@ function renderUnifiedCollection(collection) {
         const movie = collection.items[0];
         const isNewMovie = isItemNew('movie', movie.id);
         const newBadgeMovie = isNewMovie ? '<span class="new-badge">🆕</span>' : '';
-        // NEW badge functionality removed for now
-        const newlyImportedBadge = '';
+        const isNewlyImported = isItemNewlyImported('movie', movie.id);
+        console.log(`🎯 Movie ${movie.id} (${movie.title}) - isNewlyImported: ${isNewlyImported}`);
+        const newlyImportedBadge = isNewlyImported ? '<span class="newly-imported-badge"><svg class="badge-icon" viewBox="0 0 16 16"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm4 7.5l-1.4 1.4L7 6.8V2h2v4.2L10.6 9z"/></svg>NEW</span>' : '';
         let qualityBadge = '';
         if (movie.quality) {
             const qualityConfig = {
@@ -1543,8 +1544,8 @@ function renderUnifiedCollection(collection) {
     const newBadge = isNew ? '<span class="new-badge">🆕</span>' : '';
     
     // Check if any movie in the collection is newly imported
-    // NEW badge functionality removed for now
-    const newlyImportedBadge = '';
+    const hasNewlyImportedMovies = collection.items.some(movie => isItemNewlyImported('movie', movie.id));
+    const newlyImportedBadge = hasNewlyImportedMovies ? '<span class="newly-imported-badge"><svg class="badge-icon" viewBox="0 0 16 16"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm4 7.5l-1.4 1.4L7 6.8V2h2v4.2L10.6 9z"/></svg>NEW</span>' : '';
     
     // Determine checkbox state for mixed collections
     let checkboxState = '';
@@ -1579,8 +1580,8 @@ function renderUnifiedCollection(collection) {
         for (const movie of itemsToShow) {
             const isNew = isItemNew('movie', movie.id);
             const newBadge = isNew ? '<span class="new-badge">🆕</span>' : '';
-            // NEW badge functionality removed for now
-            const newlyImportedBadge = '';
+            const isNewlyImported = isItemNewlyImported('movie', movie.id);
+            const newlyImportedBadge = isNewlyImported ? '<span class="newly-imported-badge"><svg class="badge-icon" viewBox="0 0 16 16"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm4 7.5l-1.4 1.4L7 6.8V2h2v4.2L10.6 9z"/></svg>NEW</span>' : '';
             
             // Quality badge for Jellyfin movies
             let qualityBadge = '';
@@ -1617,8 +1618,8 @@ function renderUnifiedSeries(series) {
     const isExpanded = watchlistState.expandedSeries[series.id] || false;
     const isNew = isItemNew('series', series.id);
     const newBadge = isNew ? '<span class="new-badge">🆕</span>' : '';
-    // NEW badge functionality removed for now
-    const newlyImportedBadge = '';
+    const isNewlyImported = isItemNewlyImported('series', series.id);
+    const newlyImportedBadge = isNewlyImported ? '<span class="newly-imported-badge"><svg class="badge-icon" viewBox="0 0 16 16"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm4 7.5l-1.4 1.4L7 6.8V2h2v4.2L10.6 9z"/></svg>NEW</span>' : '';
     const episodeCount = series.episodes ? series.episodes.length : 0;
     const unwatchedCount = series.episodes ? series.episodes.filter(ep => !ep.watched).length : 0;
     let html = `<div class="watchlist-row series-row ${isNew ? 'new-item' : ''}" data-series-id="${series.id}">
@@ -1653,8 +1654,8 @@ function renderUnifiedSeries(series) {
 function renderUnifiedMovie(movie) {
     const isNew = isItemNew('movie', movie.id);
     const newBadge = isNew ? '<span class="new-badge">🆕</span>' : '';
-    // NEW badge functionality removed for now
-    const newlyImportedBadge = '';
+    const isNewlyImported = isItemNewlyImported('movie', movie.id);
+    const newlyImportedBadge = isNewlyImported ? '<span class="newly-imported-badge"><svg class="badge-icon" viewBox="0 0 16 16"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm4 7.5l-1.4 1.4L7 6.8V2h2v4.2L10.6 9z"/></svg>NEW</span>' : '';
     
     // Quality badge for Jellyfin movies
     let qualityBadge = '';
@@ -4394,7 +4395,7 @@ function handleSmartOmniboxInput(event) {
         searchDebounceTimer = setTimeout(() => {
             performExternalSearch(query);
         }, 1200); // 1.2 second delay
-    } else {
+                } else {
         // Clear external results if query is too short
         importSearchResults = [];
         updateSearchResultsDisplay();
@@ -4672,8 +4673,9 @@ function createLocalResultItem(item) {
     const watched = item.watched ? 'checked' : '';
     
     // Check if item is newly imported
-    // NEW badge functionality removed for now
-    const newlyImportedBadge = '';
+    const isNewlyImported = isItemNewlyImported(item.type, item.id);
+    console.log(`🔍 LOCAL RESULT DEBUG: Item ${item.id} (${title}) - isNewlyImported: ${isNewlyImported}`);
+    const newlyImportedBadge = isNewlyImported ? '<span class="newly-imported-badge"><svg class="badge-icon" viewBox="0 0 16 16"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm4 7.5l-1.4 1.4L7 6.8V2h2v4.2L10.6 9z"/></svg>NEW</span>' : '';
     
     // Use the actual watchlist row HTML structure
     if (item.type === 'collection') {
