@@ -554,6 +554,7 @@ window.watchlistState = {
     sortBy: 'alphabetical',
     expandedSeries: {}, // seriesId: true/false
     expandedCollections: {}, // collectionId: true/false
+    expandedSeasons: {}, // seriesId-seasonNumber: true/false
     watchTimeFilter: 'all', // all, short, standard, long, epic
 };
 
@@ -1618,6 +1619,80 @@ function renderUnifiedCollection(collection) {
     return html;
 }
 
+// Group episodes by season
+function groupEpisodesBySeason(episodes) {
+    const seasonMap = {};
+    
+    episodes.forEach(episode => {
+        const seasonNumber = episode.season_number || 0;
+        if (!seasonMap[seasonNumber]) {
+            seasonMap[seasonNumber] = {
+                seasonNumber: seasonNumber,
+                episodes: [],
+                watchedCount: 0,
+                totalCount: 0
+            };
+        }
+        seasonMap[seasonNumber].episodes.push(episode);
+        seasonMap[seasonNumber].totalCount++;
+        if (episode.watched) {
+            seasonMap[seasonNumber].watchedCount++;
+        }
+    });
+    
+    // Convert to array and sort by season number
+    return Object.values(seasonMap).sort((a, b) => a.seasonNumber - b.seasonNumber);
+}
+
+// Render a season row with episodes
+function renderSeasonRow(season, seriesId) {
+    const isExpanded = watchlistState.expandedSeasons[`${seriesId}-${season.seasonNumber}`] || false;
+    const unwatchedCount = season.totalCount - season.watchedCount;
+    const seasonKey = `${seriesId}-${season.seasonNumber}`;
+    
+    // Get season poster (for now, we'll use a generic season icon, but this could be enhanced)
+    const seasonPoster = getSeasonPoster(seriesId, season.seasonNumber);
+    
+    let html = `<div class="season-row" data-series-id="${seriesId}" data-season="${season.seasonNumber}" style="margin-left: 20px; background: rgba(255,255,255,0.02); border-left: 3px solid rgba(255,255,255,0.1);">
+        <div class="season-header" style="display: flex; align-items: center; padding: 8px 12px; cursor: pointer;" onclick="toggleSeason('${seasonKey}')">
+            <img src="${seasonPoster}" alt="Season ${season.seasonNumber}" class="watchlist-thumb" style="width: 40px; height: 60px; object-fit: cover; border-radius: 4px;" onerror="this.onerror=null;this.src='/static/no-image.png';">
+            <div style="margin-left: 12px; flex: 1;">
+                <div class="title" style="font-size: 0.9em; color: #ffffff;">Season ${season.seasonNumber}</div>
+                <div class="meta" style="font-size: 0.8em; color: #cccccc;">${season.totalCount} episodes • ${unwatchedCount} unwatched</div>
+            </div>
+            <button class="expand-arrow" style="margin-left: 8px; background: none; border: none; color: #ffffff; cursor: pointer;">${isExpanded ? '▼' : '▶'}</button>
+        </div>`;
+    
+    // Render episodes if expanded
+    if (isExpanded) {
+        html += `<div class="season-episodes" style="padding-left: 52px;">`;
+        
+        // Filter episodes based on unwatched filter
+        const episodesToShow = watchlistFilters.unwatched ? 
+            season.episodes.filter(ep => !ep.watched) : 
+            season.episodes;
+        
+        for (const ep of episodesToShow) {
+            html += renderEpisodeRow(ep, seriesId);
+        }
+        html += '</div>';
+    }
+    
+    html += '</div>';
+    return html;
+}
+
+// Get season poster from series data
+function getSeasonPoster(seriesId, seasonNumber) {
+    // Find the series in current watchlist data
+    const series = currentWatchlistData?.series?.find(s => s.id == seriesId);
+    if (series && series.season_posters && series.season_posters[seasonNumber]) {
+        return series.season_posters[seasonNumber];
+    }
+    // Fallback to no-image if no season poster available
+    return '/static/no-image.png';
+}
+
 function renderUnifiedSeries(series) {
     const isExpanded = watchlistState.expandedSeries[series.id] || false;
     const isNew = isItemNew('series', series.id);
@@ -1639,16 +1714,20 @@ function renderUnifiedSeries(series) {
         </span>
     </div>`;
     
-    // Always render episodes container, but hide it if not expanded
+    // Always render seasons container, but hide it if not expanded
     if (series.episodes && series.episodes.length > 0) {
-        html += `<div class="series-episodes" style="display: ${isExpanded ? 'block' : 'none'};">`;
-        // Filter episodes based on unwatched filter
-        const episodesToShow = watchlistFilters.unwatched ? 
-            series.episodes.filter(ep => !ep.watched) : 
-            series.episodes;
+        html += `<div class="series-seasons" style="display: ${isExpanded ? 'block' : 'none'};">`;
         
-        for (const ep of episodesToShow) {
-            html += renderEpisodeRow(ep, series.id);
+        // Group episodes by season
+        const seasons = groupEpisodesBySeason(series.episodes);
+        
+        // Filter seasons based on unwatched filter
+        const seasonsToShow = watchlistFilters.unwatched ? 
+            seasons.filter(season => season.episodes.some(ep => !ep.watched)) : 
+            seasons;
+        
+        for (const season of seasonsToShow) {
+            html += renderSeasonRow(season, series.id);
         }
         html += '</div>';
     }
@@ -1706,10 +1785,10 @@ function renderUnifiedMovie(movie) {
 function renderEpisodeRow(ep, seriesId) {
     const watchedClass = ep.watched ? 'watched-row' : '';
     // Use data attributes instead of inline onchange
-    return `<div class="episode-row ${watchedClass}">
+    return `<div class="episode-row ${watchedClass}" style="margin-left: 20px; padding: 6px 12px; background: rgba(255,255,255,0.01); border-left: 2px solid rgba(255,255,255,0.05);">
         <input type="checkbox" class="checkbox episode-checkbox" data-series-id="${seriesId}" data-season="${ep.season_number}" data-episode="${ep.episode_number}" ${ep.watched ? 'checked' : ''}>
-        <div class="title">S${ep.season_number}E${ep.episode_number}: ${ep.title}</div>
-        <div class="meta">${ep.air_date || ''}</div>
+        <div class="title" style="font-size: 0.85em; color: ${ep.watched ? '#666666' : '#ffffff'}; text-decoration: ${ep.watched ? 'line-through' : 'none'};">S${ep.season_number}E${ep.episode_number}: ${ep.title}</div>
+        <div class="meta" style="font-size: 0.75em; color: #cccccc;">${ep.air_date || ''}</div>
         <span title="Remove (not supported)" style="margin-left:auto;display:inline-block;opacity:0.3;cursor:not-allowed;">
             <svg class="remove-icon" viewBox="0 0 24 24"><path d="M3 6h18M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="11" x2="10" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="11" x2="14" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </span>
@@ -1788,17 +1867,41 @@ async function toggleSeries(seriesId) {
             arrowBtn.textContent = watchlistState.expandedSeries[seriesId] ? '▼' : '▶';
         }
         
-        // Handle episodes container - just toggle visibility
-        const episodesContainer = seriesElement.nextElementSibling;
+        // Handle seasons container - just toggle visibility
+        const seasonsContainer = seriesElement.nextElementSibling;
         const isExpanded = watchlistState.expandedSeries[seriesId];
         
-        if (episodesContainer && episodesContainer.classList.contains('series-episodes')) {
-            episodesContainer.style.display = isExpanded ? 'block' : 'none';
+        if (seasonsContainer && seasonsContainer.classList.contains('series-seasons')) {
+            seasonsContainer.style.display = isExpanded ? 'block' : 'none';
         }
     }
     
     // Restore scroll position
     window.scrollTo(0, scrollPosition);
+}
+
+// Toggle season expansion
+function toggleSeason(seasonKey) {
+    // Toggle the expanded state
+    watchlistState.expandedSeasons[seasonKey] = !watchlistState.expandedSeasons[seasonKey];
+    
+    // Find the season element and update just the arrow and episodes container
+    const seasonElement = document.querySelector(`[data-series-id="${seasonKey.split('-')[0]}"][data-season="${seasonKey.split('-')[1]}"]`);
+    if (seasonElement) {
+        // Update just the arrow button
+        const arrowBtn = seasonElement.querySelector('.expand-arrow');
+        if (arrowBtn) {
+            arrowBtn.textContent = watchlistState.expandedSeasons[seasonKey] ? '▼' : '▶';
+        }
+        
+        // Handle episodes container - just toggle visibility
+        const episodesContainer = seasonElement.querySelector('.season-episodes');
+        const isExpanded = watchlistState.expandedSeasons[seasonKey];
+        
+        if (episodesContainer) {
+            episodesContainer.style.display = isExpanded ? 'block' : 'none';
+        }
+    }
 }
 
 async function toggleWatched(type, id) {

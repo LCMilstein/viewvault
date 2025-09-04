@@ -2056,6 +2056,18 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
                     ]
                     # Series is considered watched if all episodes are watched (or if no episodes, False)
                     watched = all(ep.watched for ep in episodes) if episodes else False
+                    # Get season posters if we have a TMDB ID
+                    season_posters = {}
+                    if s.imdb_id and not s.imdb_id.startswith('tmdb_'):
+                        try:
+                            from tmdb_service import get_season_posters
+                            # Convert IMDB ID to TMDB ID if needed
+                            tmdb_series = get_tmdb_series_by_imdb(s.imdb_id)
+                            if tmdb_series and 'id' in tmdb_series:
+                                season_posters = get_season_posters(tmdb_series['id'])
+                        except Exception as e:
+                            print(f"Error getting season posters for series {s.id}: {e}")
+                    
                     series_data.append({
                         "id": s.id,
                         "title": s.title,
@@ -2063,6 +2075,7 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
                         "poster_url": poster_url,
                         "watched": watched,
                         "episodes": episodes_data,
+                        "season_posters": season_posters,  # Add season poster URLs
                         "is_new": getattr(s, 'is_new', False),  # Handle missing column gracefully
                         "imported_at": getattr(s, 'imported_at', None),  # Add imported_at for "Newly Imported" badges
                         "average_episode_runtime": getattr(s, 'average_episode_runtime', None)  # Add average episode runtime field

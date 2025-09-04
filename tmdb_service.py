@@ -170,6 +170,25 @@ async def get_all_episodes_by_imdb_async(imdb_id: str) -> List[dict]:
     episodes = await fetch_seasons_concurrently(tmdb_id, seasons_to_fetch)
     return episodes
 
+def get_season_posters(tmdb_id: int) -> dict:
+    """Get season poster URLs for a TV series."""
+    try:
+        details = tv_api.details(tmdb_id)
+        details_dict = asdict_safe(details) or {}
+        
+        season_posters = {}
+        for season in details_dict.get('seasons', []):
+            season_number = season.get('season_number') if isinstance(season, dict) else getattr(season, 'season_number', None)
+            poster_path = season.get('poster_path') if isinstance(season, dict) else getattr(season, 'poster_path', None)
+            
+            if season_number is not None and poster_path:
+                season_posters[season_number] = f"https://image.tmdb.org/t/p/w500{poster_path}"
+        
+        return season_posters
+    except Exception as e:
+        print(f"[DEBUG] Error getting season posters for TMDB series {tmdb_id}: {e}")
+        return {}
+
 async def fetch_seasons_concurrently(tmdb_id: int, season_numbers: List[int]) -> List[dict]:
     """Fetch multiple seasons concurrently using aiohttp."""
     api_key = os.environ.get("TMDB_API_KEY")
