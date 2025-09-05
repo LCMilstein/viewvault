@@ -1686,7 +1686,7 @@ function renderSeasonRow(season, seriesId) {
     
     // Render episodes if expanded
     if (isExpanded) {
-        html += `<div class="season-episodes" style="padding-left: 52px;">`;
+        html += `<div class="season-episodes" style="margin-left: 40px; background: rgba(255,255,255,0.01); border-left: 2px solid rgba(255,255,255,0.05);">`;
         
         // Filter episodes based on unwatched filter
         const episodesToShow = watchlistFilters.unwatched ? 
@@ -1729,6 +1729,9 @@ function renderUnifiedSeries(series) {
     const newlyImportedBadge = isNewlyImported ? '<span class="newly-imported-badge"><svg class="badge-icon" viewBox="0 0 16 16"><path d="M8 0C3.6 0 0 3.6 0 8s3.6 8 8 8 8-3.6 8-8-3.6-8-8-8zm4 7.5l-1.4 1.4L7 6.8V2h2v4.2L10.6 9z"/></svg>NEW</span>' : '';
     const episodeCount = series.episodes ? series.episodes.length : 0;
     const unwatchedCount = series.episodes ? series.episodes.filter(ep => !ep.watched).length : 0;
+    
+    // Debug season poster data
+    console.log(`🔍 Series ${series.id} season_posters:`, series.season_posters);
     let html = `<div class="watchlist-row series-row ${isNew ? 'new-item' : ''}" data-series-id="${series.id}">
         <input type="checkbox" class="checkbox" data-type="series" data-id="${series.id}" ${series.watched ? 'checked' : ''}>
         <div class="clickable-area" data-type="series" data-id="${series.id}" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
@@ -4323,8 +4326,24 @@ async function toggleSeasonWatched(seriesId, seasonNumber) {
             await toggleEpisodeWatched(seriesId, episode.season_number, episode.episode_number);
         }
         
-        // Reload watchlist to show updated state
-        loadWatchlist();
+        // Update the season details page instead of reloading the entire watchlist
+        const seasonOverlay = document.getElementById('season-overlay');
+        if (seasonOverlay) {
+            // Re-open season details with updated data
+            const updatedSeasonData = {
+                seriesId: seriesId,
+                seasonNumber: seasonNumber,
+                episodes: seasonEpisodes,
+                poster: getSeasonPoster(seriesId, seasonNumber),
+                totalCount: seasonEpisodes.length,
+                watchedCount: seasonEpisodes.filter(ep => ep.watched).length
+            };
+            closeSeasonDetails();
+            showSeasonDetails(updatedSeasonData);
+        } else {
+            // Only reload watchlist if we're not in season details
+            loadWatchlist();
+        }
         
     } catch (error) {
         console.error('Error toggling season watched status:', error);
