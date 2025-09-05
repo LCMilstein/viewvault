@@ -1834,7 +1834,7 @@ function renderUnifiedMovie(movie) {
 function renderEpisodeRow(ep, seriesId) {
     const watchedClass = ep.watched ? 'watched-row' : '';
     // Use data attributes instead of inline onchange
-    return `<div class="episode-row ${watchedClass}" style="display: flex; align-items: center; padding: 12px 16px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 8px;">
+    return `<div class="episode-row ${watchedClass}" style="display: flex; align-items: center; padding: 12px 16px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 8px; margin-left: 40px;">
         <input type="checkbox" class="checkbox episode-checkbox" data-series-id="${seriesId}" data-season="${ep.season_number}" data-episode="${ep.episode_number}" ${ep.watched ? 'checked' : ''} style="margin-right: 12px;">
         <div class="clickable-area" data-type="episode" data-series-id="${seriesId}" data-season="${ep.season_number}" data-episode="${ep.episode_number}" onclick="handleEpisodeClick('${seriesId}', ${ep.season_number}, ${ep.episode_number})" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
             <div style="flex: 1;">
@@ -1971,7 +1971,8 @@ function toggleSeason(seasonKey) {
                         episodes: seasonEpisodes
                     };
                     const episodesHtml = renderSeasonEpisodes(seasonData);
-                    seasonElement.insertAdjacentHTML('beforeend', episodesHtml);
+                    // Insert episodes as separate rows after the season, not inside it
+                    seasonElement.insertAdjacentHTML('afterend', episodesHtml);
                 }
             }
         }
@@ -1981,7 +1982,7 @@ function toggleSeason(seasonKey) {
 // Render episodes for a season
 function renderSeasonEpisodes(seasonData) {
     const { seriesId, seasonNumber, episodes } = seasonData;
-    let html = `<div class="season-episodes" style="display: block;">`;
+    let html = '';
     
     // Filter episodes based on unwatched filter
     const episodesToShow = watchlistFilters.unwatched ? 
@@ -1992,7 +1993,6 @@ function renderSeasonEpisodes(seasonData) {
         html += renderEpisodeRow(ep, seriesId);
     }
     
-    html += '</div>';
     return html;
 }
 
