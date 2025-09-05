@@ -1832,12 +1832,12 @@ function renderUnifiedMovie(movie) {
 function renderEpisodeRow(ep, seriesId) {
     const watchedClass = ep.watched ? 'watched-row' : '';
     // Use data attributes instead of inline onchange
-    return `<div class="episode-row ${watchedClass}" style="display: flex; align-items: center; padding: 8px 12px; background: rgba(255,255,255,0.01); border-left: 2px solid rgba(255,255,255,0.05); margin-bottom: 4px;">
+    return `<div class="episode-row ${watchedClass}" style="display: flex; align-items: center; padding: 12px 16px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); border-radius: 8px; margin-bottom: 8px;">
         <input type="checkbox" class="checkbox episode-checkbox" data-series-id="${seriesId}" data-season="${ep.season_number}" data-episode="${ep.episode_number}" ${ep.watched ? 'checked' : ''} style="margin-right: 12px;">
         <div class="clickable-area" data-type="episode" data-series-id="${seriesId}" data-season="${ep.season_number}" data-episode="${ep.episode_number}" onclick="handleEpisodeClick('${seriesId}', ${ep.season_number}, ${ep.episode_number})" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
             <div style="flex: 1;">
-                <div class="title" style="font-size: 0.85em; color: ${ep.watched ? '#666666' : '#ffffff'}; text-decoration: ${ep.watched ? 'line-through' : 'none'}; margin-bottom: 2px;">S${ep.season_number}E${ep.episode_number}: ${ep.title}</div>
-                <div class="meta" style="font-size: 0.75em; color: #cccccc;">${ep.air_date || ''}</div>
+                <div class="title" style="font-size: 0.9em; color: ${ep.watched ? '#666666' : '#ffffff'}; text-decoration: ${ep.watched ? 'line-through' : 'none'}; margin-bottom: 2px;">S${ep.season_number}E${ep.episode_number}: ${ep.title}</div>
+                <div class="meta" style="font-size: 0.8em; color: #cccccc;">${ep.air_date || ''}</div>
             </div>
         </div>
         <span title="Remove (not supported)" style="margin-left:auto;display:inline-block;opacity:0.3;cursor:not-allowed;">
@@ -1979,7 +1979,7 @@ function toggleSeason(seasonKey) {
 // Render episodes for a season
 function renderSeasonEpisodes(seasonData) {
     const { seriesId, seasonNumber, episodes } = seasonData;
-    let html = `<div class="season-episodes" style="margin-left: 40px; background: rgba(255,255,255,0.01); border-left: 2px solid rgba(255,255,255,0.05); display: block;">`;
+    let html = `<div class="season-episodes" style="display: block;">`;
     
     // Filter episodes based on unwatched filter
     const episodesToShow = watchlistFilters.unwatched ? 
@@ -4274,19 +4274,33 @@ function showCollectionDetails(collection) {
         });
     }
     
-    // Create full-page overlay
-    const overlay = document.createElement('div');
-    overlay.id = 'collection-overlay';
-    overlay.style.cssText = `
+    // Create modal overlay
+    const modal = document.createElement('div');
+    modal.style.cssText = `
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
         z-index: 1000;
+    `;
+    
+    // Create modal content
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 1000px;
+        width: 95%;
+        max-height: 90vh;
         overflow-y: auto;
-        padding: 20px;
+        border: 2px solid #00d4aa;
+        box-shadow: 0 8px 48px 0 rgba(83, 52, 131, 0.4);
     `;
     
     // Calculate collection stats
@@ -4306,35 +4320,34 @@ function showCollectionDetails(collection) {
     
     // Build collection header
     const header = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-            <button onclick="closeCollectionDetails()" style="background: none; border: none; color: #cccccc; font-size: 24px; cursor: pointer; padding: 8px; display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 18px;">←</span> Back to Watchlist
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 1.8em;">Collection Details</h1>
+            <button onclick="closeModal()" style="background: none; border: none; color: #cccccc; font-size: 24px; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">×</button>
+        </div>
+        <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+            <button onclick="toggleCollectionWatched('${collection.id}')" style="background: #00d4aa; color: #000000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                ${watchedMovies === totalMovies ? 'Mark All Unwatched' : 'Mark All Watched'}
             </button>
-            <div style="display: flex; gap: 12px;">
-                <button onclick="toggleCollectionWatched('${collection.id}')" style="background: #00d4aa; color: #000000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                    ${watchedMovies === totalMovies ? 'Mark All Unwatched' : 'Mark All Watched'}
-                </button>
-                <button onclick="removeCollection('${collection.id}')" style="background: #ff6b6b; color: #ffffff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                    Remove Collection
-                </button>
-            </div>
+            <button onclick="removeCollection('${collection.id}')" style="background: #ff6b6b; color: #ffffff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                Remove Collection
+            </button>
         </div>
     `;
     
     // Build collection info
     const collectionInfo = `
-        <div style="display: flex; gap: 24px; margin-bottom: 30px; padding: 24px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+        <div style="display: flex; gap: 20px; margin-bottom: 20px; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 12px;">
             <div style="position: relative;">
-                <img src="${collection.poster_url || '/static/no-image.png'}" alt="Collection Poster" style="width: 150px; height: 225px; object-fit: cover; border-radius: 8px;" onerror="this.src='/static/no-image.png';">
-                <input type="checkbox" ${watchedMovies === totalMovies ? 'checked' : ''} onchange="toggleCollectionWatched('${collection.id}')" style="position: absolute; bottom: 8px; left: 8px; transform: scale(1.3);">
+                <img src="${collection.poster_url || '/static/no-image.png'}" alt="Collection Poster" style="width: 120px; height: 180px; object-fit: cover; border-radius: 8px;" onerror="this.src='/static/no-image.png';">
+                <input type="checkbox" ${watchedMovies === totalMovies ? 'checked' : ''} onchange="toggleCollectionWatched('${collection.id}')" style="position: absolute; bottom: 4px; left: 4px; transform: scale(1.2);">
             </div>
             <div style="flex: 1;">
-                <h1 style="color: #ffffff; margin: 0 0 12px 0; font-size: 2.2em;">${collection.title}</h1>
-                <p style="color: #cccccc; margin: 0 0 8px 0; font-size: 1.1em;">
+                <h2 style="color: #ffffff; margin: 0 0 8px 0; font-size: 1.5em;">${collection.title}</h2>
+                <p style="color: #cccccc; margin: 0 0 8px 0;">
                     Collection • ${totalMovies} movies • ${unwatchedMovies} unwatched
                 </p>
-                <p style="color: #cccccc; margin: 0 0 16px 0;">${collectionStatus}</p>
-                <div style="color: #e0e6ff; line-height: 1.6; font-size: 1.1em;">
+                <p style="color: #cccccc; margin: 0 0 12px 0;">${collectionStatus}</p>
+                <div style="color: #e0e6ff; line-height: 1.5;">
                     ${collection.overview || 'No description available.'}
                 </div>
             </div>
@@ -4343,9 +4356,9 @@ function showCollectionDetails(collection) {
     
     // Build movies grid
     const moviesGrid = `
-        <div style="margin-bottom: 30px;">
-            <h2 style="color: #ffffff; margin: 0 0 20px 0; font-size: 1.8em;">Movies in Collection</h2>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 16px;">
+        <div style="margin-bottom: 20px;">
+            <h3 style="color: #ffffff; margin: 0 0 16px 0; font-size: 1.4em;">Movies in Collection</h3>
+            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
                 ${collection.items.map(movie => {
                     const isNew = isItemNew('movie', movie.id);
                     const newBadge = isNew ? '<span style="background: linear-gradient(135deg, #00d4aa 0%, #00b894 100%); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 8px;">NEW</span>' : '';
@@ -4369,28 +4382,28 @@ function showCollectionDetails(collection) {
                     }
                     
                     return `
-                        <div class="movie-card" style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 16px; cursor: pointer; transition: background-color 0.2s;" 
+                        <div class="movie-card" style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; cursor: pointer; transition: background-color 0.2s;" 
                              onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" 
                              onmouseout="this.style.backgroundColor='rgba(255,255,255,0.05)'"
-                             onclick="showMovieDetails(${movie.id}, ${JSON.stringify(movie).replace(/"/g, '&quot;')})">
-                            <div style="display: flex; gap: 12px;">
+                             onclick="showMovieDetails(${movie.id}, '${JSON.stringify(movie).replace(/"/g, '&quot;')}')">
+                            <div style="display: flex; gap: 10px;">
                                 <div style="position: relative;">
-                                    <img src="${movie.poster_url || '/static/no-image.png'}" alt="Poster" style="width: 60px; height: 90px; object-fit: cover; border-radius: 6px;" onerror="this.src='/static/no-image.png';">
+                                    <img src="${movie.poster_url || '/static/no-image.png'}" alt="Poster" style="width: 50px; height: 75px; object-fit: cover; border-radius: 4px;" onerror="this.src='/static/no-image.png';">
                                     <input type="checkbox" ${movie.watched ? 'checked' : ''} 
                                            onclick="event.stopPropagation(); toggleMovieInCollection(${movie.id}, this.checked)" 
-                                           style="position: absolute; bottom: 2px; left: 2px; transform: scale(0.9);">
+                                           style="position: absolute; bottom: 2px; left: 2px; transform: scale(0.8);">
                                 </div>
                                 <div style="flex: 1;">
                                     <div style="display: flex; align-items: center; margin-bottom: 4px;">
-                                        <h3 style="color: ${movie.watched ? '#666666' : '#ffffff'}; margin: 0; font-size: 1.1em; text-decoration: ${movie.watched ? 'line-through' : 'none'};">
+                                        <h4 style="color: ${movie.watched ? '#666666' : '#ffffff'}; margin: 0; font-size: 1em; text-decoration: ${movie.watched ? 'line-through' : 'none'};">
                                             ${movie.title}${newBadge}${newlyImportedBadge}${qualityBadge}
-                                        </h3>
+                                        </h4>
                                     </div>
-                                    <p style="color: #cccccc; margin: 0; font-size: 0.9em;">
+                                    <p style="color: #cccccc; margin: 0; font-size: 0.8em;">
                                         ${movie.release_date ? new Date(movie.release_date).getFullYear() : ''}
                                         ${movie.runtime ? ` • ${movie.runtime} min` : ''}
                                     </p>
-                                    <p style="color: ${movie.watched ? '#00d4aa' : '#ff6b6b'}; margin: 4px 0 0 0; font-size: 0.9em; font-weight: 600;">
+                                    <p style="color: ${movie.watched ? '#00d4aa' : '#ff6b6b'}; margin: 4px 0 0 0; font-size: 0.8em; font-weight: 600;">
                                         ${movie.watched ? '✓ Watched' : '○ Not Watched'}
                                     </p>
                                 </div>
@@ -4404,46 +4417,59 @@ function showCollectionDetails(collection) {
     
     // Build notes section
     const notesSection = `
-        <div style="padding: 24px; background: rgba(255,255,255,0.05); border-radius: 12px;">
-            <h3 style="color: #ffffff; margin: 0 0 16px 0;">Collection Notes</h3>
-            <textarea id="collection-notes-textarea" placeholder="Add notes about this collection..." style="width: 100%; min-height: 100px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 12px; color: #ffffff; font-family: inherit; resize: vertical;">${collection.notes || ''}</textarea>
+        <div style="padding: 16px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+            <h3 style="color: #ffffff; margin: 0 0 12px 0; font-size: 1.2em;">Collection Notes</h3>
+            <textarea id="collection-notes-textarea" placeholder="Add notes about this collection..." style="width: 100%; min-height: 80px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 12px; color: #ffffff; font-family: inherit; resize: vertical;">${collection.notes || ''}</textarea>
             <div style="margin-top: 12px;">
-                <button onclick="saveCollectionNotes('${collection.id}')" style="background: #00d4aa; color: #000000; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; font-weight: 600;">Save Notes</button>
+                <button onclick="saveCollectionNotes('${collection.id}')" style="background: #00d4aa; color: #000000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Save Notes</button>
             </div>
         </div>
     `;
     
-    overlay.innerHTML = header + collectionInfo + moviesGrid + notesSection;
-    document.body.appendChild(overlay);
+    modalContent.innerHTML = header + collectionInfo + moviesGrid + notesSection;
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
+    
+    // Close modal when clicking outside
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeModal();
+        }
+    });
 }
 
-/**
- * Close the collection details page
- */
-function closeCollectionDetails() {
-    const overlay = document.getElementById('collection-overlay');
-    if (overlay) {
-        overlay.remove();
-    }
-}
 
 /**
  * Show season details page
  */
 function showSeasonDetails(seasonData) {
-    // Create full-page overlay
-    const overlay = document.createElement('div');
-    overlay.id = 'season-overlay';
-    overlay.style.cssText = `
+    // Create modal overlay
+    const modal = document.createElement('div');
+    modal.style.cssText = `
         position: fixed;
         top: 0;
         left: 0;
         width: 100%;
         height: 100%;
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        background: rgba(0, 0, 0, 0.8);
+        display: flex;
+        justify-content: center;
+        align-items: center;
         z-index: 1000;
+    `;
+    
+    // Create modal content
+    const modalContent = document.createElement('div');
+    modalContent.style.cssText = `
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border-radius: 12px;
+        padding: 24px;
+        max-width: 800px;
+        width: 90%;
+        max-height: 80vh;
         overflow-y: auto;
-        padding: 20px;
+        border: 2px solid #00d4aa;
+        box-shadow: 0 8px 48px 0 rgba(83, 52, 131, 0.4);
     `;
     
     // Calculate season stats
@@ -4463,48 +4489,47 @@ function showSeasonDetails(seasonData) {
     
     // Build season header
     const header = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-            <button onclick="closeSeasonDetails()" style="background: none; border: none; color: #cccccc; font-size: 24px; cursor: pointer; padding: 8px; display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 18px;">←</span> Back to Watchlist
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <h1 style="color: #ffffff; margin: 0; font-size: 1.8em;">Season Details</h1>
+            <button onclick="closeModal()" style="background: none; border: none; color: #cccccc; font-size: 24px; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">×</button>
+        </div>
+        <div style="display: flex; gap: 12px; margin-bottom: 20px;">
+            <button onclick="toggleSeasonWatched('${seasonData.seriesId}', ${seasonData.seasonNumber})" style="background: #00d4aa; color: #000000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                ${watchedEpisodes === totalEpisodes ? 'Mark All Unwatched' : 'Mark All Watched'}
             </button>
-            <div style="display: flex; gap: 12px;">
-                <button onclick="toggleSeasonWatched('${seasonData.seriesId}', ${seasonData.seasonNumber})" style="background: #00d4aa; color: #000000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                    ${watchedEpisodes === totalEpisodes ? 'Mark All Unwatched' : 'Mark All Watched'}
-                </button>
-            </div>
         </div>
     `;
     
     // Build season info
     const seasonInfo = `
-        <div style="display: flex; gap: 24px; margin-bottom: 30px; padding: 24px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+        <div style="display: flex; gap: 20px; margin-bottom: 20px; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 12px;">
             <div style="position: relative;">
-                <img src="${seasonData.poster || '/static/no-image.png'}" alt="Season Poster" style="width: 150px; height: 225px; object-fit: cover; border-radius: 8px;" onerror="this.src='/static/no-image.png';">
-                <input type="checkbox" ${watchedEpisodes === totalEpisodes ? 'checked' : ''} onchange="toggleSeasonWatched('${seasonData.seriesId}', ${seasonData.seasonNumber})" style="position: absolute; bottom: 8px; left: 8px; transform: scale(1.3);">
+                <img src="${seasonData.poster || '/static/no-image.png'}" alt="Season Poster" style="width: 120px; height: 180px; object-fit: cover; border-radius: 8px;" onerror="this.src='/static/no-image.png';">
+                <input type="checkbox" ${watchedEpisodes === totalEpisodes ? 'checked' : ''} onchange="toggleSeasonWatched('${seasonData.seriesId}', ${seasonData.seasonNumber})" style="position: absolute; bottom: 4px; left: 4px; transform: scale(1.2);">
             </div>
             <div style="flex: 1;">
-                <h1 style="color: #ffffff; margin: 0 0 12px 0; font-size: 2.2em;">Season ${seasonData.seasonNumber}</h1>
-                <p style="color: #cccccc; margin: 0 0 8px 0; font-size: 1.1em;">
+                <h2 style="color: #ffffff; margin: 0 0 8px 0; font-size: 1.5em;">Season ${seasonData.seasonNumber}</h2>
+                <p style="color: #cccccc; margin: 0 0 8px 0;">
                     ${totalEpisodes} episodes • ${unwatchedEpisodes} unwatched
                 </p>
-                <p style="color: #cccccc; margin: 0 0 16px 0;">${seasonStatus}</p>
+                <p style="color: #cccccc; margin: 0 0 12px 0;">${seasonStatus}</p>
             </div>
         </div>
     `;
     
     // Build episodes list
     const episodesList = `
-        <div style="margin-bottom: 30px;">
-            <h2 style="color: #ffffff; margin: 0 0 20px 0; font-size: 1.8em;">Episodes</h2>
-            <div style="display: flex; flex-direction: column; gap: 8px;">
+        <div style="margin-bottom: 20px;">
+            <h3 style="color: #ffffff; margin: 0 0 16px 0; font-size: 1.4em;">Episodes</h3>
+            <div style="display: flex; flex-direction: column; gap: 6px;">
                 ${seasonData.episodes.map(episode => `
-                    <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 6px;">
                         <input type="checkbox" ${episode.watched ? 'checked' : ''} onchange="toggleEpisodeWatchedInDetails(${seasonData.seriesId}, ${episode.season_number}, ${episode.episode_number}, this.checked)">
-                        <div style="flex: 1; cursor: pointer;" onclick="handleEpisodeClick('${seasonData.seriesId}', ${episode.season_number}, ${episode.episode_number})" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'" style="padding: 8px; border-radius: 4px;">
-                            <h3 style="color: ${episode.watched ? '#666666' : '#ffffff'}; margin: 0; font-size: 1.1em; text-decoration: ${episode.watched ? 'line-through' : 'none'};">
+                        <div style="flex: 1; cursor: pointer;" onclick="handleEpisodeClick('${seasonData.seriesId}', ${episode.season_number}, ${episode.episode_number})" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'" style="padding: 6px; border-radius: 4px;">
+                            <h4 style="color: ${episode.watched ? '#666666' : '#ffffff'}; margin: 0; font-size: 1em; text-decoration: ${episode.watched ? 'line-through' : 'none'};">
                                 ${episode.code} - ${episode.title}
-                            </h3>
-                            <p style="color: #cccccc; margin: 0; font-size: 0.9em;">
+                            </h4>
+                            <p style="color: #cccccc; margin: 0; font-size: 0.8em;">
                                 ${episode.air_date || 'No air date'}
                             </p>
                         </div>
@@ -4514,143 +4539,19 @@ function showSeasonDetails(seasonData) {
         </div>
     `;
     
-    overlay.innerHTML = header + seasonInfo + episodesList;
-    document.body.appendChild(overlay);
-}
-
-/**
- * Close the season details page
- */
-function closeSeasonDetails() {
-    const overlay = document.getElementById('season-overlay');
-    if (overlay) {
-        overlay.remove();
-    }
-}
-
-/**
- * Show episode details page
- */
-async function showEpisodeDetails(episodeData) {
-    // Remove any existing episode overlay to prevent flashing
-    const existingOverlay = document.getElementById('episode-overlay');
-    if (existingOverlay) {
-        existingOverlay.remove();
-    }
+    modalContent.innerHTML = header + seasonInfo + episodesList;
+    modal.appendChild(modalContent);
+    document.body.appendChild(modal);
     
-    // Create full-page overlay
-    const overlay = document.createElement('div');
-    overlay.id = 'episode-overlay';
-    overlay.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        z-index: 1000;
-        overflow-y: auto;
-        padding: 20px;
-    `;
-    
-    // Show loading state initially
-    overlay.innerHTML = `
-        <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
-            <div style="text-align: center; color: #cccccc;">
-                <div style="font-size: 18px; margin-bottom: 12px;">Loading episode details...</div>
-                <div style="font-size: 14px; color: #888;">${episodeData.title}</div>
-            </div>
-        </div>
-    `;
-    document.body.appendChild(overlay);
-    
-    // Fetch additional episode data from backend
-    let enhancedEpisodeData = { ...episodeData };
-    try {
-        const authHeaders = getAuthHeaders();
-        console.log('🔍 Auth headers:', authHeaders);
-        console.log('🔍 Token from localStorage:', localStorage.getItem('access_token'));
-        
-        const response = await fetch(`/api/episodes/${episodeData.id}/details`, {
-            headers: authHeaders
-        });
-        
-        console.log('🔍 Response status:', response.status);
-        
-        if (response.ok) {
-            const enhancedData = await response.json();
-            enhancedEpisodeData = { ...episodeData, ...enhancedData };
-            console.log('🔍 Enhanced episode data:', enhancedData);
-        } else if (response.status === 404) {
-            console.log('🔍 Episode not found in database, using basic data');
-            // Keep the original episode data if not found
-        } else if (response.status === 403) {
-            console.log('🔍 Authentication failed - token may be invalid or expired');
-            // Keep the original episode data if authentication fails
-        } else {
-            console.log('🔍 Could not fetch enhanced episode data:', response.status);
+    // Close modal when clicking outside
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            closeModal();
         }
-    } catch (error) {
-        console.log('🔍 Could not fetch enhanced episode data:', error);
-    }
-    
-    // Build episode header
-    const header = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
-            <button onclick="closeEpisodeDetails()" style="background: none; border: none; color: #cccccc; font-size: 24px; cursor: pointer; padding: 8px; display: flex; align-items: center; gap: 8px;">
-                <span style="font-size: 18px;">←</span> Back to Watchlist
-            </button>
-            <div style="display: flex; gap: 12px;">
-                <button onclick="toggleEpisodeWatchedInDetails(${enhancedEpisodeData.series_id}, ${enhancedEpisodeData.season_number}, ${enhancedEpisodeData.episode_number}, !${enhancedEpisodeData.watched})" style="background: #00d4aa; color: #000000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                    ${enhancedEpisodeData.watched ? 'Mark Unwatched' : 'Mark Watched'}
-                </button>
-            </div>
-        </div>
-    `;
-    
-    // Build episode info
-    const episodeImage = enhancedEpisodeData.still_path ? 
-        `https://image.tmdb.org/t/p/w500${enhancedEpisodeData.still_path}` : 
-        '/static/no-image.png';
-    
-    const episodeInfo = `
-        <div style="display: flex; gap: 24px; margin-bottom: 30px; padding: 24px; background: rgba(255,255,255,0.05); border-radius: 12px;">
-            <div style="position: relative;">
-                <img src="${episodeImage}" alt="Episode Still" style="width: 200px; height: 112px; object-fit: cover; border-radius: 8px;" onerror="this.src='/static/no-image.png';">
-                <input type="checkbox" ${enhancedEpisodeData.watched ? 'checked' : ''} onchange="toggleEpisodeWatchedInDetails(${enhancedEpisodeData.series_id}, ${enhancedEpisodeData.season_number}, ${enhancedEpisodeData.episode_number}, this.checked)" style="position: absolute; bottom: 8px; left: 8px; transform: scale(1.3);">
-            </div>
-            <div style="flex: 1;">
-                <h1 style="color: #ffffff; margin: 0 0 12px 0; font-size: 2.2em;">${enhancedEpisodeData.title}</h1>
-                <p style="color: #cccccc; margin: 0 0 8px 0; font-size: 1.1em;">
-                    ${enhancedEpisodeData.series_title} • Season ${enhancedEpisodeData.season_number}, Episode ${enhancedEpisodeData.episode_number}
-                </p>
-                <p style="color: #cccccc; margin: 0 0 16px 0;">
-                    ${enhancedEpisodeData.air_date ? `Aired: ${enhancedEpisodeData.air_date}` : 'No air date available'}
-                    ${enhancedEpisodeData.runtime ? ` • ${enhancedEpisodeData.runtime} min` : ''}
-                    ${enhancedEpisodeData.vote_average ? ` • ⭐ ${enhancedEpisodeData.vote_average.toFixed(1)}/10` : ''}
-                </p>
-                <p style="color: #cccccc; margin: 0 0 16px 0; font-style: italic; line-height: 1.5;">
-                    ${enhancedEpisodeData.overview || 'No description available for this episode.'}
-                </p>
-                <p style="color: ${enhancedEpisodeData.watched ? '#00d4aa' : '#ff6b6b'}; margin: 0; font-weight: bold;">
-                    ${enhancedEpisodeData.watched ? '✓ Watched' : '○ Not Watched'}
-                </p>
-            </div>
-        </div>
-    `;
-    
-    overlay.innerHTML = header + episodeInfo;
+    });
 }
 
-/**
- * Close the episode details page
- */
-function closeEpisodeDetails() {
-    const overlay = document.getElementById('episode-overlay');
-    if (overlay) {
-        overlay.remove();
-    }
-}
+
 
 /**
  * Toggle watched status for entire season
