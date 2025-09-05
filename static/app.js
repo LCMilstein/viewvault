@@ -1696,7 +1696,7 @@ function renderSeasonRow(season, seriesId) {
     
     // Render episodes if expanded
     if (isExpanded) {
-        html += `<div class="season-episodes" style="margin-left: 10px; background: rgba(255,255,255,0.01); border-left: 2px solid rgba(255,255,255,0.05);">`;
+        html += `<div class="season-episodes" style="margin-left: 20px; background: rgba(255,255,255,0.01); border-left: 2px solid rgba(255,255,255,0.05); display: block;">`;
         
         // Filter episodes based on unwatched filter
         const episodesToShow = watchlistFilters.unwatched ? 
