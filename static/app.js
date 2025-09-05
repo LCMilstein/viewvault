@@ -1738,7 +1738,8 @@ function renderUnifiedSeries(series) {
     const unwatchedCount = series.episodes ? series.episodes.filter(ep => !ep.watched).length : 0;
     
     // Debug season poster data
-    console.log(`🔍 Series ${series.id} season_posters:`, series.season_posters);
+    console.log(`🔍 Series ${series.id} (${series.title}) season_posters:`, series.season_posters);
+    console.log(`🔍 Series ${series.id} IMDB ID:`, series.imdb_id);
     let html = `<div class="watchlist-row series-row ${isNew ? 'new-item' : ''}" data-series-id="${series.id}">
         <input type="checkbox" class="checkbox" data-type="series" data-id="${series.id}" ${series.watched ? 'checked' : ''}>
         <div class="clickable-area" data-type="series" data-id="${series.id}" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
