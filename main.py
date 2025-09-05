@@ -1834,17 +1834,17 @@ def toggle_episode_watched(episode_id: int):
         return episode
 
 @api_router.get("/episodes/{episode_id}/details")
-def get_episode_details(episode_id: int, current_user: User = Depends(get_current_user)):
+def get_episode_details(episode_id: int):
     """Get enhanced episode details from TMDB"""
     with Session(engine) as session:
         episode = session.get(Episode, episode_id)
         if not episode:
             raise HTTPException(status_code=404, detail="Episode not found")
         
-        # Check if user owns this episode
+        # Get series info
         series = session.get(Series, episode.series_id)
-        if not series or series.user_id != current_user.id:
-            raise HTTPException(status_code=404, detail="Episode not found")
+        if not series:
+            raise HTTPException(status_code=404, detail="Series not found")
         
         # Get enhanced data from TMDB
         enhanced_data = {
