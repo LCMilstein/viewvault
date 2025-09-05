@@ -103,13 +103,15 @@ class JellyfinService:
                 data = response.json()
                 libraries = []
                 for item in data.get('Items', []):
-                    if item.get('CollectionType') == 'movies':
+                    collection_type = item.get('CollectionType')
+                    # Include movie libraries and mixed libraries that might contain movies
+                    if collection_type in ['movies', 'mixed']:
                         libraries.append({
                             'id': item.get('Id'),
                             'name': item.get('Name'),
-                            'type': item.get('CollectionType')
+                            'type': collection_type
                         })
-                logger.info(f"Found {len(libraries)} movie libraries")
+                logger.info(f"Found {len(libraries)} movie/mixed libraries: {[lib['name'] for lib in libraries]}")
                 return libraries
             else:
                 logger.error(f"Failed to get libraries: {response.status_code}")
