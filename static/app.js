@@ -1426,7 +1426,7 @@ function renderWatchlist(data) {
             area.onclick = function(e) {
                 e.stopPropagation();
                 const type = area.getAttribute('data-type');
-                const id = area.getAttribute('data-id');
+                let id = area.getAttribute('data-id');
                 
                 // Find the item data from currentWatchlistData
                 let itemData = null;
@@ -1696,7 +1696,7 @@ function renderSeasonRow(season, seriesId) {
     
     // Render episodes if expanded
     if (isExpanded) {
-        html += `<div class="season-episodes" style="margin-left: 20px; background: rgba(255,255,255,0.01); border-left: 2px solid rgba(255,255,255,0.05);">`;
+        html += `<div class="season-episodes" style="margin-left: 10px; background: rgba(255,255,255,0.01); border-left: 2px solid rgba(255,255,255,0.05);">`;
         
         // Filter episodes based on unwatched filter
         const episodesToShow = watchlistFilters.unwatched ? 
@@ -1994,6 +1994,7 @@ function handleEpisodeClick(seriesId, seasonNumber, episodeNumber) {
         );
         
         if (episode) {
+            console.log('🔍 Found episode:', episode);
             const itemData = {
                 id: episode.id,
                 seriesId: seriesId,
@@ -2007,6 +2008,8 @@ function handleEpisodeClick(seriesId, seasonNumber, episodeNumber) {
             
             console.log('🎬 Opening episode details for:', itemData);
             showDetails('episode', episode.id, itemData);
+        } else {
+            console.log('❌ Episode not found for:', { seriesId, seasonNumber, episodeNumber });
         }
     }
 }
@@ -6013,7 +6016,7 @@ function renderWatchlistFromData(watchlistData) {
             area.onclick = function(e) {
                 e.stopPropagation();
                 const type = area.getAttribute('data-type');
-                const id = area.getAttribute('data-id');
+                let id = area.getAttribute('data-id');
                 
                 // Find the item data from currentWatchlistData
                 let itemData = null;
