@@ -637,6 +637,12 @@ function isItemNew(itemType, itemId) {
 function clearNewlyImportedStatus(itemType, itemId) {
     console.log(`🔍 Clearing newly imported status for ${itemType} ${itemId}`);
     
+    // For seasons, we don't need to clear anything since seasons don't have imported_at status
+    if (itemType === 'season') {
+        console.log('🔍 Season clicked - no need to clear imported status');
+        return;
+    }
+    
     // Remove from global newItems state
     if (itemType === 'movie') {
         if (newItems.newly_imported_movies) {
@@ -1448,6 +1454,7 @@ function renderWatchlist(data) {
                             const seasonEpisodes = series.episodes.filter(ep => ep.season_number == seasonNumber);
                             const seasonPoster = getSeasonPoster(seriesId, seasonNumber);
                             itemData = {
+                                id: `${seriesId}-${seasonNumber}`, // Create a unique ID for the season
                                 seriesId: seriesId,
                                 seasonNumber: parseInt(seasonNumber),
                                 episodes: seasonEpisodes,

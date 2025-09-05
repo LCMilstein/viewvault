@@ -2058,15 +2058,20 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
                     watched = all(ep.watched for ep in episodes) if episodes else False
                     # Get season posters if we have a TMDB ID
                     season_posters = {}
+                    print(f"🔍 Getting season posters for series {s.id} with IMDB ID: {s.imdb_id}")
                     if s.imdb_id and not s.imdb_id.startswith('tmdb_'):
                         try:
                             from tmdb_service import get_season_posters
                             # Convert IMDB ID to TMDB ID if needed
                             tmdb_series = get_tmdb_series_by_imdb(s.imdb_id)
+                            print(f"🔍 TMDB series found: {tmdb_series}")
                             if tmdb_series and 'id' in tmdb_series:
                                 season_posters = get_season_posters(tmdb_series['id'])
+                                print(f"🔍 Season posters retrieved: {season_posters}")
                         except Exception as e:
                             print(f"Error getting season posters for series {s.id}: {e}")
+                    else:
+                        print(f"🔍 Skipping season posters for series {s.id} - no valid IMDB ID")
                     
                     series_data.append({
                         "id": s.id,
