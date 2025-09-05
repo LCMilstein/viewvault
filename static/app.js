@@ -4075,25 +4075,7 @@ async function showDetails(type, id, itemData) {
     // Clear newly imported status when details are viewed
     clearNewlyImportedStatus(type, id);
     
-    // Special handling for collections - show dedicated collection page
-    if (type === 'collection' && itemData) {
-        showCollectionDetails(itemData);
-        return;
-    }
-    
-    // Special handling for seasons - show season details
-    if (type === 'season' && itemData) {
-        console.log('🎬 Opening season details for:', itemData);
-        try {
-            showSeasonDetails(itemData);
-        } catch (error) {
-            console.error('❌ Error opening season details:', error);
-            showError('Failed to open season details');
-        }
-        return;
-    }
-    
-    // Episodes now use the same modal UI as movies and series
+    // All types now use the unified modal UI
     
     // Create modal overlay
     const modal = document.createElement('div');
@@ -4142,6 +4124,26 @@ async function showDetails(type, id, itemData) {
             quality = ''; // Episodes don't have quality info
             watched = itemData.watched || false;
             notes = itemData.notes || '';
+        } else if (type === 'collection') {
+            // Collection data structure
+            poster = itemData.poster_url || '/static/no-image.png';
+            title = itemData.title || 'Unknown Collection';
+            overview = itemData.overview || 'No description available.';
+            releaseDate = ''; // Collections don't have single release date
+            runtime = ''; // Collections don't have single runtime
+            quality = ''; // Collections don't have quality
+            watched = itemData.items ? itemData.items.every(m => m.watched) : false;
+            notes = itemData.notes || '';
+        } else if (type === 'season') {
+            // Season data structure
+            poster = itemData.poster || '/static/no-image.png';
+            title = `Season ${itemData.seasonNumber}`;
+            overview = ''; // Seasons don't have descriptions
+            releaseDate = ''; // Seasons don't have single release date
+            runtime = ''; // Seasons don't have single runtime
+            quality = ''; // Seasons don't have quality
+            watched = itemData.episodes ? itemData.episodes.every(ep => ep.watched) : false;
+            notes = ''; // Seasons don't have notes
         } else {
             // Movie/series data structure
             poster = itemData.poster_url || '/static/no-image.png';
@@ -4157,6 +4159,30 @@ async function showDetails(type, id, itemData) {
         // Watched status indicator
         let watchedStatus = '';
         if (type === 'series' && itemData.episodes) {
+            const totalEpisodes = itemData.episodes.length;
+            const watchedEpisodes = itemData.episodes.filter(ep => ep.watched).length;
+            const unwatchedEpisodes = totalEpisodes - watchedEpisodes;
+            
+            if (watchedEpisodes === 0) {
+                watchedStatus = '<span style="color: #ff6b6b; font-weight: bold;">○ Not Watched</span>';
+            } else if (watchedEpisodes === totalEpisodes) {
+                watchedStatus = '<span style="color: #00d4aa; font-weight: bold;">✓ Watched</span>';
+            } else {
+                watchedStatus = `<span style="color: #ffa500; font-weight: bold;">◐ Partially Watched</span> (${watchedEpisodes}/${totalEpisodes})`;
+            }
+        } else if (type === 'collection' && itemData.items) {
+            const totalMovies = itemData.items.length;
+            const watchedMovies = itemData.items.filter(m => m.watched).length;
+            const unwatchedMovies = totalMovies - watchedMovies;
+            
+            if (watchedMovies === 0) {
+                watchedStatus = '<span style="color: #ff6b6b; font-weight: bold;">○ Not Watched</span>';
+            } else if (watchedMovies === totalMovies) {
+                watchedStatus = '<span style="color: #00d4aa; font-weight: bold;">✓ Watched</span>';
+            } else {
+                watchedStatus = `<span style="color: #ffa500; font-weight: bold;">◐ Partially Watched</span> (${watchedMovies}/${totalMovies})`;
+            }
+        } else if (type === 'season' && itemData.episodes) {
             const totalEpisodes = itemData.episodes.length;
             const watchedEpisodes = itemData.episodes.filter(ep => ep.watched).length;
             const unwatchedEpisodes = totalEpisodes - watchedEpisodes;
@@ -4184,9 +4210,15 @@ async function showDetails(type, id, itemData) {
                 <div style="flex: 1;">
                     <h2 style="color: #ffffff; margin: 0 0 8px 0; font-size: 1.5em;">${title}</h2>
                     <p style="color: #cccccc; margin: 0 0 8px 0;">
-                        ${type === 'movie' ? 'Movie' : type === 'episode' ? 'TV Episode' : 'TV Series'}
+                        ${type === 'movie' ? 'Movie' : 
+                          type === 'episode' ? 'TV Episode' : 
+                          type === 'collection' ? 'Collection' :
+                          type === 'season' ? 'TV Season' :
+                          'TV Series'}
                         ${type === 'episode' && itemData.seriesTitle ? ` • ${itemData.seriesTitle}` : ''}
                         ${type === 'episode' && itemData.seasonNumber && itemData.episodeNumber ? ` • Season ${itemData.seasonNumber}, Episode ${itemData.episodeNumber}` : ''}
+                        ${type === 'collection' && itemData.items ? ` • ${itemData.items.length} movies` : ''}
+                        ${type === 'season' && itemData.episodes ? ` • ${itemData.episodes.length} episodes` : ''}
                         ${releaseDate ? ` • ${releaseDate}` : ''}
                         ${runtime ? ` • ${runtime}` : ''}
                         ${quality ? ` • ${quality}` : ''}
@@ -4197,8 +4229,8 @@ async function showDetails(type, id, itemData) {
             </div>
         `;
         
-        // Notes section (not available for episodes)
-        if (type !== 'episode') {
+        // Notes section (not available for episodes or seasons)
+        if (type !== 'episode' && type !== 'season') {
             notesSection = `
                 <div style="margin-top: 20px; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 8px;">
                     <h3 style="color: #ffffff; margin: 0 0 12px 0;">Notes</h3>
@@ -4222,6 +4254,49 @@ async function showDetails(type, id, itemData) {
                         ${itemData.episodes.map(ep => `
                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px;">
                                 <input type="checkbox" ${ep.watched ? 'checked' : ''} onchange="toggleEpisodeWatchedInDetails(${itemData.id}, ${ep.season_number}, ${ep.episode_number}, this.checked)">
+                                <span style="color: ${ep.watched ? '#666666' : '#ffffff'}; text-decoration: ${ep.watched ? 'line-through' : 'none'};">${ep.code} - ${ep.title}</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Add additional details for collections
+        if (type === 'collection' && itemData.items) {
+            const movieCount = itemData.items.length;
+            const unwatchedCount = itemData.items.filter(m => !m.watched).length;
+            content += `
+                <div style="margin-top: 20px; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <h3 style="color: #ffffff; margin: 0 0 12px 0;">Movies in Collection</h3>
+                    <p style="color: #cccccc; margin: 0;">${movieCount} movies • ${unwatchedCount} unwatched</p>
+                    <div style="margin-top: 12px; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 8px;">
+                        ${itemData.items.map(movie => `
+                            <div style="display: flex; align-items: center; gap: 8px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; cursor: pointer;" onclick="showMovieDetails(${movie.id}, '${JSON.stringify(movie).replace(/"/g, '&quot;')}')">
+                                <img src="${movie.poster_url || '/static/no-image.png'}" alt="Poster" style="width: 30px; height: 45px; object-fit: cover; border-radius: 3px;" onerror="this.src='/static/no-image.png';">
+                                <div style="flex: 1; min-width: 0;">
+                                    <div style="color: ${movie.watched ? '#666666' : '#ffffff'}; text-decoration: ${movie.watched ? 'line-through' : 'none'}; font-size: 0.8em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">${movie.title}</div>
+                                    <div style="color: #cccccc; font-size: 0.7em;">${movie.release_date ? new Date(movie.release_date).getFullYear() : ''}</div>
+                                </div>
+                            </div>
+                        `).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Add additional details for seasons
+        if (type === 'season' && itemData.episodes) {
+            const episodeCount = itemData.episodes.length;
+            const unwatchedCount = itemData.episodes.filter(ep => !ep.watched).length;
+            content += `
+                <div style="margin-top: 20px; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <h3 style="color: #ffffff; margin: 0 0 12px 0;">Episodes</h3>
+                    <p style="color: #cccccc; margin: 0;">${episodeCount} episodes • ${unwatchedCount} unwatched</p>
+                    <div style="margin-top: 12px;">
+                        ${itemData.episodes.map(ep => `
+                            <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px; cursor: pointer;" onclick="handleEpisodeClick('${itemData.seriesId}', ${ep.season_number}, ${ep.episode_number})">
+                                <input type="checkbox" ${ep.watched ? 'checked' : ''} onclick="event.stopPropagation(); toggleEpisodeWatchedInDetails(${itemData.seriesId}, ${ep.season_number}, ${ep.episode_number}, this.checked)">
                                 <span style="color: ${ep.watched ? '#666666' : '#ffffff'}; text-decoration: ${ep.watched ? 'line-through' : 'none'};">${ep.code} - ${ep.title}</span>
                             </div>
                         `).join('')}
@@ -4261,295 +4336,8 @@ async function showDetails(type, id, itemData) {
     });
 }
 
-/**
- * Show dedicated collection details page
- * This provides a better UX for viewing and interacting with movies in collections
- */
-function showCollectionDetails(collection) {
-    // Clear newly imported status for all movies in the collection
-    // This ensures that when collection details are viewed, all movies lose their NEW badges
-    if (collection.items && Array.isArray(collection.items)) {
-        collection.items.forEach(movie => {
-            clearNewlyImportedStatus('movie', movie.id);
-        });
-    }
-    
-    // Create modal overlay
-    const modal = document.createElement('div');
-    modal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-    `;
-    
-    // Create modal content
-    const modalContent = document.createElement('div');
-    modalContent.style.cssText = `
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border-radius: 12px;
-        padding: 24px;
-        max-width: 1000px;
-        width: 95%;
-        max-height: 90vh;
-        overflow-y: auto;
-        border: 2px solid #00d4aa;
-        box-shadow: 0 8px 48px 0 rgba(83, 52, 131, 0.4);
-    `;
-    
-    // Calculate collection stats
-    const totalMovies = collection.items.length;
-    const watchedMovies = collection.items.filter(m => m.watched).length;
-    const unwatchedMovies = totalMovies - watchedMovies;
-    
-    // Determine collection watched status
-    let collectionStatus = '';
-    if (watchedMovies === 0) {
-        collectionStatus = '<span style="color: #ff6b6b; font-weight: bold;">○ Not Watched</span>';
-    } else if (watchedMovies === totalMovies) {
-        collectionStatus = '<span style="color: #00d4aa; font-weight: bold;">✓ Watched</span>';
-    } else {
-        collectionStatus = `<span style="color: #ffa500; font-weight: bold;">◐ Partially Watched</span> (${watchedMovies}/${totalMovies})`;
-    }
-    
-    // Build collection header
-    const header = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 1.8em;">Collection Details</h1>
-            <button onclick="closeModal()" style="background: none; border: none; color: #cccccc; font-size: 24px; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">×</button>
-        </div>
-        <div style="display: flex; gap: 12px; margin-bottom: 20px;">
-            <button onclick="toggleCollectionWatched('${collection.id}')" style="background: #00d4aa; color: #000000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                ${watchedMovies === totalMovies ? 'Mark All Unwatched' : 'Mark All Watched'}
-            </button>
-            <button onclick="removeCollection('${collection.id}')" style="background: #ff6b6b; color: #ffffff; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                Remove Collection
-            </button>
-        </div>
-    `;
-    
-    // Build collection info
-    const collectionInfo = `
-        <div style="display: flex; gap: 20px; margin-bottom: 20px; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 12px;">
-            <div style="position: relative;">
-                <img src="${collection.poster_url || '/static/no-image.png'}" alt="Collection Poster" style="width: 120px; height: 180px; object-fit: cover; border-radius: 8px;" onerror="this.src='/static/no-image.png';">
-                <input type="checkbox" ${watchedMovies === totalMovies ? 'checked' : ''} onchange="toggleCollectionWatched('${collection.id}')" style="position: absolute; bottom: 4px; left: 4px; transform: scale(1.2);">
-            </div>
-            <div style="flex: 1;">
-                <h2 style="color: #ffffff; margin: 0 0 8px 0; font-size: 1.5em;">${collection.title}</h2>
-                <p style="color: #cccccc; margin: 0 0 8px 0;">
-                    Collection • ${totalMovies} movies • ${unwatchedMovies} unwatched
-                </p>
-                <p style="color: #cccccc; margin: 0 0 12px 0;">${collectionStatus}</p>
-                <div style="color: #e0e6ff; line-height: 1.5;">
-                    ${collection.overview || 'No description available.'}
-                </div>
-            </div>
-        </div>
-    `;
-    
-    // Build movies grid
-    const moviesGrid = `
-        <div style="margin-bottom: 20px;">
-            <h3 style="color: #ffffff; margin: 0 0 16px 0; font-size: 1.4em;">Movies in Collection</h3>
-            <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px;">
-                ${collection.items.map(movie => {
-                    const isNew = isItemNew('movie', movie.id);
-                    const newBadge = isNew ? '<span style="background: linear-gradient(135deg, #00d4aa 0%, #00b894 100%); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 8px;">NEW</span>' : '';
-                    const isNewlyImported = isItemNewlyImported('movie', movie.id);
-                    const newlyImportedBadge = isNewlyImported ? '<span style="background: linear-gradient(135deg, #6a4c93 0%, #5a4b8a 100%); color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 8px; border: 1px solid rgba(255,255,255,0.2);">NEW</span>' : '';
-                    
-                    // Quality badge for Jellyfin movies
-                    let qualityBadge = '';
-                    if (movie.quality) {
-                        const qualityConfig = {
-                            'SD': { label: 'SD', bgColor: '#6c757d', textColor: '#ffffff' },
-                            'HD': { label: 'HD', bgColor: '#FFD700', textColor: '#000000' },
-                            '4K': { label: '4K', bgColor: '#C0C0C0', textColor: '#000000' }
-                        };
-                        
-                        const config = qualityConfig[movie.quality] || qualityConfig['SD'];
-                        qualityBadge = `
-                            <span style="background: ${config.bgColor}; color: ${config.textColor}; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 8px;">
-                                ${config.label}
-                            </span>`;
-                    }
-                    
-                    return `
-                        <div class="movie-card" style="background: rgba(255,255,255,0.05); border-radius: 8px; padding: 12px; cursor: pointer; transition: background-color 0.2s;" 
-                             onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" 
-                             onmouseout="this.style.backgroundColor='rgba(255,255,255,0.05)'"
-                             onclick="showMovieDetails(${movie.id}, '${JSON.stringify(movie).replace(/"/g, '&quot;')}')">
-                            <div style="display: flex; gap: 10px;">
-                                <div style="position: relative;">
-                                    <img src="${movie.poster_url || '/static/no-image.png'}" alt="Poster" style="width: 50px; height: 75px; object-fit: cover; border-radius: 4px;" onerror="this.src='/static/no-image.png';">
-                                    <input type="checkbox" ${movie.watched ? 'checked' : ''} 
-                                           onclick="event.stopPropagation(); toggleMovieInCollection(${movie.id}, this.checked)" 
-                                           style="position: absolute; bottom: 2px; left: 2px; transform: scale(0.8);">
-                                </div>
-                                <div style="flex: 1;">
-                                    <div style="display: flex; align-items: center; margin-bottom: 4px;">
-                                        <h4 style="color: ${movie.watched ? '#666666' : '#ffffff'}; margin: 0; font-size: 1em; text-decoration: ${movie.watched ? 'line-through' : 'none'};">
-                                            ${movie.title}${newBadge}${newlyImportedBadge}${qualityBadge}
-                                        </h4>
-                                    </div>
-                                    <p style="color: #cccccc; margin: 0; font-size: 0.8em;">
-                                        ${movie.release_date ? new Date(movie.release_date).getFullYear() : ''}
-                                        ${movie.runtime ? ` • ${movie.runtime} min` : ''}
-                                    </p>
-                                    <p style="color: ${movie.watched ? '#00d4aa' : '#ff6b6b'}; margin: 4px 0 0 0; font-size: 0.8em; font-weight: 600;">
-                                        ${movie.watched ? '✓ Watched' : '○ Not Watched'}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                }).join('')}
-            </div>
-        </div>
-    `;
-    
-    // Build notes section
-    const notesSection = `
-        <div style="padding: 16px; background: rgba(255,255,255,0.05); border-radius: 8px;">
-            <h3 style="color: #ffffff; margin: 0 0 12px 0; font-size: 1.2em;">Collection Notes</h3>
-            <textarea id="collection-notes-textarea" placeholder="Add notes about this collection..." style="width: 100%; min-height: 80px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 12px; color: #ffffff; font-family: inherit; resize: vertical;">${collection.notes || ''}</textarea>
-            <div style="margin-top: 12px;">
-                <button onclick="saveCollectionNotes('${collection.id}')" style="background: #00d4aa; color: #000000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">Save Notes</button>
-            </div>
-        </div>
-    `;
-    
-    modalContent.innerHTML = header + collectionInfo + moviesGrid + notesSection;
-    modal.appendChild(modalContent);
-    document.body.appendChild(modal);
-    
-    // Close modal when clicking outside
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            closeModal();
-        }
-    });
-}
 
 
-/**
- * Show season details page
- */
-function showSeasonDetails(seasonData) {
-    // Create modal overlay
-    const modal = document.createElement('div');
-    modal.style.cssText = `
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background: rgba(0, 0, 0, 0.8);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 1000;
-    `;
-    
-    // Create modal content
-    const modalContent = document.createElement('div');
-    modalContent.style.cssText = `
-        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-        border-radius: 12px;
-        padding: 24px;
-        max-width: 800px;
-        width: 90%;
-        max-height: 80vh;
-        overflow-y: auto;
-        border: 2px solid #00d4aa;
-        box-shadow: 0 8px 48px 0 rgba(83, 52, 131, 0.4);
-    `;
-    
-    // Calculate season stats
-    const totalEpisodes = seasonData.episodes.length;
-    const watchedEpisodes = seasonData.episodes.filter(ep => ep.watched).length;
-    const unwatchedEpisodes = totalEpisodes - watchedEpisodes;
-    
-    // Determine season watched status
-    let seasonStatus = '';
-    if (watchedEpisodes === 0) {
-        seasonStatus = '<span style="color: #ff6b6b; font-weight: bold;">○ Not Watched</span>';
-    } else if (watchedEpisodes === totalEpisodes) {
-        seasonStatus = '<span style="color: #00d4aa; font-weight: bold;">✓ Watched</span>';
-    } else {
-        seasonStatus = `<span style="color: #ffa500; font-weight: bold;">◐ Partially Watched</span> (${watchedEpisodes}/${totalEpisodes})`;
-    }
-    
-    // Build season header
-    const header = `
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h1 style="color: #ffffff; margin: 0; font-size: 1.8em;">Season Details</h1>
-            <button onclick="closeModal()" style="background: none; border: none; color: #cccccc; font-size: 24px; cursor: pointer; padding: 0; width: 32px; height: 32px; display: flex; align-items: center; justify-content: center;">×</button>
-        </div>
-        <div style="display: flex; gap: 12px; margin-bottom: 20px;">
-            <button onclick="toggleSeasonWatched('${seasonData.seriesId}', ${seasonData.seasonNumber})" style="background: #00d4aa; color: #000000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                ${watchedEpisodes === totalEpisodes ? 'Mark All Unwatched' : 'Mark All Watched'}
-            </button>
-        </div>
-    `;
-    
-    // Build season info
-    const seasonInfo = `
-        <div style="display: flex; gap: 20px; margin-bottom: 20px; padding: 20px; background: rgba(255,255,255,0.05); border-radius: 12px;">
-            <div style="position: relative;">
-                <img src="${seasonData.poster || '/static/no-image.png'}" alt="Season Poster" style="width: 120px; height: 180px; object-fit: cover; border-radius: 8px;" onerror="this.src='/static/no-image.png';">
-                <input type="checkbox" ${watchedEpisodes === totalEpisodes ? 'checked' : ''} onchange="toggleSeasonWatched('${seasonData.seriesId}', ${seasonData.seasonNumber})" style="position: absolute; bottom: 4px; left: 4px; transform: scale(1.2);">
-            </div>
-            <div style="flex: 1;">
-                <h2 style="color: #ffffff; margin: 0 0 8px 0; font-size: 1.5em;">Season ${seasonData.seasonNumber}</h2>
-                <p style="color: #cccccc; margin: 0 0 8px 0;">
-                    ${totalEpisodes} episodes • ${unwatchedEpisodes} unwatched
-                </p>
-                <p style="color: #cccccc; margin: 0 0 12px 0;">${seasonStatus}</p>
-            </div>
-        </div>
-    `;
-    
-    // Build episodes list
-    const episodesList = `
-        <div style="margin-bottom: 20px;">
-            <h3 style="color: #ffffff; margin: 0 0 16px 0; font-size: 1.4em;">Episodes</h3>
-            <div style="display: flex; flex-direction: column; gap: 6px;">
-                ${seasonData.episodes.map(episode => `
-                    <div style="display: flex; align-items: center; gap: 10px; padding: 10px; background: rgba(255,255,255,0.05); border-radius: 6px;">
-                        <input type="checkbox" ${episode.watched ? 'checked' : ''} onchange="toggleEpisodeWatchedInDetails(${seasonData.seriesId}, ${episode.season_number}, ${episode.episode_number}, this.checked)">
-                        <div style="flex: 1; cursor: pointer;" onclick="handleEpisodeClick('${seasonData.seriesId}', ${episode.season_number}, ${episode.episode_number})" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'" style="padding: 6px; border-radius: 4px;">
-                            <h4 style="color: ${episode.watched ? '#666666' : '#ffffff'}; margin: 0; font-size: 1em; text-decoration: ${episode.watched ? 'line-through' : 'none'};">
-                                ${episode.code} - ${episode.title}
-                            </h4>
-                            <p style="color: #cccccc; margin: 0; font-size: 0.8em;">
-                                ${episode.air_date || 'No air date'}
-                            </p>
-                        </div>
-                    </div>
-                `).join('')}
-            </div>
-        </div>
-    `;
-    
-    modalContent.innerHTML = header + seasonInfo + episodesList;
-    modal.appendChild(modalContent);
-    document.body.appendChild(modal);
-    
-    // Close modal when clicking outside
-    modal.addEventListener('click', (e) => {
-        if (e.target === modal) {
-            closeModal();
-        }
-    });
-}
 
 
 
