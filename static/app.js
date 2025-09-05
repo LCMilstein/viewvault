@@ -1,7 +1,7 @@
 const API_BASE = '/api';
 
 // Test if JavaScript is loading
-console.log('🚨 ViewVault JavaScript loaded!');
+console.log('🚨 ViewVault JavaScript loaded! - FIX-MODAL-UI BRANCH v1.0');
 console.log('🚨 API_BASE set to:', API_BASE);
 
 // Offline functionality and PWA support
