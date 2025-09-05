@@ -1,0 +1,23 @@
+version: '3.8'
+
+services:
+  watchlist-app:
+    build: .
+    container_name: watchlist-app
+    ports:
+      - "8009:8000"
+    volumes:
+      - watchlist-app_viewvault-db:/app/db
+      - watchlist-app_posters:/app/static/posters
+    environment:
+      - DATABASE_URL=sqlite:///./db/viewvault.db
+      - SECRET_KEY=test-secret-key-for-local-testing
+      - JELLYFIN_URL=
+      - JELLYFIN_API_KEY=
+      - TMDB_API_KEY=
+      - IMDB_API_KEY=
+    restart: unless-stopped
+
+volumes:
+  watchlist-app_viewvault-db:
+  watchlist-app_posters:
