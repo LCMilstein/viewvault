@@ -104,13 +104,20 @@ class JellyfinService:
                 libraries = []
                 for item in data.get('Items', []):
                     collection_type = item.get('CollectionType')
-                    # Include movie libraries and mixed libraries that might contain movies
-                    if collection_type in ['movies', 'mixed']:
+                    name = item.get('Name')
+                    logger.info(f"Found library: '{name}' with type: '{collection_type}'")
+                    
+                    # Include ALL libraries for now to see what's available
+                    # We'll filter by content later if needed
+                    if True:  # Include all libraries
                         libraries.append({
                             'id': item.get('Id'),
-                            'name': item.get('Name'),
+                            'name': name,
                             'type': collection_type
                         })
+                        logger.info(f"✅ Added library: '{name}' (type: {collection_type})")
+                    else:
+                        logger.info(f"❌ Skipped library: '{name}' (type: {collection_type}) - not movies/mixed")
                 logger.info(f"Found {len(libraries)} movie/mixed libraries: {[lib['name'] for lib in libraries]}")
                 return libraries
             else:
