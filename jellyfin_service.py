@@ -82,6 +82,8 @@ class JellyfinService:
     def get_libraries(self) -> List[Dict[str, Any]]:
         """Get list of available libraries from Jellyfin"""
         try:
+            logger.info(f"Jellyfin service config - Server: {self.server_url}, API Key: {self.api_key[:10]}..., User ID: {self.user_id}")
+            
             # First try to get users to find a valid user ID if none provided
             if not self.user_id:
                 users_response = self.session.get(f"{self.server_url}/Users")
@@ -90,6 +92,7 @@ class JellyfinService:
                     if users:
                         self.user_id = users[0].get('Id')  # Use first user
                         logger.info(f"Using user ID: {self.user_id}")
+                        logger.info(f"Available users: {[{'id': u.get('Id'), 'name': u.get('Name')} for u in users]}")
                     else:
                         logger.error("No users found in Jellyfin")
                         return []
@@ -98,7 +101,9 @@ class JellyfinService:
                     return []
             
             # Now get libraries for the user
+            logger.info(f"Requesting libraries for user {self.user_id} from: {self.server_url}/Users/{self.user_id}/Views")
             response = self.session.get(f"{self.server_url}/Users/{self.user_id}/Views")
+            logger.info(f"Response status: {response.status_code}")
             if response.status_code == 200:
                 data = response.json()
                 logger.info(f"Raw API response: {data}")
