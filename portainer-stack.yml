@@ -26,4 +26,14 @@ services:
 
 volumes:
   viewvault-server_db:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /volume1/docker/viewvault-server/db
   viewvault-server_posters:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: /volume1/docker/viewvault-server/posters
