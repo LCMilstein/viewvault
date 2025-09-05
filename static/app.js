@@ -4498,7 +4498,9 @@ async function showEpisodeDetails(episodeData) {
     // Fetch additional episode data from backend
     let enhancedEpisodeData = { ...episodeData };
     try {
-        const response = await fetch(`/api/episodes/${episodeData.id}/details`);
+        const response = await fetch(`/api/episodes/${episodeData.id}/details`, {
+            headers: getAuthHeaders()
+        });
         if (response.ok) {
             const enhancedData = await response.json();
             enhancedEpisodeData = { ...episodeData, ...enhancedData };
