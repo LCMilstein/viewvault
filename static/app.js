@@ -2019,7 +2019,7 @@ function handleSeasonClick(seriesId, seasonNumber) {
 }
 
 // Handle episode click to open episode details
-function handleEpisodeClick(seriesId, seasonNumber, episodeNumber) {
+async function handleEpisodeClick(seriesId, seasonNumber, episodeNumber) {
     console.log('🎬 Episode clicked:', { seriesId, seasonNumber, episodeNumber });
     
     // Find the episode data
@@ -2032,19 +2032,84 @@ function handleEpisodeClick(seriesId, seasonNumber, episodeNumber) {
         if (episode) {
             console.log('🔍 Found episode:', episode);
             console.log('🔍 Episode properties:', Object.keys(episode));
-            const itemData = {
-                id: episode.id,
-                seriesId: seriesId,
-                seasonNumber: parseInt(seasonNumber),
-                episodeNumber: parseInt(episodeNumber),
-                title: episode.title,
-                airDate: episode.air_date,
-                watched: episode.watched,
-                seriesTitle: series.title
-            };
             
-            console.log('🎬 Opening episode details for:', itemData);
-            showDetails('episode', episode.id, itemData);
+            // Show loading state
+            const loadingOverlay = document.createElement('div');
+            loadingOverlay.style.cssText = `
+                position: fixed;
+                top: 0;
+                left: 0;
+                width: 100%;
+                height: 100%;
+                background: rgba(0, 0, 0, 0.8);
+                display: flex;
+                justify-content: center;
+                align-items: center;
+                z-index: 1000;
+            `;
+            loadingOverlay.innerHTML = `
+                <div style="background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%); padding: 24px; border-radius: 12px; text-align: center; color: #ffffff;">
+                    <div style="font-size: 18px; margin-bottom: 12px;">Loading episode details...</div>
+                    <div style="font-size: 14px; color: #888;">${episode.title}</div>
+                </div>
+            `;
+            document.body.appendChild(loadingOverlay);
+            
+            try {
+                // Fetch enhanced episode details from backend
+                const authHeaders = getAuthHeaders();
+                console.log('🔑 Auth headers for episode details:', authHeaders);
+                
+                const response = await fetch(`/api/episodes/${episode.id}/details`, {
+                    headers: authHeaders
+                });
+                
+                console.log('📡 Episode details response status:', response.status);
+                
+                if (response.ok) {
+                    const enhancedEpisodeData = await response.json();
+                    console.log('✅ Enhanced episode data received:', enhancedEpisodeData);
+                    
+                    // Remove loading overlay
+                    loadingOverlay.remove();
+                    
+                    // Create itemData with enhanced data
+                    const itemData = {
+                        id: enhancedEpisodeData.id,
+                        seriesId: enhancedEpisodeData.series_id,
+                        seasonNumber: enhancedEpisodeData.season_number,
+                        episodeNumber: enhancedEpisodeData.episode_number,
+                        title: enhancedEpisodeData.title,
+                        airDate: enhancedEpisodeData.air_date,
+                        watched: enhancedEpisodeData.watched,
+                        seriesTitle: enhancedEpisodeData.series_title,
+                        overview: enhancedEpisodeData.overview,
+                        still_path: enhancedEpisodeData.still_path,
+                        runtime: enhancedEpisodeData.runtime,
+                        vote_average: enhancedEpisodeData.vote_average,
+                        vote_count: enhancedEpisodeData.vote_count
+                    };
+                    
+                    console.log('🎬 Opening episode details for:', itemData);
+                    showDetails('episode', episode.id, itemData);
+                } else if (response.status === 404) {
+                    console.log('❌ Episode not found (404)');
+                    loadingOverlay.remove();
+                    showError('Episode not found');
+                } else if (response.status === 403) {
+                    console.log('❌ Forbidden (403)');
+                    loadingOverlay.remove();
+                    showError('Access denied');
+                } else {
+                    console.log('❌ Error fetching episode details:', response.status);
+                    loadingOverlay.remove();
+                    showError('Failed to load episode details');
+                }
+            } catch (error) {
+                console.error('❌ Error fetching episode details:', error);
+                loadingOverlay.remove();
+                showError('Failed to load episode details');
+            }
         } else {
             console.log('❌ Episode not found for:', { seriesId, seasonNumber, episodeNumber });
             console.log('🔍 Available episodes:', series.episodes.map(ep => ({ 
@@ -4028,23 +4093,7 @@ async function showDetails(type, id, itemData) {
         return;
     }
     
-    // Special handling for episodes - show episode details
-    if (type === 'episode') {
-        console.log('🎬 Episode type detected, itemData:', itemData);
-        if (itemData) {
-            console.log('🎬 Opening episode details for:', itemData);
-            try {
-                await showEpisodeDetails(itemData);
-            } catch (error) {
-                console.error('❌ Error opening episode details:', error);
-                showError('Failed to open episode details');
-            }
-        } else {
-            console.error('❌ No itemData for episode');
-            showError('No episode data available');
-        }
-        return;
-    }
+    // Episodes now use the same modal UI as movies and series
     
     // Create modal overlay
     const modal = document.createElement('div');
@@ -4080,16 +4129,32 @@ async function showDetails(type, id, itemData) {
     let notesSection = '';
     
     if (itemData) {
-        const poster = itemData.poster_url || '/static/no-image.png';
-        const title = itemData.title || 'Unknown Title';
-        const overview = itemData.overview || 'No description available.';
-        const releaseDate = itemData.release_date ? new Date(itemData.release_date).getFullYear() : '';
-        const runtime = itemData.runtime ? `${itemData.runtime} min` : '';
-        const quality = itemData.quality ? `(${itemData.quality})` : '';
-        const watched = itemData.watched || false;
-        const notes = itemData.notes || '';
+        // Handle different data structures for movies/series vs episodes
+        let poster, title, overview, releaseDate, runtime, quality, watched, notes;
         
-        // Watched status indicator for series
+        if (type === 'episode') {
+            // Episode data structure
+            poster = itemData.still_path ? `https://image.tmdb.org/t/p/w500${itemData.still_path}` : '/static/no-image.png';
+            title = itemData.title || 'Unknown Episode';
+            overview = itemData.overview || 'No description available for this episode.';
+            releaseDate = itemData.air_date ? new Date(itemData.air_date).getFullYear() : '';
+            runtime = itemData.runtime ? `${itemData.runtime} min` : '';
+            quality = ''; // Episodes don't have quality info
+            watched = itemData.watched || false;
+            notes = itemData.notes || '';
+        } else {
+            // Movie/series data structure
+            poster = itemData.poster_url || '/static/no-image.png';
+            title = itemData.title || 'Unknown Title';
+            overview = itemData.overview || 'No description available.';
+            releaseDate = itemData.release_date ? new Date(itemData.release_date).getFullYear() : '';
+            runtime = itemData.runtime ? `${itemData.runtime} min` : '';
+            quality = itemData.quality ? `(${itemData.quality})` : '';
+            watched = itemData.watched || false;
+            notes = itemData.notes || '';
+        }
+        
+        // Watched status indicator
         let watchedStatus = '';
         if (type === 'series' && itemData.episodes) {
             const totalEpisodes = itemData.episodes.length;
@@ -4104,7 +4169,7 @@ async function showDetails(type, id, itemData) {
                 watchedStatus = `<span style="color: #ffa500; font-weight: bold;">◐ Partially Watched</span> (${watchedEpisodes}/${totalEpisodes})`;
             }
         } else {
-            // For individual movies, use simple watched/not watched
+            // For individual movies and episodes, use simple watched/not watched
             watchedStatus = watched ? 
                 '<span style="color: #00d4aa; font-weight: bold;">✓ Watched</span>' : 
                 '<span style="color: #ff6b6b; font-weight: bold;">○ Not Watched</span>';
@@ -4114,12 +4179,14 @@ async function showDetails(type, id, itemData) {
             <div style="display: flex; gap: 20px; margin-bottom: 20px;">
                 <div style="position: relative;">
                     <img src="${poster}" alt="Poster" style="width: 120px; height: 180px; object-fit: cover; border-radius: 8px;" onerror="this.src='/static/no-image.png';">
-                    <input type="checkbox" ${watched ? 'checked' : ''} onchange="toggleWatchedInDetails('${type}', ${id}, this.checked)" style="position: absolute; bottom: 4px; left: 4px; transform: scale(1.2);">
+                    <input type="checkbox" ${watched ? 'checked' : ''} onchange="${type === 'episode' ? `toggleEpisodeWatchedInDetails(${itemData.seriesId}, ${itemData.seasonNumber}, ${itemData.episodeNumber}, this.checked)` : `toggleWatchedInDetails('${type}', ${id}, this.checked)`}" style="position: absolute; bottom: 4px; left: 4px; transform: scale(1.2);">
                 </div>
                 <div style="flex: 1;">
                     <h2 style="color: #ffffff; margin: 0 0 8px 0; font-size: 1.5em;">${title}</h2>
                     <p style="color: #cccccc; margin: 0 0 8px 0;">
-                        ${type === 'movie' ? 'Movie' : 'TV Series'}
+                        ${type === 'movie' ? 'Movie' : type === 'episode' ? 'TV Episode' : 'TV Series'}
+                        ${type === 'episode' && itemData.seriesTitle ? ` • ${itemData.seriesTitle}` : ''}
+                        ${type === 'episode' && itemData.seasonNumber && itemData.episodeNumber ? ` • Season ${itemData.seasonNumber}, Episode ${itemData.episodeNumber}` : ''}
                         ${releaseDate ? ` • ${releaseDate}` : ''}
                         ${runtime ? ` • ${runtime}` : ''}
                         ${quality ? ` • ${quality}` : ''}
@@ -4130,16 +4197,18 @@ async function showDetails(type, id, itemData) {
             </div>
         `;
         
-        // Notes section
-        notesSection = `
-            <div style="margin-top: 20px; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 8px;">
-                <h3 style="color: #ffffff; margin: 0 0 12px 0;">Notes</h3>
-                <textarea id="notes-textarea" placeholder="Add your notes here..." style="width: 100%; min-height: 80px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 12px; color: #ffffff; font-family: inherit; resize: vertical;">${notes}</textarea>
-                <div style="margin-top: 12px; display: flex; gap: 8px;">
-                    <button onclick="saveNotes('${type}', ${id})" style="background: #00d4aa; color: #000000; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 600;">Save Notes</button>
+        // Notes section (not available for episodes)
+        if (type !== 'episode') {
+            notesSection = `
+                <div style="margin-top: 20px; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                    <h3 style="color: #ffffff; margin: 0 0 12px 0;">Notes</h3>
+                    <textarea id="notes-textarea" placeholder="Add your notes here..." style="width: 100%; min-height: 80px; background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); border-radius: 6px; padding: 12px; color: #ffffff; font-family: inherit; resize: vertical;">${notes}</textarea>
+                    <div style="margin-top: 12px; display: flex; gap: 8px;">
+                        <button onclick="saveNotes('${type}', ${id})" style="background: #00d4aa; color: #000000; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 600;">Save Notes</button>
+                    </div>
                 </div>
-            </div>
-        `;
+            `;
+        }
         
         // Add additional details for series
         if (type === 'series' && itemData.episodes) {
@@ -4701,7 +4770,9 @@ async function toggleMovieInCollection(movieId, watched) {
  * Show movie details from within collection view
  */
 function showMovieDetails(movieId, movieData) {
-    showDetails('movie', movieId, movieData);
+    // Parse movieData if it's a string (from JSON.stringify)
+    const parsedMovieData = typeof movieData === 'string' ? JSON.parse(movieData) : movieData;
+    showDetails('movie', movieId, parsedMovieData);
 }
 
 /**
