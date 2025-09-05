@@ -637,9 +637,9 @@ function isItemNew(itemType, itemId) {
 function clearNewlyImportedStatus(itemType, itemId) {
     console.log(`🔍 Clearing newly imported status for ${itemType} ${itemId}`);
     
-    // For seasons, we don't need to clear anything since seasons don't have imported_at status
-    if (itemType === 'season') {
-        console.log('🔍 Season clicked - no need to clear imported status');
+    // For seasons and episodes, we don't need to clear anything since they don't have imported_at status
+    if (itemType === 'season' || itemType === 'episode') {
+        console.log(`🔍 ${itemType} clicked - no need to clear imported status`);
         return;
     }
     
@@ -1423,15 +1423,15 @@ function renderWatchlist(data) {
         
         // Add event listeners for clickable areas (poster, title, meta)
         document.querySelectorAll('.clickable-area').forEach(area => {
+            // Skip if element already has an onclick handler (like episodes)
+            if (area.onclick) {
+                return;
+            }
+            
             area.onclick = function(e) {
                 e.stopPropagation();
                 const type = area.getAttribute('data-type');
                 let id = area.getAttribute('data-id');
-                
-                // Skip episodes - they have their own click handlers
-                if (type === 'episode') {
-                    return;
-                }
                 
                 // Find the item data from currentWatchlistData
                 let itemData = null;
@@ -6033,15 +6033,15 @@ function renderWatchlistFromData(watchlistData) {
         
         // Add event listeners for clickable areas (poster, title, meta)
         document.querySelectorAll('.clickable-area').forEach(area => {
+            // Skip if element already has an onclick handler (like episodes)
+            if (area.onclick) {
+                return;
+            }
+            
             area.onclick = function(e) {
                 e.stopPropagation();
                 const type = area.getAttribute('data-type');
                 let id = area.getAttribute('data-id');
-                
-                // Skip episodes - they have their own click handlers
-                if (type === 'episode') {
-                    return;
-                }
                 
                 // Find the item data from currentWatchlistData
                 let itemData = null;
