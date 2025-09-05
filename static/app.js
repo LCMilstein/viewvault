@@ -1816,10 +1816,12 @@ function renderUnifiedMovie(movie) {
 function renderEpisodeRow(ep, seriesId) {
     const watchedClass = ep.watched ? 'watched-row' : '';
     // Use data attributes instead of inline onchange
-    return `<div class="episode-row ${watchedClass}" style="margin-left: 20px; padding: 6px 12px; background: rgba(255,255,255,0.01); border-left: 2px solid rgba(255,255,255,0.05);">
-        <input type="checkbox" class="checkbox episode-checkbox" data-series-id="${seriesId}" data-season="${ep.season_number}" data-episode="${ep.episode_number}" ${ep.watched ? 'checked' : ''}>
-        <div class="title" style="font-size: 0.85em; color: ${ep.watched ? '#666666' : '#ffffff'}; text-decoration: ${ep.watched ? 'line-through' : 'none'};">S${ep.season_number}E${ep.episode_number}: ${ep.title}</div>
-        <div class="meta" style="font-size: 0.75em; color: #cccccc;">${ep.air_date || ''}</div>
+    return `<div class="episode-row ${watchedClass}" style="display: flex; align-items: center; padding: 8px 12px; background: rgba(255,255,255,0.01); border-left: 2px solid rgba(255,255,255,0.05); margin-bottom: 4px;">
+        <input type="checkbox" class="checkbox episode-checkbox" data-series-id="${seriesId}" data-season="${ep.season_number}" data-episode="${ep.episode_number}" ${ep.watched ? 'checked' : ''} style="margin-right: 12px;">
+        <div style="flex: 1;">
+            <div class="title" style="font-size: 0.85em; color: ${ep.watched ? '#666666' : '#ffffff'}; text-decoration: ${ep.watched ? 'line-through' : 'none'}; margin-bottom: 2px;">S${ep.season_number}E${ep.episode_number}: ${ep.title}</div>
+            <div class="meta" style="font-size: 0.75em; color: #cccccc;">${ep.air_date || ''}</div>
+        </div>
         <span title="Remove (not supported)" style="margin-left:auto;display:inline-block;opacity:0.3;cursor:not-allowed;">
             <svg class="remove-icon" viewBox="0 0 24 24"><path d="M3 6h18M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="11" x2="10" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="11" x2="14" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
         </span>
