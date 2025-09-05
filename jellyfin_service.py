@@ -107,9 +107,8 @@ class JellyfinService:
                     name = item.get('Name')
                     logger.info(f"Found library: '{name}' with type: '{collection_type}'")
                     
-                    # Include ALL libraries for now to see what's available
-                    # We'll filter by content later if needed
-                    if True:  # Include all libraries
+                    # Include movie libraries and other common types that might contain movies
+                    if collection_type in ['movies', 'mixed', 'tvshows', None] or not collection_type:
                         libraries.append({
                             'id': item.get('Id'),
                             'name': name,
