@@ -1673,8 +1673,8 @@ function renderSeasonRow(season, seriesId) {
     // Calculate if season is watched (all episodes watched)
     const isSeasonWatched = season.watchedCount === season.totalCount;
     
-    let html = `<div class="season-row" data-series-id="${seriesId}" data-season="${season.seasonNumber}" style="margin-left: 20px; background: rgba(255,255,255,0.02); border-left: 3px solid rgba(255,255,255,0.1);">
-        <input type="checkbox" class="checkbox" data-type="season" data-series-id="${seriesId}" data-season="${season.seasonNumber}" ${isSeasonWatched ? 'checked' : ''}>
+    let html = `<div class="season-row" data-series-id="${seriesId}" data-season="${season.seasonNumber}" style="margin-left: 20px; background: rgba(255,255,255,0.02); border-left: 3px solid rgba(255,255,255,0.1); display: flex; align-items: center; padding: 8px;">
+        <input type="checkbox" class="checkbox" data-type="season" data-series-id="${seriesId}" data-season="${season.seasonNumber}" ${isSeasonWatched ? 'checked' : ''} style="margin-right: 12px;">
         <div class="clickable-area" data-type="season" data-series-id="${seriesId}" data-season="${season.seasonNumber}" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
             <img src="${seasonPoster}" alt="Season ${season.seasonNumber}" class="watchlist-thumb" style="width: 40px; height: 60px; object-fit: cover; border-radius: 4px;" onerror="this.onerror=null;this.src='/static/no-image.png';">
             <div style="margin-left: 12px; flex: 1;">
@@ -1682,7 +1682,7 @@ function renderSeasonRow(season, seriesId) {
                 <div class="meta" style="font-size: 0.8em; color: #cccccc;">${season.totalCount} episodes • ${unwatchedCount} unwatched</div>
             </div>
         </div>
-        <button class="expand-arrow" onclick="toggleSeason('${seasonKey}')" style="margin-left: 8px; background: none; border: none; color: #ffffff; cursor: pointer;">${isExpanded ? '▼' : '▶'}</button>`;
+        <button class="expand-arrow" onclick="toggleSeason('${seasonKey}')" style="margin-left: 8px; background: none; border: none; color: #ffffff; cursor: pointer; padding: 8px;">${isExpanded ? '▼' : '▶'}</button>`;
     
     // Render episodes if expanded
     if (isExpanded) {
@@ -1707,7 +1707,10 @@ function renderSeasonRow(season, seriesId) {
 function getSeasonPoster(seriesId, seasonNumber) {
     // Find the series in current watchlist data
     const series = currentWatchlistData?.series?.find(s => s.id == seriesId);
-    console.log(`🔍 Getting season poster for series ${seriesId}, season ${seasonNumber}:`, series?.season_posters);
+    console.log(`🔍 Getting season poster for series ${seriesId}, season ${seasonNumber}`);
+    console.log(`🔍 Series found:`, series ? 'Yes' : 'No');
+    console.log(`🔍 Series season_posters:`, series?.season_posters);
+    console.log(`🔍 Looking for season ${seasonNumber} in:`, series?.season_posters ? Object.keys(series.season_posters) : 'No season_posters');
     
     if (series && series.season_posters && series.season_posters[seasonNumber]) {
         console.log(`✅ Found season poster: ${series.season_posters[seasonNumber]}`);
@@ -1907,26 +1910,14 @@ async function toggleSeries(seriesId) {
 
 // Toggle season expansion
 function toggleSeason(seasonKey) {
+    console.log('🔄 Toggling season:', seasonKey);
+    
     // Toggle the expanded state
     watchlistState.expandedSeasons[seasonKey] = !watchlistState.expandedSeasons[seasonKey];
     
-    // Find the season element and update just the arrow and episodes container
-    const seasonElement = document.querySelector(`[data-series-id="${seasonKey.split('-')[0]}"][data-season="${seasonKey.split('-')[1]}"]`);
-    if (seasonElement) {
-        // Update just the arrow button
-        const arrowBtn = seasonElement.querySelector('.expand-arrow');
-        if (arrowBtn) {
-            arrowBtn.textContent = watchlistState.expandedSeasons[seasonKey] ? '▼' : '▶';
-        }
-        
-        // Handle episodes container - just toggle visibility
-        const episodesContainer = seasonElement.querySelector('.season-episodes');
-        const isExpanded = watchlistState.expandedSeasons[seasonKey];
-        
-        if (episodesContainer) {
-            episodesContainer.style.display = isExpanded ? 'block' : 'none';
-        }
-    }
+    // Re-render the entire watchlist to show/hide episodes
+    // This is simpler and more reliable than trying to manipulate DOM directly
+    loadWatchlist();
 }
 
 async function toggleWatched(type, id) {
@@ -3891,7 +3882,13 @@ function showDetails(type, id, itemData) {
     
     // Special handling for seasons - show season details
     if (type === 'season' && itemData) {
-        showSeasonDetails(itemData);
+        console.log('🎬 Opening season details for:', itemData);
+        try {
+            showSeasonDetails(itemData);
+        } catch (error) {
+            console.error('❌ Error opening season details:', error);
+            showError('Failed to open season details');
+        }
         return;
     }
     
