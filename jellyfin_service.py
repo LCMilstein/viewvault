@@ -107,8 +107,8 @@ class JellyfinService:
                     name = item.get('Name')
                     logger.info(f"Found library: '{name}' with type: '{collection_type}'")
                     
-                    # Include ALL libraries - let's see what "Racy Movies" has
-                    if True:  # Include all libraries to debug
+                    # Use the same logic as the working version
+                    if collection_type == 'movies':
                         libraries.append({
                             'id': item.get('Id'),
                             'name': name,
@@ -116,7 +116,7 @@ class JellyfinService:
                         })
                         logger.info(f"✅ Added library: '{name}' (type: {collection_type})")
                     else:
-                        logger.info(f"❌ Skipped library: '{name}' (type: {collection_type}) - not movies/mixed")
+                        logger.info(f"❌ Skipped library: '{name}' (type: {collection_type}) - not movies")
                 logger.info(f"Found {len(libraries)} movie/mixed libraries: {[lib['name'] for lib in libraries]}")
                 return libraries
             else:
