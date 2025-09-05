@@ -1956,11 +1956,37 @@ function toggleSeason(seasonKey) {
         if (episodesContainer) {
             episodesContainer.style.display = isExpanded ? 'block' : 'none';
         } else if (isExpanded) {
-            // If episodes container doesn't exist but we're expanding, we need to re-render
+            // If episodes container doesn't exist but we're expanding, we need to re-render just this season
             // This should only happen if the season was never expanded before
-            loadWatchlist();
+            const series = currentWatchlistData?.series?.find(s => s.id == seriesId);
+            if (series) {
+                const season = series.episodes.find(ep => ep.season_number == seasonNumber);
+                if (season) {
+                    // Re-render just this season's episodes
+                    const seasonData = {
+                        seriesId: seriesId,
+                        seasonNumber: seasonNumber,
+                        episodes: series.episodes.filter(ep => ep.season_number == seasonNumber)
+                    };
+                    const episodesHtml = renderSeasonEpisodes(seasonData);
+                    seasonElement.insertAdjacentHTML('beforeend', episodesHtml);
+                }
+            }
         }
     }
+}
+
+// Render episodes for a season
+function renderSeasonEpisodes(seasonData) {
+    const { seriesId, seasonNumber, episodes } = seasonData;
+    let html = `<div class="season-episodes" style="margin-left: 40px; background: rgba(255,255,255,0.01); border-left: 2px solid rgba(255,255,255,0.05); display: block;">`;
+    
+    for (const ep of episodes) {
+        html += renderEpisodeRow(ep, seriesId);
+    }
+    
+    html += '</div>';
+    return html;
 }
 
 // Handle season click to open season details
@@ -4525,7 +4551,6 @@ async function showEpisodeDetails(episodeData) {
     `;
     
     overlay.innerHTML = header + episodeInfo;
-    document.body.appendChild(overlay);
 }
 
 /**
