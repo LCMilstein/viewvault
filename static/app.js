@@ -1439,6 +1439,23 @@ function renderWatchlist(data) {
                         itemData = currentWatchlistData.series?.find(s => s.id == id);
                     } else if (type === 'collection') {
                         itemData = currentWatchlistData.collections?.find(c => c.id == id);
+                    } else if (type === 'season') {
+                        // For seasons, we need to construct the season data
+                        const seriesId = area.getAttribute('data-series-id');
+                        const seasonNumber = area.getAttribute('data-season');
+                        const series = currentWatchlistData.series?.find(s => s.id == seriesId);
+                        if (series && series.episodes) {
+                            const seasonEpisodes = series.episodes.filter(ep => ep.season_number == seasonNumber);
+                            const seasonPoster = getSeasonPoster(seriesId, seasonNumber);
+                            itemData = {
+                                seriesId: seriesId,
+                                seasonNumber: parseInt(seasonNumber),
+                                episodes: seasonEpisodes,
+                                poster: seasonPoster,
+                                totalCount: seasonEpisodes.length,
+                                watchedCount: seasonEpisodes.filter(ep => ep.watched).length
+                            };
+                        }
                     }
                 }
                 
@@ -1653,15 +1670,19 @@ function renderSeasonRow(season, seriesId) {
     // Get season poster (for now, we'll use a generic season icon, but this could be enhanced)
     const seasonPoster = getSeasonPoster(seriesId, season.seasonNumber);
     
+    // Calculate if season is watched (all episodes watched)
+    const isSeasonWatched = season.watchedCount === season.totalCount;
+    
     let html = `<div class="season-row" data-series-id="${seriesId}" data-season="${season.seasonNumber}" style="margin-left: 20px; background: rgba(255,255,255,0.02); border-left: 3px solid rgba(255,255,255,0.1);">
-        <div class="season-header" style="display: flex; align-items: center; padding: 8px 12px; cursor: pointer;" onclick="toggleSeason('${seasonKey}')">
+        <input type="checkbox" class="checkbox" data-type="season" data-series-id="${seriesId}" data-season="${season.seasonNumber}" ${isSeasonWatched ? 'checked' : ''}>
+        <div class="clickable-area" data-type="season" data-series-id="${seriesId}" data-season="${season.seasonNumber}" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
             <img src="${seasonPoster}" alt="Season ${season.seasonNumber}" class="watchlist-thumb" style="width: 40px; height: 60px; object-fit: cover; border-radius: 4px;" onerror="this.onerror=null;this.src='/static/no-image.png';">
             <div style="margin-left: 12px; flex: 1;">
                 <div class="title" style="font-size: 0.9em; color: #ffffff;">Season ${season.seasonNumber}</div>
                 <div class="meta" style="font-size: 0.8em; color: #cccccc;">${season.totalCount} episodes • ${unwatchedCount} unwatched</div>
             </div>
-            <button class="expand-arrow" style="margin-left: 8px; background: none; border: none; color: #ffffff; cursor: pointer;">${isExpanded ? '▼' : '▶'}</button>
-        </div>`;
+        </div>
+        <button class="expand-arrow" onclick="toggleSeason('${seasonKey}')" style="margin-left: 8px; background: none; border: none; color: #ffffff; cursor: pointer;">${isExpanded ? '▼' : '▶'}</button>`;
     
     // Render episodes if expanded
     if (isExpanded) {
@@ -1686,9 +1707,13 @@ function renderSeasonRow(season, seriesId) {
 function getSeasonPoster(seriesId, seasonNumber) {
     // Find the series in current watchlist data
     const series = currentWatchlistData?.series?.find(s => s.id == seriesId);
+    console.log(`🔍 Getting season poster for series ${seriesId}, season ${seasonNumber}:`, series?.season_posters);
+    
     if (series && series.season_posters && series.season_posters[seasonNumber]) {
+        console.log(`✅ Found season poster: ${series.season_posters[seasonNumber]}`);
         return series.season_posters[seasonNumber];
     }
+    console.log(`❌ No season poster found, using fallback`);
     // Fallback to no-image if no season poster available
     return '/static/no-image.png';
 }
@@ -3189,7 +3214,16 @@ document.addEventListener('DOMContentLoaded', async function() {
             
             if (type && id) {
                 console.log('Checkbox clicked:', { type, id });
-                toggleWatched(type, id);
+                
+                // Handle season checkboxes specially
+                if (type === 'season') {
+                    const seriesId = e.target.getAttribute('data-series-id');
+                    const seasonNumber = e.target.getAttribute('data-season');
+                    console.log('Season checkbox clicked:', { seriesId, seasonNumber });
+                    toggleSeasonWatched(seriesId, seasonNumber);
+                } else {
+                    toggleWatched(type, id);
+                }
             }
         }
     });
@@ -3855,6 +3889,12 @@ function showDetails(type, id, itemData) {
         return;
     }
     
+    // Special handling for seasons - show season details
+    if (type === 'season' && itemData) {
+        showSeasonDetails(itemData);
+        return;
+    }
+    
     // Create modal overlay
     const modal = document.createElement('div');
     modal.style.cssText = `
@@ -4164,6 +4204,134 @@ function closeCollectionDetails() {
     const overlay = document.getElementById('collection-overlay');
     if (overlay) {
         overlay.remove();
+    }
+}
+
+/**
+ * Show season details page
+ */
+function showSeasonDetails(seasonData) {
+    // Create full-page overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'season-overlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        z-index: 1000;
+        overflow-y: auto;
+        padding: 20px;
+    `;
+    
+    // Calculate season stats
+    const totalEpisodes = seasonData.episodes.length;
+    const watchedEpisodes = seasonData.episodes.filter(ep => ep.watched).length;
+    const unwatchedEpisodes = totalEpisodes - watchedEpisodes;
+    
+    // Determine season watched status
+    let seasonStatus = '';
+    if (watchedEpisodes === 0) {
+        seasonStatus = '<span style="color: #ff6b6b; font-weight: bold;">○ Not Watched</span>';
+    } else if (watchedEpisodes === totalEpisodes) {
+        seasonStatus = '<span style="color: #00d4aa; font-weight: bold;">✓ Watched</span>';
+    } else {
+        seasonStatus = `<span style="color: #ffa500; font-weight: bold;">◐ Partially Watched</span> (${watchedEpisodes}/${totalEpisodes})`;
+    }
+    
+    // Build season header
+    const header = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <button onclick="closeSeasonDetails()" style="background: none; border: none; color: #cccccc; font-size: 24px; cursor: pointer; padding: 8px; display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 18px;">←</span> Back to Watchlist
+            </button>
+            <div style="display: flex; gap: 12px;">
+                <button onclick="toggleSeasonWatched('${seasonData.seriesId}', ${seasonData.seasonNumber})" style="background: #00d4aa; color: #000000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                    ${watchedEpisodes === totalEpisodes ? 'Mark All Unwatched' : 'Mark All Watched'}
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Build season info
+    const seasonInfo = `
+        <div style="display: flex; gap: 24px; margin-bottom: 30px; padding: 24px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+            <div style="position: relative;">
+                <img src="${seasonData.poster || '/static/no-image.png'}" alt="Season Poster" style="width: 150px; height: 225px; object-fit: cover; border-radius: 8px;" onerror="this.src='/static/no-image.png';">
+                <input type="checkbox" ${watchedEpisodes === totalEpisodes ? 'checked' : ''} onchange="toggleSeasonWatched('${seasonData.seriesId}', ${seasonData.seasonNumber})" style="position: absolute; bottom: 8px; left: 8px; transform: scale(1.3);">
+            </div>
+            <div style="flex: 1;">
+                <h1 style="color: #ffffff; margin: 0 0 12px 0; font-size: 2.2em;">Season ${seasonData.seasonNumber}</h1>
+                <p style="color: #cccccc; margin: 0 0 8px 0; font-size: 1.1em;">
+                    ${totalEpisodes} episodes • ${unwatchedEpisodes} unwatched
+                </p>
+                <p style="color: #cccccc; margin: 0 0 16px 0;">${seasonStatus}</p>
+            </div>
+        </div>
+    `;
+    
+    // Build episodes list
+    const episodesList = `
+        <div style="margin-bottom: 30px;">
+            <h2 style="color: #ffffff; margin: 0 0 20px 0; font-size: 1.8em;">Episodes</h2>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+                ${seasonData.episodes.map(episode => `
+                    <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                        <input type="checkbox" ${episode.watched ? 'checked' : ''} onchange="toggleEpisodeWatchedInDetails(${seasonData.seriesId}, ${episode.season_number}, ${episode.episode_number}, this.checked)">
+                        <div style="flex: 1;">
+                            <h3 style="color: ${episode.watched ? '#666666' : '#ffffff'}; margin: 0; font-size: 1.1em; text-decoration: ${episode.watched ? 'line-through' : 'none'};">
+                                ${episode.code} - ${episode.title}
+                            </h3>
+                            <p style="color: #cccccc; margin: 0; font-size: 0.9em;">
+                                ${episode.air_date || 'No air date'}
+                            </p>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+    
+    overlay.innerHTML = header + seasonInfo + episodesList;
+    document.body.appendChild(overlay);
+}
+
+/**
+ * Close the season details page
+ */
+function closeSeasonDetails() {
+    const overlay = document.getElementById('season-overlay');
+    if (overlay) {
+        overlay.remove();
+    }
+}
+
+/**
+ * Toggle watched status for entire season
+ */
+async function toggleSeasonWatched(seriesId, seasonNumber) {
+    try {
+        // Get all episodes in this season
+        const series = currentWatchlistData?.series?.find(s => s.id == seriesId);
+        if (!series) return;
+        
+        const seasonEpisodes = series.episodes.filter(ep => ep.season_number == seasonNumber);
+        const allWatched = seasonEpisodes.every(ep => ep.watched);
+        const newWatchedStatus = !allWatched;
+        
+        // Toggle all episodes in the season
+        for (const episode of seasonEpisodes) {
+            await toggleEpisodeWatched(seriesId, episode.season_number, episode.episode_number);
+        }
+        
+        // Reload watchlist to show updated state
+        loadWatchlist();
+        
+    } catch (error) {
+        console.error('Error toggling season watched status:', error);
+        showError('Failed to update season watched status');
     }
 }
 
