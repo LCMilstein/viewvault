@@ -6,7 +6,7 @@
 set -e
 
 # Configuration
-IMAGE_NAME="lcmilstein/viewvault-server"
+IMAGE_NAME="lcmilstein/viewvault"
 VERSION=${1:-latest}
 PLATFORMS="linux/amd64,linux/arm64"
 
