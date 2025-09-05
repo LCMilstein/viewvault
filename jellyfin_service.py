@@ -101,6 +101,7 @@ class JellyfinService:
             response = self.session.get(f"{self.server_url}/Users/{self.user_id}/Views")
             if response.status_code == 200:
                 data = response.json()
+                logger.info(f"Raw API response: {data}")
                 libraries = []
                 for item in data.get('Items', []):
                     collection_type = item.get('CollectionType')
