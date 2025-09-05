@@ -1918,9 +1918,29 @@ function toggleSeason(seasonKey) {
     // Toggle the expanded state
     watchlistState.expandedSeasons[seasonKey] = !watchlistState.expandedSeasons[seasonKey];
     
-    // Re-render the entire watchlist to show/hide episodes
-    // This is simpler and more reliable than trying to manipulate DOM directly
-    loadWatchlist();
+    // Find the season element and update just the arrow and episodes container
+    const [seriesId, seasonNumber] = seasonKey.split('-');
+    const seasonElement = document.querySelector(`[data-series-id="${seriesId}"][data-season="${seasonNumber}"]`);
+    
+    if (seasonElement) {
+        // Update the arrow button
+        const arrowBtn = seasonElement.querySelector('.expand-arrow');
+        if (arrowBtn) {
+            arrowBtn.textContent = watchlistState.expandedSeasons[seasonKey] ? '▼' : '▶';
+        }
+        
+        // Toggle episodes container visibility
+        const episodesContainer = seasonElement.querySelector('.season-episodes');
+        const isExpanded = watchlistState.expandedSeasons[seasonKey];
+        
+        if (episodesContainer) {
+            episodesContainer.style.display = isExpanded ? 'block' : 'none';
+        } else if (isExpanded) {
+            // If episodes container doesn't exist but we're expanding, we need to re-render
+            // This should only happen if the season was never expanded before
+            loadWatchlist();
+        }
+    }
 }
 
 async function toggleWatched(type, id) {
