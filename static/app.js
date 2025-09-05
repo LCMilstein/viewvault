@@ -4464,23 +4464,19 @@ async function showEpisodeDetails(episodeData) {
     `;
     document.body.appendChild(overlay);
     
-    // Fetch additional episode data from TMDB
+    // Fetch additional episode data from backend
     let enhancedEpisodeData = { ...episodeData };
     try {
-        const seriesData = await fetch(`/api/series/${episodeData.seriesId}`).then(r => r.json());
-        if (seriesData && seriesData.tmdb_id) {
-            const tmdbResponse = await fetch(`https://api.themoviedb.org/3/tv/${seriesData.tmdb_id}/season/${episodeData.seasonNumber}/episode/${episodeData.episodeNumber}?api_key=${TMDB_API_KEY}`);
-            if (tmdbResponse.ok) {
-                const tmdbData = await tmdbResponse.json();
-                enhancedEpisodeData.overview = tmdbData.overview || episodeData.overview;
-                enhancedEpisodeData.still_path = tmdbData.still_path;
-                enhancedEpisodeData.vote_average = tmdbData.vote_average;
-                enhancedEpisodeData.vote_count = tmdbData.vote_count;
-                enhancedEpisodeData.runtime = tmdbData.runtime;
-            }
+        const response = await fetch(`/api/episodes/${episodeData.id}/details`);
+        if (response.ok) {
+            const enhancedData = await response.json();
+            enhancedEpisodeData = { ...episodeData, ...enhancedData };
+            console.log('🔍 Enhanced episode data:', enhancedData);
+        } else {
+            console.log('🔍 Could not fetch enhanced episode data:', response.status);
         }
     } catch (error) {
-        console.log('🔍 Could not fetch TMDB episode data:', error);
+        console.log('🔍 Could not fetch enhanced episode data:', error);
     }
     
     // Build episode header

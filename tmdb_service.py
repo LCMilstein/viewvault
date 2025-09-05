@@ -327,4 +327,16 @@ def get_tv_details_with_imdb(tmdb_id):
         print(f"[DEBUG] Raw TMDB TV details for id {tmdb_id}: {data}")
         return data
     print(f"[DEBUG] TMDB API error for TV id {tmdb_id}: {resp.status_code} {resp.text}")
+    return None
+
+def get_episode_details(tmdb_id, season_number, episode_number):
+    """Fetch episode details from TMDB API."""
+    api_key = os.environ.get("TMDB_API_KEY")
+    url = f"https://api.themoviedb.org/3/tv/{tmdb_id}/season/{season_number}/episode/{episode_number}?api_key={api_key}"
+    resp = requests.get(url)
+    if resp.status_code == 200:
+        data = resp.json()
+        print(f"[DEBUG] TMDB episode details for {tmdb_id} S{season_number}E{episode_number}: {data}")
+        return data
+    print(f"[DEBUG] TMDB API error for episode {tmdb_id} S{season_number}E{episode_number}: {resp.status_code} {resp.text}")
     return None 

@@ -1833,6 +1833,55 @@ def toggle_episode_watched(episode_id: int):
         session.refresh(episode)
         return episode
 
+@api_router.get("/episodes/{episode_id}/details")
+def get_episode_details(episode_id: int, current_user: User = Depends(get_current_user)):
+    """Get enhanced episode details from TMDB"""
+    with Session(engine) as session:
+        episode = session.get(Episode, episode_id)
+        if not episode:
+            raise HTTPException(status_code=404, detail="Episode not found")
+        
+        # Check if user owns this episode
+        series = session.get(Series, episode.series_id)
+        if not series or series.user_id != current_user.id:
+            raise HTTPException(status_code=404, detail="Episode not found")
+        
+        # Get enhanced data from TMDB
+        enhanced_data = {
+            "id": episode.id,
+            "series_id": episode.series_id,
+            "season_number": episode.season,
+            "episode_number": episode.episode,
+            "title": episode.title,
+            "air_date": episode.air_date,
+            "watched": episode.watched,
+            "series_title": series.title,
+            "overview": None,
+            "still_path": None,
+            "vote_average": None,
+            "vote_count": None,
+            "runtime": None
+        }
+        
+        # Try to get TMDB data
+        if series.imdb_id and series.imdb_id.startswith('tmdb_'):
+            try:
+                tmdb_id = series.imdb_id.replace('tmdb_', '')
+                from tmdb_service import get_episode_details
+                tmdb_data = get_episode_details(tmdb_id, episode.season, episode.episode)
+                if tmdb_data:
+                    enhanced_data.update({
+                        "overview": tmdb_data.get('overview'),
+                        "still_path": tmdb_data.get('still_path'),
+                        "vote_average": tmdb_data.get('vote_average'),
+                        "vote_count": tmdb_data.get('vote_count'),
+                        "runtime": tmdb_data.get('runtime')
+                    })
+            except Exception as e:
+                print(f"Error fetching TMDB episode data: {e}")
+        
+        return enhanced_data
+
 # Utility endpoints
 @api_router.get("/stats/")
 def get_stats():
