@@ -1685,7 +1685,7 @@ function renderSeasonRow(season, seriesId) {
     
     let html = `<div class="season-row" data-series-id="${seriesId}" data-season="${season.seasonNumber}" style="margin-left: 20px; background: rgba(255,255,255,0.02); border-left: 3px solid rgba(255,255,255,0.1); display: flex; align-items: center; padding: 8px;">
         <input type="checkbox" class="checkbox" data-type="season" data-series-id="${seriesId}" data-season="${season.seasonNumber}" ${isSeasonWatched ? 'checked' : ''} style="margin-right: 12px;">
-        <div class="clickable-area" data-type="season" data-series-id="${seriesId}" data-season="${season.seasonNumber}" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
+        <div class="clickable-area" data-type="season" data-series-id="${seriesId}" data-season="${season.seasonNumber}" onclick="handleSeasonClick('${seriesId}', ${season.seasonNumber})" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
             <img src="${seasonPoster}" alt="Season ${season.seasonNumber}" class="watchlist-thumb" style="width: 40px; height: 60px; object-fit: cover; border-radius: 4px;" onerror="this.onerror=null;this.src='/static/no-image.png';">
             <div style="margin-left: 12px; flex: 1;">
                 <div class="title" style="font-size: 0.9em; color: #ffffff;">Season ${season.seasonNumber}</div>
@@ -1696,7 +1696,7 @@ function renderSeasonRow(season, seriesId) {
     
     // Render episodes if expanded
     if (isExpanded) {
-        html += `<div class="season-episodes" style="margin-left: 40px; background: rgba(255,255,255,0.01); border-left: 2px solid rgba(255,255,255,0.05);">`;
+        html += `<div class="season-episodes" style="margin-left: 60px; background: rgba(255,255,255,0.01); border-left: 2px solid rgba(255,255,255,0.05);">`;
         
         // Filter episodes based on unwatched filter
         const episodesToShow = watchlistFilters.unwatched ? 
@@ -1829,9 +1829,11 @@ function renderEpisodeRow(ep, seriesId) {
     // Use data attributes instead of inline onchange
     return `<div class="episode-row ${watchedClass}" style="display: flex; align-items: center; padding: 8px 12px; background: rgba(255,255,255,0.01); border-left: 2px solid rgba(255,255,255,0.05); margin-bottom: 4px;">
         <input type="checkbox" class="checkbox episode-checkbox" data-series-id="${seriesId}" data-season="${ep.season_number}" data-episode="${ep.episode_number}" ${ep.watched ? 'checked' : ''} style="margin-right: 12px;">
-        <div style="flex: 1;">
-            <div class="title" style="font-size: 0.85em; color: ${ep.watched ? '#666666' : '#ffffff'}; text-decoration: ${ep.watched ? 'line-through' : 'none'}; margin-bottom: 2px;">S${ep.season_number}E${ep.episode_number}: ${ep.title}</div>
-            <div class="meta" style="font-size: 0.75em; color: #cccccc;">${ep.air_date || ''}</div>
+        <div class="clickable-area" data-type="episode" data-series-id="${seriesId}" data-season="${ep.season_number}" data-episode="${ep.episode_number}" onclick="handleEpisodeClick('${seriesId}', ${ep.season_number}, ${ep.episode_number})" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
+            <div style="flex: 1;">
+                <div class="title" style="font-size: 0.85em; color: ${ep.watched ? '#666666' : '#ffffff'}; text-decoration: ${ep.watched ? 'line-through' : 'none'}; margin-bottom: 2px;">S${ep.season_number}E${ep.episode_number}: ${ep.title}</div>
+                <div class="meta" style="font-size: 0.75em; color: #cccccc;">${ep.air_date || ''}</div>
+            </div>
         </div>
         <span title="Remove (not supported)" style="margin-left:auto;display:inline-block;opacity:0.3;cursor:not-allowed;">
             <svg class="remove-icon" viewBox="0 0 24 24"><path d="M3 6h18M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="11" x2="10" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="11" x2="14" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
@@ -1952,6 +1954,59 @@ function toggleSeason(seasonKey) {
             // If episodes container doesn't exist but we're expanding, we need to re-render
             // This should only happen if the season was never expanded before
             loadWatchlist();
+        }
+    }
+}
+
+// Handle season click to open season details
+function handleSeasonClick(seriesId, seasonNumber) {
+    console.log('🎬 Season clicked:', { seriesId, seasonNumber });
+    
+    // Find the series and construct season data
+    const series = currentWatchlistData?.series?.find(s => s.id == seriesId);
+    if (series && series.episodes) {
+        const seasonEpisodes = series.episodes.filter(ep => ep.season_number == seasonNumber);
+        const seasonPoster = getSeasonPoster(seriesId, seasonNumber);
+        const itemData = {
+            id: `${seriesId}-${seasonNumber}`,
+            seriesId: seriesId,
+            seasonNumber: parseInt(seasonNumber),
+            episodes: seasonEpisodes,
+            poster: seasonPoster,
+            totalCount: seasonEpisodes.length,
+            watchedCount: seasonEpisodes.filter(ep => ep.watched).length
+        };
+        
+        console.log('🎬 Opening season details for:', itemData);
+        showDetails('season', `${seriesId}-${seasonNumber}`, itemData);
+    }
+}
+
+// Handle episode click to open episode details
+function handleEpisodeClick(seriesId, seasonNumber, episodeNumber) {
+    console.log('🎬 Episode clicked:', { seriesId, seasonNumber, episodeNumber });
+    
+    // Find the episode data
+    const series = currentWatchlistData?.series?.find(s => s.id == seriesId);
+    if (series && series.episodes) {
+        const episode = series.episodes.find(ep => 
+            ep.season_number == seasonNumber && ep.episode_number == episodeNumber
+        );
+        
+        if (episode) {
+            const itemData = {
+                id: episode.id,
+                seriesId: seriesId,
+                seasonNumber: parseInt(seasonNumber),
+                episodeNumber: parseInt(episodeNumber),
+                title: episode.title,
+                airDate: episode.air_date,
+                watched: episode.watched,
+                seriesTitle: series.title
+            };
+            
+            console.log('🎬 Opening episode details for:', itemData);
+            showDetails('episode', episode.id, itemData);
         }
     }
 }
@@ -3928,6 +3983,18 @@ function showDetails(type, id, itemData) {
         return;
     }
     
+    // Special handling for episodes - show episode details
+    if (type === 'episode' && itemData) {
+        console.log('🎬 Opening episode details for:', itemData);
+        try {
+            showEpisodeDetails(itemData);
+        } catch (error) {
+            console.error('❌ Error opening episode details:', error);
+            showError('Failed to open episode details');
+        }
+        return;
+    }
+    
     // Create modal overlay
     const modal = document.createElement('div');
     modal.style.cssText = `
@@ -4336,6 +4403,75 @@ function showSeasonDetails(seasonData) {
  */
 function closeSeasonDetails() {
     const overlay = document.getElementById('season-overlay');
+    if (overlay) {
+        overlay.remove();
+    }
+}
+
+/**
+ * Show episode details page
+ */
+function showEpisodeDetails(episodeData) {
+    // Create full-page overlay
+    const overlay = document.createElement('div');
+    overlay.id = 'episode-overlay';
+    overlay.style.cssText = `
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        z-index: 1000;
+        overflow-y: auto;
+        padding: 20px;
+    `;
+    
+    // Build episode header
+    const header = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <button onclick="closeEpisodeDetails()" style="background: none; border: none; color: #cccccc; font-size: 24px; cursor: pointer; padding: 8px; display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 18px;">←</span> Back to Watchlist
+            </button>
+            <div style="display: flex; gap: 12px;">
+                <button onclick="toggleEpisodeWatchedInDetails(${episodeData.seriesId}, ${episodeData.seasonNumber}, ${episodeData.episodeNumber}, !${episodeData.watched})" style="background: #00d4aa; color: #000000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                    ${episodeData.watched ? 'Mark Unwatched' : 'Mark Watched'}
+                </button>
+            </div>
+        </div>
+    `;
+    
+    // Build episode info
+    const episodeInfo = `
+        <div style="display: flex; gap: 24px; margin-bottom: 30px; padding: 24px; background: rgba(255,255,255,0.05); border-radius: 12px;">
+            <div style="position: relative;">
+                <img src="/static/no-image.png" alt="Episode Poster" style="width: 150px; height: 225px; object-fit: cover; border-radius: 8px;" onerror="this.src='/static/no-image.png';">
+                <input type="checkbox" ${episodeData.watched ? 'checked' : ''} onchange="toggleEpisodeWatchedInDetails(${episodeData.seriesId}, ${episodeData.seasonNumber}, ${episodeData.episodeNumber}, this.checked)" style="position: absolute; bottom: 8px; left: 8px; transform: scale(1.3);">
+            </div>
+            <div style="flex: 1;">
+                <h1 style="color: #ffffff; margin: 0 0 12px 0; font-size: 2.2em;">${episodeData.title}</h1>
+                <p style="color: #cccccc; margin: 0 0 8px 0; font-size: 1.1em;">
+                    ${episodeData.seriesTitle} • Season ${episodeData.seasonNumber}, Episode ${episodeData.episodeNumber}
+                </p>
+                <p style="color: #cccccc; margin: 0 0 16px 0;">
+                    ${episodeData.airDate ? `Aired: ${episodeData.airDate}` : 'No air date available'}
+                </p>
+                <p style="color: ${episodeData.watched ? '#00d4aa' : '#ff6b6b'}; margin: 0; font-weight: bold;">
+                    ${episodeData.watched ? '✓ Watched' : '○ Not Watched'}
+                </p>
+            </div>
+        </div>
+    `;
+    
+    overlay.innerHTML = header + episodeInfo;
+    document.body.appendChild(overlay);
+}
+
+/**
+ * Close the episode details page
+ */
+function closeEpisodeDetails() {
+    const overlay = document.getElementById('episode-overlay');
     if (overlay) {
         overlay.remove();
     }
