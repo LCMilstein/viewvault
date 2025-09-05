@@ -4498,9 +4498,16 @@ async function showEpisodeDetails(episodeData) {
     // Fetch additional episode data from backend
     let enhancedEpisodeData = { ...episodeData };
     try {
+        const authHeaders = getAuthHeaders();
+        console.log('🔍 Auth headers:', authHeaders);
+        console.log('🔍 Token from localStorage:', localStorage.getItem('access_token'));
+        
         const response = await fetch(`/api/episodes/${episodeData.id}/details`, {
-            headers: getAuthHeaders()
+            headers: authHeaders
         });
+        
+        console.log('🔍 Response status:', response.status);
+        
         if (response.ok) {
             const enhancedData = await response.json();
             enhancedEpisodeData = { ...episodeData, ...enhancedData };
@@ -4508,6 +4515,9 @@ async function showEpisodeDetails(episodeData) {
         } else if (response.status === 404) {
             console.log('🔍 Episode not found in database, using basic data');
             // Keep the original episode data if not found
+        } else if (response.status === 403) {
+            console.log('🔍 Authentication failed - token may be invalid or expired');
+            // Keep the original episode data if authentication fails
         } else {
             console.log('🔍 Could not fetch enhanced episode data:', response.status);
         }
