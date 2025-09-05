@@ -1960,13 +1960,13 @@ function toggleSeason(seasonKey) {
             // This should only happen if the season was never expanded before
             const series = currentWatchlistData?.series?.find(s => s.id == seriesId);
             if (series) {
-                const season = series.episodes.find(ep => ep.season_number == seasonNumber);
-                if (season) {
+                const seasonEpisodes = series.episodes.filter(ep => ep.season_number == seasonNumber);
+                if (seasonEpisodes.length > 0) {
                     // Re-render just this season's episodes
                     const seasonData = {
                         seriesId: seriesId,
                         seasonNumber: seasonNumber,
-                        episodes: series.episodes.filter(ep => ep.season_number == seasonNumber)
+                        episodes: seasonEpisodes
                     };
                     const episodesHtml = renderSeasonEpisodes(seasonData);
                     seasonElement.insertAdjacentHTML('beforeend', episodesHtml);
@@ -1981,7 +1981,12 @@ function renderSeasonEpisodes(seasonData) {
     const { seriesId, seasonNumber, episodes } = seasonData;
     let html = `<div class="season-episodes" style="margin-left: 40px; background: rgba(255,255,255,0.01); border-left: 2px solid rgba(255,255,255,0.05); display: block;">`;
     
-    for (const ep of episodes) {
+    // Filter episodes based on unwatched filter
+    const episodesToShow = watchlistFilters.unwatched ? 
+        episodes.filter(ep => !ep.watched) : 
+        episodes;
+    
+    for (const ep of episodesToShow) {
         html += renderEpisodeRow(ep, seriesId);
     }
     
