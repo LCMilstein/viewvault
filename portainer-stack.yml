@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  viewvault-server:
+    image: lcmilstein/viewvault:latest
+    container_name: viewvault-server
+    ports:
+      - "8008:8000"
+    volumes:
+      - viewvault-server_db:/app/db
+      - viewvault-server_posters:/app/static/posters
+    environment:
+      - DATABASE_URL=sqlite:///./db/viewvault.db
+      - SECRET_KEY=${SECRET_KEY}
+      - JELLYFIN_URL=${JELLYFIN_URL}
+      - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
+      - TMDB_API_KEY=${TMDB_API_KEY}
+      - IMDB_API_KEY=${IMDB_API_KEY}
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  viewvault-server_db:
+  viewvault-server_posters:
