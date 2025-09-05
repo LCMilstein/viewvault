@@ -1453,8 +1453,9 @@ function renderWatchlist(data) {
                         if (series && series.episodes) {
                             const seasonEpisodes = series.episodes.filter(ep => ep.season_number == seasonNumber);
                             const seasonPoster = getSeasonPoster(seriesId, seasonNumber);
+                            const seasonId = `${seriesId}-${seasonNumber}`; // Create a unique ID for the season
                             itemData = {
-                                id: `${seriesId}-${seasonNumber}`, // Create a unique ID for the season
+                                id: seasonId,
                                 seriesId: seriesId,
                                 seasonNumber: parseInt(seasonNumber),
                                 episodes: seasonEpisodes,
@@ -1462,6 +1463,8 @@ function renderWatchlist(data) {
                                 totalCount: seasonEpisodes.length,
                                 watchedCount: seasonEpisodes.filter(ep => ep.watched).length
                             };
+                            // Override the id for seasons since they don't have data-id attribute
+                            id = seasonId;
                         }
                     }
                 }
