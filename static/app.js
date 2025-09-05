@@ -1475,7 +1475,7 @@ function renderWatchlist(data) {
                 }
                 
                 // Debug logging to see what data we found
-                console.log('🔍 Found itemData for movie:', itemData);
+                console.log('🔍 Found itemData for', type, ':', itemData);
                 console.log('🔍 itemData overview field:', itemData?.overview);
                 console.log('🔍 itemData keys:', itemData ? Object.keys(itemData) : 'null');
                 
@@ -1638,9 +1638,11 @@ function renderUnifiedCollection(collection) {
             
             html += `<div class="watchlist-row ${isNew ? 'new-item' : ''}">
                 <input type="checkbox" class="checkbox" data-type="movie" data-id="${movie.id}" ${movie.watched ? 'checked' : ''}>
-                <img src="${movie.poster_url || '/static/no-image.png'}" alt="Poster" class="watchlist-thumb" onerror="this.onerror=null;this.src='/static/no-image.png';">
-                <div class="title">${movie.title}${newBadge}${newlyImportedBadge}</div>
-                <div class="meta">${qualityBadge}Movie${movie.release_date ? ' • ' + new Date(movie.release_date).getFullYear() : ''}</div>
+                <div class="clickable-area" data-type="movie" data-id="${movie.id}" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
+                    <img src="${movie.poster_url || '/static/no-image.png'}" alt="Poster" class="watchlist-thumb" onerror="this.onerror=null;this.src='/static/no-image.png';">
+                    <div class="title">${movie.title}${newBadge}${newlyImportedBadge}</div>
+                    <div class="meta">${qualityBadge}Movie${movie.release_date ? ' • ' + new Date(movie.release_date).getFullYear() : ''}</div>
+                </div>
                 <span title="Remove" class="remove-btn" data-type="movie" data-id="${movie.id}" style="margin-left:auto;display:inline-block;">
                     <svg class="remove-icon" viewBox="0 0 24 24"><path d="M3 6h18M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="11" x2="10" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="11" x2="14" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
                 </span>
@@ -4254,7 +4256,9 @@ async function showDetails(type, id, itemData) {
                         ${itemData.episodes.map(ep => `
                             <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 8px; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px;">
                                 <input type="checkbox" ${ep.watched ? 'checked' : ''} onchange="toggleEpisodeWatchedInDetails(${itemData.id}, ${ep.season_number}, ${ep.episode_number}, this.checked)">
-                                <span style="color: ${ep.watched ? '#666666' : '#ffffff'}; text-decoration: ${ep.watched ? 'line-through' : 'none'};">${ep.code} - ${ep.title}</span>
+                                <div style="flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onclick="handleEpisodeClick('${itemData.id}', ${ep.season_number}, ${ep.episode_number})" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
+                                    <span style="color: ${ep.watched ? '#666666' : '#ffffff'}; text-decoration: ${ep.watched ? 'line-through' : 'none'};">${ep.code} - ${ep.title}</span>
+                                </div>
                             </div>
                         `).join('')}
                     </div>
@@ -4359,24 +4363,8 @@ async function toggleSeasonWatched(seriesId, seasonNumber) {
             await toggleEpisodeWatched(seriesId, episode.season_number, episode.episode_number);
         }
         
-        // Update the season details page instead of reloading the entire watchlist
-        const seasonOverlay = document.getElementById('season-overlay');
-        if (seasonOverlay) {
-            // Re-open season details with updated data
-            const updatedSeasonData = {
-                seriesId: seriesId,
-                seasonNumber: seasonNumber,
-                episodes: seasonEpisodes,
-                poster: getSeasonPoster(seriesId, seasonNumber),
-                totalCount: seasonEpisodes.length,
-                watchedCount: seasonEpisodes.filter(ep => ep.watched).length
-            };
-            closeSeasonDetails();
-            showSeasonDetails(updatedSeasonData);
-        } else {
-            // Only reload watchlist if we're not in season details
-            loadWatchlist();
-        }
+        // Reload watchlist to reflect changes
+        loadWatchlist();
         
     } catch (error) {
         console.error('Error toggling season watched status:', error);
@@ -4397,18 +4385,6 @@ async function toggleCollectionWatched(collectionId) {
         if (response.ok) {
             // Reload the watchlist to reflect changes
             await loadWatchlist();
-            // Refresh the collection details if still open
-            const overlay = document.getElementById('collection-overlay');
-            if (overlay) {
-                // Find the collection data and refresh the view
-                if (currentWatchlistData) {
-                    const collection = currentWatchlistData.collections.find(c => c.id === collectionId);
-                    if (collection) {
-                        overlay.remove();
-                        showCollectionDetails(collection);
-                    }
-                }
-            }
         } else {
             showError('Failed to update collection watched status');
         }
