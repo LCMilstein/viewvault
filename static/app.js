@@ -1428,6 +1428,11 @@ function renderWatchlist(data) {
                 const type = area.getAttribute('data-type');
                 let id = area.getAttribute('data-id');
                 
+                // Skip episodes - they have their own click handlers
+                if (type === 'episode') {
+                    return;
+                }
+                
                 // Find the item data from currentWatchlistData
                 let itemData = null;
                 if (currentWatchlistData) {
@@ -4471,6 +4476,9 @@ function showEpisodeDetails(episodeData) {
                 <p style="color: #cccccc; margin: 0 0 16px 0;">
                     ${episodeData.airDate ? `Aired: ${episodeData.airDate}` : 'No air date available'}
                 </p>
+                <p style="color: #cccccc; margin: 0 0 16px 0; font-style: italic;">
+                    ${episodeData.overview || 'No description available for this episode.'}
+                </p>
                 <p style="color: ${episodeData.watched ? '#00d4aa' : '#ff6b6b'}; margin: 0; font-weight: bold;">
                     ${episodeData.watched ? '✓ Watched' : '○ Not Watched'}
                 </p>
@@ -6029,6 +6037,11 @@ function renderWatchlistFromData(watchlistData) {
                 e.stopPropagation();
                 const type = area.getAttribute('data-type');
                 let id = area.getAttribute('data-id');
+                
+                // Skip episodes - they have their own click handlers
+                if (type === 'episode') {
+                    return;
+                }
                 
                 // Find the item data from currentWatchlistData
                 let itemData = null;
