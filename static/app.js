@@ -3970,7 +3970,7 @@ function closeModal() {
     }
 }
 
-function showDetails(type, id, itemData) {
+async function showDetails(type, id, itemData) {
     // Debug logging to see what data we're getting
     console.log('🔍 showDetails called with:', { type, id, itemData });
     console.log('🔍 itemData overview field:', itemData?.overview);
@@ -4003,7 +4003,7 @@ function showDetails(type, id, itemData) {
         if (itemData) {
             console.log('🎬 Opening episode details for:', itemData);
             try {
-                showEpisodeDetails(itemData);
+                await showEpisodeDetails(itemData);
             } catch (error) {
                 console.error('❌ Error opening episode details:', error);
                 showError('Failed to open episode details');
@@ -4431,7 +4431,13 @@ function closeSeasonDetails() {
 /**
  * Show episode details page
  */
-function showEpisodeDetails(episodeData) {
+async function showEpisodeDetails(episodeData) {
+    // Remove any existing episode overlay to prevent flashing
+    const existingOverlay = document.getElementById('episode-overlay');
+    if (existingOverlay) {
+        existingOverlay.remove();
+    }
+    
     // Create full-page overlay
     const overlay = document.createElement('div');
     overlay.id = 'episode-overlay';
@@ -4446,6 +4452,36 @@ function showEpisodeDetails(episodeData) {
         overflow-y: auto;
         padding: 20px;
     `;
+    
+    // Show loading state initially
+    overlay.innerHTML = `
+        <div style="display: flex; justify-content: center; align-items: center; height: 100%;">
+            <div style="text-align: center; color: #cccccc;">
+                <div style="font-size: 18px; margin-bottom: 12px;">Loading episode details...</div>
+                <div style="font-size: 14px; color: #888;">${episodeData.title}</div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(overlay);
+    
+    // Fetch additional episode data from TMDB
+    let enhancedEpisodeData = { ...episodeData };
+    try {
+        const seriesData = await fetch(`/api/series/${episodeData.seriesId}`).then(r => r.json());
+        if (seriesData && seriesData.tmdb_id) {
+            const tmdbResponse = await fetch(`https://api.themoviedb.org/3/tv/${seriesData.tmdb_id}/season/${episodeData.seasonNumber}/episode/${episodeData.episodeNumber}?api_key=${TMDB_API_KEY}`);
+            if (tmdbResponse.ok) {
+                const tmdbData = await tmdbResponse.json();
+                enhancedEpisodeData.overview = tmdbData.overview || episodeData.overview;
+                enhancedEpisodeData.still_path = tmdbData.still_path;
+                enhancedEpisodeData.vote_average = tmdbData.vote_average;
+                enhancedEpisodeData.vote_count = tmdbData.vote_count;
+                enhancedEpisodeData.runtime = tmdbData.runtime;
+            }
+        }
+    } catch (error) {
+        console.log('🔍 Could not fetch TMDB episode data:', error);
+    }
     
     // Build episode header
     const header = `
@@ -4462,25 +4498,31 @@ function showEpisodeDetails(episodeData) {
     `;
     
     // Build episode info
+    const episodeImage = enhancedEpisodeData.still_path ? 
+        `https://image.tmdb.org/t/p/w500${enhancedEpisodeData.still_path}` : 
+        '/static/no-image.png';
+    
     const episodeInfo = `
         <div style="display: flex; gap: 24px; margin-bottom: 30px; padding: 24px; background: rgba(255,255,255,0.05); border-radius: 12px;">
             <div style="position: relative;">
-                <img src="/static/no-image.png" alt="Episode Poster" style="width: 150px; height: 225px; object-fit: cover; border-radius: 8px;" onerror="this.src='/static/no-image.png';">
-                <input type="checkbox" ${episodeData.watched ? 'checked' : ''} onchange="toggleEpisodeWatchedInDetails(${episodeData.seriesId}, ${episodeData.seasonNumber}, ${episodeData.episodeNumber}, this.checked)" style="position: absolute; bottom: 8px; left: 8px; transform: scale(1.3);">
+                <img src="${episodeImage}" alt="Episode Still" style="width: 200px; height: 112px; object-fit: cover; border-radius: 8px;" onerror="this.src='/static/no-image.png';">
+                <input type="checkbox" ${enhancedEpisodeData.watched ? 'checked' : ''} onchange="toggleEpisodeWatchedInDetails(${enhancedEpisodeData.seriesId}, ${enhancedEpisodeData.seasonNumber}, ${enhancedEpisodeData.episodeNumber}, this.checked)" style="position: absolute; bottom: 8px; left: 8px; transform: scale(1.3);">
             </div>
             <div style="flex: 1;">
-                <h1 style="color: #ffffff; margin: 0 0 12px 0; font-size: 2.2em;">${episodeData.title}</h1>
+                <h1 style="color: #ffffff; margin: 0 0 12px 0; font-size: 2.2em;">${enhancedEpisodeData.title}</h1>
                 <p style="color: #cccccc; margin: 0 0 8px 0; font-size: 1.1em;">
-                    ${episodeData.seriesTitle} • Season ${episodeData.seasonNumber}, Episode ${episodeData.episodeNumber}
+                    ${enhancedEpisodeData.seriesTitle} • Season ${enhancedEpisodeData.seasonNumber}, Episode ${enhancedEpisodeData.episodeNumber}
                 </p>
                 <p style="color: #cccccc; margin: 0 0 16px 0;">
-                    ${episodeData.airDate ? `Aired: ${episodeData.airDate}` : 'No air date available'}
+                    ${enhancedEpisodeData.airDate ? `Aired: ${enhancedEpisodeData.airDate}` : 'No air date available'}
+                    ${enhancedEpisodeData.runtime ? ` • ${enhancedEpisodeData.runtime} min` : ''}
+                    ${enhancedEpisodeData.vote_average ? ` • ⭐ ${enhancedEpisodeData.vote_average.toFixed(1)}/10` : ''}
                 </p>
-                <p style="color: #cccccc; margin: 0 0 16px 0; font-style: italic;">
-                    ${episodeData.overview || 'No description available for this episode.'}
+                <p style="color: #cccccc; margin: 0 0 16px 0; font-style: italic; line-height: 1.5;">
+                    ${enhancedEpisodeData.overview || 'No description available for this episode.'}
                 </p>
-                <p style="color: ${episodeData.watched ? '#00d4aa' : '#ff6b6b'}; margin: 0; font-weight: bold;">
-                    ${episodeData.watched ? '✓ Watched' : '○ Not Watched'}
+                <p style="color: ${enhancedEpisodeData.watched ? '#00d4aa' : '#ff6b6b'}; margin: 0; font-weight: bold;">
+                    ${enhancedEpisodeData.watched ? '✓ Watched' : '○ Not Watched'}
                 </p>
             </div>
         </div>
