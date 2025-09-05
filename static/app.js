@@ -4486,8 +4486,8 @@ async function showEpisodeDetails(episodeData) {
                 <span style="font-size: 18px;">←</span> Back to Watchlist
             </button>
             <div style="display: flex; gap: 12px;">
-                <button onclick="toggleEpisodeWatchedInDetails(${episodeData.seriesId}, ${episodeData.seasonNumber}, ${episodeData.episodeNumber}, !${episodeData.watched})" style="background: #00d4aa; color: #000000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
-                    ${episodeData.watched ? 'Mark Unwatched' : 'Mark Watched'}
+                <button onclick="toggleEpisodeWatchedInDetails(${enhancedEpisodeData.series_id}, ${enhancedEpisodeData.season_number}, ${enhancedEpisodeData.episode_number}, !${enhancedEpisodeData.watched})" style="background: #00d4aa; color: #000000; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;">
+                    ${enhancedEpisodeData.watched ? 'Mark Unwatched' : 'Mark Watched'}
                 </button>
             </div>
         </div>
@@ -4502,15 +4502,15 @@ async function showEpisodeDetails(episodeData) {
         <div style="display: flex; gap: 24px; margin-bottom: 30px; padding: 24px; background: rgba(255,255,255,0.05); border-radius: 12px;">
             <div style="position: relative;">
                 <img src="${episodeImage}" alt="Episode Still" style="width: 200px; height: 112px; object-fit: cover; border-radius: 8px;" onerror="this.src='/static/no-image.png';">
-                <input type="checkbox" ${enhancedEpisodeData.watched ? 'checked' : ''} onchange="toggleEpisodeWatchedInDetails(${enhancedEpisodeData.seriesId}, ${enhancedEpisodeData.seasonNumber}, ${enhancedEpisodeData.episodeNumber}, this.checked)" style="position: absolute; bottom: 8px; left: 8px; transform: scale(1.3);">
+                <input type="checkbox" ${enhancedEpisodeData.watched ? 'checked' : ''} onchange="toggleEpisodeWatchedInDetails(${enhancedEpisodeData.series_id}, ${enhancedEpisodeData.season_number}, ${enhancedEpisodeData.episode_number}, this.checked)" style="position: absolute; bottom: 8px; left: 8px; transform: scale(1.3);">
             </div>
             <div style="flex: 1;">
                 <h1 style="color: #ffffff; margin: 0 0 12px 0; font-size: 2.2em;">${enhancedEpisodeData.title}</h1>
                 <p style="color: #cccccc; margin: 0 0 8px 0; font-size: 1.1em;">
-                    ${enhancedEpisodeData.seriesTitle} • Season ${enhancedEpisodeData.seasonNumber}, Episode ${enhancedEpisodeData.episodeNumber}
+                    ${enhancedEpisodeData.series_title} • Season ${enhancedEpisodeData.season_number}, Episode ${enhancedEpisodeData.episode_number}
                 </p>
                 <p style="color: #cccccc; margin: 0 0 16px 0;">
-                    ${enhancedEpisodeData.airDate ? `Aired: ${enhancedEpisodeData.airDate}` : 'No air date available'}
+                    ${enhancedEpisodeData.air_date ? `Aired: ${enhancedEpisodeData.air_date}` : 'No air date available'}
                     ${enhancedEpisodeData.runtime ? ` • ${enhancedEpisodeData.runtime} min` : ''}
                     ${enhancedEpisodeData.vote_average ? ` • ⭐ ${enhancedEpisodeData.vote_average.toFixed(1)}/10` : ''}
                 </p>
