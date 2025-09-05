@@ -3993,13 +3993,19 @@ function showDetails(type, id, itemData) {
     }
     
     // Special handling for episodes - show episode details
-    if (type === 'episode' && itemData) {
-        console.log('🎬 Opening episode details for:', itemData);
-        try {
-            showEpisodeDetails(itemData);
-        } catch (error) {
-            console.error('❌ Error opening episode details:', error);
-            showError('Failed to open episode details');
+    if (type === 'episode') {
+        console.log('🎬 Episode type detected, itemData:', itemData);
+        if (itemData) {
+            console.log('🎬 Opening episode details for:', itemData);
+            try {
+                showEpisodeDetails(itemData);
+            } catch (error) {
+                console.error('❌ Error opening episode details:', error);
+                showError('Failed to open episode details');
+            }
+        } else {
+            console.error('❌ No itemData for episode');
+            showError('No episode data available');
         }
         return;
     }
@@ -4389,7 +4395,7 @@ function showSeasonDetails(seasonData) {
                 ${seasonData.episodes.map(episode => `
                     <div style="display: flex; align-items: center; gap: 12px; padding: 12px; background: rgba(255,255,255,0.05); border-radius: 8px;">
                         <input type="checkbox" ${episode.watched ? 'checked' : ''} onchange="toggleEpisodeWatchedInDetails(${seasonData.seriesId}, ${episode.season_number}, ${episode.episode_number}, this.checked)">
-                        <div style="flex: 1;">
+                        <div style="flex: 1; cursor: pointer;" onclick="handleEpisodeClick('${seasonData.seriesId}', ${episode.season_number}, ${episode.episode_number})" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'" style="padding: 8px; border-radius: 4px;">
                             <h3 style="color: ${episode.watched ? '#666666' : '#ffffff'}; margin: 0; font-size: 1.1em; text-decoration: ${episode.watched ? 'line-through' : 'none'};">
                                 ${episode.code} - ${episode.title}
                             </h3>
