@@ -1841,10 +1841,10 @@ def get_episode_details(episode_id: int, current_user: User = Depends(get_curren
         if not episode:
             raise HTTPException(status_code=404, detail="Episode not found")
         
-        # Check if user owns this episode
+        # Get series info
         series = session.get(Series, episode.series_id)
-        if not series or series.user_id != current_user.id:
-            raise HTTPException(status_code=404, detail="Episode not found")
+        if not series:
+            raise HTTPException(status_code=404, detail="Series not found")
         
         # Get enhanced data from TMDB
         enhanced_data = {

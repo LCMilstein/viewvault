@@ -4503,6 +4503,9 @@ async function showEpisodeDetails(episodeData) {
             const enhancedData = await response.json();
             enhancedEpisodeData = { ...episodeData, ...enhancedData };
             console.log('🔍 Enhanced episode data:', enhancedData);
+        } else if (response.status === 404) {
+            console.log('🔍 Episode not found in database, using basic data');
+            // Keep the original episode data if not found
         } else {
             console.log('🔍 Could not fetch enhanced episode data:', response.status);
         }
