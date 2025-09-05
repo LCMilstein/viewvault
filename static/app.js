@@ -1692,11 +1692,12 @@ function renderSeasonRow(season, seriesId) {
                 <div class="meta" style="font-size: 0.8em; color: #cccccc;">${season.totalCount} episodes • ${unwatchedCount} unwatched</div>
             </div>
         </div>
-        <button class="expand-arrow" onclick="toggleSeason('${seasonKey}')" style="margin-left: 8px; background: none; border: none; color: #ffffff; cursor: pointer; padding: 8px;">${isExpanded ? '▼' : '▶'}</button>`;
+        <button class="expand-arrow" onclick="toggleSeason('${seasonKey}')" style="margin-left: 8px; background: none; border: none; color: #ffffff; cursor: pointer; padding: 8px;">${isExpanded ? '▼' : '▶'}</button>
+    </div>`;
     
-    // Render episodes if expanded
+    // Render episodes if expanded - OUTSIDE the season row
     if (isExpanded) {
-        html += `<div class="season-episodes" style="margin-left: 20px; background: rgba(255,255,255,0.01); border-left: 2px solid rgba(255,255,255,0.05); display: block;">`;
+        html += `<div class="season-episodes" style="margin-left: 40px; background: rgba(255,255,255,0.01); border-left: 2px solid rgba(255,255,255,0.05); display: block;">`;
         
         // Filter episodes based on unwatched filter
         const episodesToShow = watchlistFilters.unwatched ? 
@@ -1709,7 +1710,6 @@ function renderSeasonRow(season, seriesId) {
         html += '</div>';
     }
     
-    html += '</div>';
     return html;
 }
 
@@ -1995,6 +1995,7 @@ function handleEpisodeClick(seriesId, seasonNumber, episodeNumber) {
         
         if (episode) {
             console.log('🔍 Found episode:', episode);
+            console.log('🔍 Episode properties:', Object.keys(episode));
             const itemData = {
                 id: episode.id,
                 seriesId: seriesId,
@@ -2010,6 +2011,11 @@ function handleEpisodeClick(seriesId, seasonNumber, episodeNumber) {
             showDetails('episode', episode.id, itemData);
         } else {
             console.log('❌ Episode not found for:', { seriesId, seasonNumber, episodeNumber });
+            console.log('🔍 Available episodes:', series.episodes.map(ep => ({ 
+                season: ep.season_number, 
+                episode: ep.episode_number, 
+                title: ep.title 
+            })));
         }
     }
 }
