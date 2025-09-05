@@ -323,6 +323,11 @@ app.add_middleware(
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+# Health check endpoint
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": "viewvault-server"}
+
 # Favicon route
 @app.get("/favicon.ico")
 async def get_favicon():

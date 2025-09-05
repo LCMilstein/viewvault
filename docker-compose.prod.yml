@@ -2,11 +2,7 @@ version: '3.8'
 
 services:
   viewvault-server:
-    # Use image if specified, otherwise build locally
-    image: ${VIEWVAULT_IMAGE:-lcmilstein/viewvault-server:latest}
-    build: 
-      context: .
-      dockerfile: Dockerfile
+    image: lcmilstein/viewvault-server:latest
     container_name: viewvault-server
     ports:
       - "8008:8000"
@@ -15,13 +11,11 @@ services:
       - viewvault-server_posters:/app/static/posters
     environment:
       - DATABASE_URL=sqlite:///./db/viewvault.db
-      - SECRET_KEY=${SECRET_KEY:-change-me-in-production}
+      - SECRET_KEY=${SECRET_KEY}
       - JELLYFIN_URL=${JELLYFIN_URL}
       - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
       - TMDB_API_KEY=${TMDB_API_KEY}
       - IMDB_API_KEY=${IMDB_API_KEY}
-    # env_file:
-      # - ./secrets.env
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
