@@ -136,12 +136,38 @@ def create_db_and_tables():
                 session.commit()
                 logger.info("Added missing runtime column to movie table")
             
+            # Check if imported_at column exists in movie table
+            if 'imported_at' not in columns:
+                logger.info("Adding imported_at column to movie table...")
+                session.execute(text("ALTER TABLE movie ADD COLUMN imported_at DATETIME"))
+                session.commit()
+                logger.info("Added missing imported_at column to movie table")
+                
+                # Set default values for existing movies
+                logger.info("Setting default imported_at values for existing movies...")
+                session.execute(text("UPDATE movie SET imported_at = COALESCE(added_at, datetime('now')) WHERE imported_at IS NULL"))
+                session.commit()
+                logger.info("Set default imported_at values for existing movies")
+            
             # Check if average_episode_runtime column exists in series table
             if 'average_episode_runtime' not in series_columns:
                 logger.info("Adding average_episode_runtime column to series table...")
                 session.execute(text("ALTER TABLE series ADD COLUMN average_episode_runtime INTEGER"))
                 session.commit()
                 logger.info("Added missing average_episode_runtime column to series table")
+            
+            # Check if imported_at column exists in series table
+            if 'imported_at' not in series_columns:
+                logger.info("Adding imported_at column to series table...")
+                session.execute(text("ALTER TABLE series ADD COLUMN imported_at DATETIME"))
+                session.commit()
+                logger.info("Added missing imported_at column to series table")
+                
+                # Set default values for existing series
+                logger.info("Setting default imported_at values for existing series...")
+                session.execute(text("UPDATE series SET imported_at = COALESCE(added_at, datetime('now')) WHERE imported_at IS NULL"))
+                session.commit()
+                logger.info("Set default imported_at values for existing series")
             
             # Check if user_id columns exist and add if missing
             if 'user_id' not in columns:
