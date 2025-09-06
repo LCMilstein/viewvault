@@ -1368,10 +1368,14 @@
             flex: 1;
         }
 
-        /* Force admin console alignment */
-        #adminConsoleLink {
-            padding: 10px 16px !important;
+        /* Admin console visibility and alignment */
+        .admin-only {
+            display: none !important;
+        }
+        
+        .admin-only.admin-visible {
             display: flex !important;
+            padding: 10px 16px !important;
             align-items: center !important;
             gap: 12px !important;
         }
@@ -2718,7 +2722,7 @@
                             <div class="settings-item" data-action="showListManagementOverlay" aria-label="Manage Lists">
                                 <span><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M4 4h16v2H4V4zm0 4h10v2H4V8zm0 4h16v2H4v-2zm0 4h10v2H4v-2z"/></svg></span> Manage Lists
                             </div>
-                            <div class="settings-item admin-only" id="adminConsoleLink" style="display: none;" aria-label="Admin Console">
+                            <div class="settings-item admin-only" id="adminConsoleLink" aria-label="Admin Console">
                                 <span><svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M19.14,12.94a7.07,7.07,0,0,0,.05-1,7.07,7.07,0,0,0-.05-1l2.11-1.65a.5.5,0,0,0,.12-.64l-2-3.46a.5.5,0,0,0-.6-.22l-2.49,1a7.28,7.28,0,0,0-1.73-1l-.38-2.65A.5.5,0,0,0,13,1H11a.5.5,0,0,0-.5.42L10.12,4.07a7.28,7.28,0,0,0-1.73,1l-2.49-1a.5.5,0,0,0-.6.22l-2,3.46a.5.5,0,0,0,.12.64L5.14,10a7.07,7.07,0,0,0-.05,1,7.07,7.07,0,0,0,.05,1L3,13.65a.5.5,0,0,0-.12.64l2,3.46a.5.5,0,0,0,.6.22l2.49-1a7.28,7.28,0,0,0,1.73,1l.38,2.65A.5.5,0,0,0,11,23h2a.5.5,0,0,0,.5-.42l.38-2.65a7.28,7.28,0,0,0,1.73-1l2.49,1a.5.5,0,0,0,.6-.22l2-3.46a.5.5,0,0,0-.12-.64ZM12,15.5A3.5,3.5,0,1,1,15.5,12,3.5,3.5,0,0,1,12,15.5Z"/></svg></span> Admin Console
                             </div>
                             <div class="settings-item" data-action="account" aria-label="Account">
