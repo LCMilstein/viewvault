@@ -111,18 +111,31 @@ class JellyfinService:
                 for item in data.get('Items', []):
                     collection_type = item.get('CollectionType')
                     name = item.get('Name')
-                    logger.info(f"Found library: '{name}' with type: '{collection_type}'")
+                    item_id = item.get('Id')
+                    
+                    # Log all available fields for debugging
+                    logger.info(f"=== Library Details ===")
+                    logger.info(f"Name: '{name}'")
+                    logger.info(f"ID: {item_id}")
+                    logger.info(f"CollectionType: '{collection_type}'")
+                    logger.info(f"All fields: {list(item.keys())}")
+                    
+                    # Check for any fields that might indicate it's a movie library
+                    logger.info(f"Has 'Type' field: {item.get('Type')}")
+                    logger.info(f"Has 'MediaType' field: {item.get('MediaType')}")
+                    logger.info(f"Has 'ContentType' field: {item.get('ContentType')}")
                     
                     # Use the same logic as the working version
                     if collection_type == 'movies':
                         libraries.append({
-                            'id': item.get('Id'),
+                            'id': item_id,
                             'name': name,
                             'type': collection_type
                         })
                         logger.info(f"✅ Added library: '{name}' (type: {collection_type})")
                     else:
                         logger.info(f"❌ Skipped library: '{name}' (type: {collection_type}) - not movies")
+                        logger.info(f"   Full item data: {item}")
                 logger.info(f"Found {len(libraries)} movie/mixed libraries: {[lib['name'] for lib in libraries]}")
                 return libraries
             else:
