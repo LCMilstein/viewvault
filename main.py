@@ -14,6 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel, Session, select, text, update
 from models import Series, Episode, Movie, MovieCreate, SeriesCreate, EpisodeCreate, User, UserCreate, UserLogin, Token, List, ListItem, ListPermission, ListCreate, ListUpdate, ListItemAdd, ListItemUpdate, ChangePassword, LibraryImportHistory
 from security import get_current_user, get_current_admin_user, authenticate_user, create_access_token, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES
+from supabase_bridge import supabase_bridge
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -639,6 +640,97 @@ def delete_current_user(current_user: User = Depends(get_current_user)):
         
         print(f"✅ DELETE_USER: Successfully deleted user {current_user.username} and all their data")
         return {"message": f"User {current_user.username} and all their data have been deleted"}
+
+# =============================================================================
+# SUPABASE AUTHENTICATION ROUTES (Web Frontend Only)
+# =============================================================================
+
+@api_router.get("/auth/supabase/config")
+def get_supabase_config():
+    """Get Supabase configuration for frontend"""
+    if not supabase_bridge.is_available():
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    
+    return {
+        "supabase_url": supabase_bridge.supabase_url,
+        "supabase_anon_key": supabase_bridge.supabase_key,
+        "available": True
+    }
+
+@api_router.post("/auth/supabase/oauth/{provider}")
+def initiate_oauth_login(provider: str, request: Request):
+    """Initiate OAuth login with specified provider"""
+    if not supabase_bridge.is_available():
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    
+    if provider not in ["google", "github"]:
+        raise HTTPException(status_code=400, detail="Unsupported provider")
+    
+    # Get the base URL from the request
+    base_url = f"{request.url.scheme}://{request.url.netloc}"
+    redirect_to = f"{base_url}/auth/callback"
+    
+    oauth_url = supabase_bridge.sign_in_with_oauth(provider, redirect_to)
+    if not oauth_url:
+        raise HTTPException(status_code=500, detail="Failed to initiate OAuth")
+    
+    return {"oauth_url": oauth_url}
+
+@api_router.post("/auth/supabase/callback")
+def handle_oauth_callback(request: Request):
+    """Handle OAuth callback and create JWT token"""
+    if not supabase_bridge.is_available():
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    
+    # Get the access token from the request
+    # This would typically come from the OAuth callback
+    access_token = request.headers.get("Authorization", "").replace("Bearer ", "")
+    if not access_token:
+        raise HTTPException(status_code=400, detail="No access token provided")
+    
+    # Get user from Supabase
+    supabase_user = supabase_bridge.get_supabase_user_by_token(access_token)
+    if not supabase_user:
+        raise HTTPException(status_code=401, detail="Invalid access token")
+    
+    # Create JWT token for the user
+    jwt_token = supabase_bridge.create_jwt_for_supabase_user(supabase_user)
+    if not jwt_token:
+        raise HTTPException(status_code=500, detail="Failed to create JWT token")
+    
+    return {"access_token": jwt_token, "token_type": "bearer"}
+
+@api_router.post("/auth/supabase/email/login")
+def supabase_email_login(request: Request, email: str, password: str):
+    """Login with email and password via Supabase"""
+    if not supabase_bridge.is_available():
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    
+    supabase_user = supabase_bridge.sign_in_with_email(email, password)
+    if not supabase_user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    jwt_token = supabase_bridge.create_jwt_for_supabase_user(supabase_user)
+    if not jwt_token:
+        raise HTTPException(status_code=500, detail="Failed to create JWT token")
+    
+    return {"access_token": jwt_token, "token_type": "bearer"}
+
+@api_router.post("/auth/supabase/email/register")
+def supabase_email_register(request: Request, email: str, password: str, username: str = None):
+    """Register with email and password via Supabase"""
+    if not supabase_bridge.is_available():
+        raise HTTPException(status_code=503, detail="Supabase not configured")
+    
+    supabase_user = supabase_bridge.sign_up_with_email(email, password, username)
+    if not supabase_user:
+        raise HTTPException(status_code=400, detail="Registration failed")
+    
+    jwt_token = supabase_bridge.create_jwt_for_supabase_user(supabase_user)
+    if not jwt_token:
+        raise HTTPException(status_code=500, detail="Failed to create JWT token")
+    
+    return {"access_token": jwt_token, "token_type": "bearer"}
 
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
 
@@ -3822,6 +3914,16 @@ def read_root():
 @app.get("/login")
 def read_login():
     return FileResponse("static/login.html")
+
+@app.get("/auth")
+def read_auth_login():
+    """Modern authentication page with OAuth support"""
+    return FileResponse("static/auth-login.html")
+
+@app.get("/auth/callback")
+def auth_callback():
+    """OAuth callback handler - redirects to auth page with callback handling"""
+    return FileResponse("static/auth-login.html")
 
 @api_router.get("/debug/movies")
 def debug_movies():
