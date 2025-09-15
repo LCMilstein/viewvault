@@ -9,7 +9,7 @@ else:
     print("secrets.env not found, using system environment variables")
 from fastapi import FastAPI, status, HTTPException, Query, Request, Depends, APIRouter
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel, Session, select, text, update
 from models import Series, Episode, Movie, MovieCreate, SeriesCreate, EpisodeCreate, User, UserCreate, UserLogin, Token, List, ListItem, ListPermission, ListCreate, ListUpdate, ListItemAdd, ListItemUpdate, ChangePassword, LibraryImportHistory
@@ -3921,9 +3921,13 @@ def read_auth_login():
     return FileResponse("static/auth-login.html")
 
 @app.get("/auth/callback")
-def auth_callback():
-    """OAuth callback handler - redirects to auth page with callback handling"""
-    return FileResponse("static/auth-login.html")
+def auth_callback(request: Request):
+    """OAuth callback handler - processes OAuth callback and redirects"""
+    # Get the URL parameters from the callback
+    url_params = request.url.query
+    
+    # Redirect to the login page with the callback parameters
+    return RedirectResponse(url=f"/login?{url_params}")
 
 @api_router.get("/debug/movies")
 def debug_movies():
