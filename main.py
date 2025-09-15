@@ -3913,7 +3913,7 @@ def read_root():
 
 @app.get("/login")
 def read_login():
-    return FileResponse("static/login.html")
+    return FileResponse("static/auth-login.html")
 
 @app.get("/auth")
 def read_auth_login():
