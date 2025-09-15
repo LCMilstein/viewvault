@@ -127,8 +127,11 @@ class SupabaseBridge:
             return None
         
         try:
-            # Get user from Supabase using access token
-            response = self.supabase.auth.get_user(access_token)
+            # Set the session with the access token
+            self.supabase.auth.set_session(access_token, "")
+            
+            # Get user from Supabase
+            response = self.supabase.auth.get_user()
             if response and response.user:
                 return response.user
             return None
