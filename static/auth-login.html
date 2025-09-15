@@ -591,26 +591,29 @@
 
         // Handle OAuth callback
         async function handleOAuthCallback() {
-            const urlParams = new URLSearchParams(window.location.search);
-            const code = urlParams.get('code');
-            const error = urlParams.get('error');
+            // Check for OAuth callback in URL fragment (after #)
+            const hash = window.location.hash;
+            if (hash && hash.includes('access_token=')) {
+                console.log('🔍 OAuth callback detected in URL fragment');
+                
+                // Parse the URL fragment
+                const params = new URLSearchParams(hash.substring(1));
+                const accessToken = params.get('access_token');
+                const error = params.get('error');
 
-            if (error) {
-                showError('OAuth error: ' + error);
-                return;
-            }
+                if (error) {
+                    showError('OAuth error: ' + error);
+                    return;
+                }
 
-            if (code && supabase) {
-                try {
-                    const { data, error } = await supabase.auth.exchangeCodeForSession(code);
-                    if (error) throw error;
-
-                    if (data.user) {
+                if (accessToken) {
+                    console.log('🔑 Access token found, creating session...');
+                    try {
                         // Create JWT token for the user
                         const response = await fetch('/api/auth/supabase/callback', {
                             method: 'POST',
                             headers: {
-                                'Authorization': `Bearer ${data.session.access_token}`,
+                                'Authorization': `Bearer ${accessToken}`,
                                 'Content-Type': 'application/json',
                             }
                         });
@@ -626,10 +629,10 @@
                             const error = await response.json();
                             showError(error.detail || 'Failed to create session');
                         }
+                    } catch (error) {
+                        console.error('OAuth callback error:', error);
+                        showError('OAuth callback failed: ' + error.message);
                     }
-                } catch (error) {
-                    console.error('OAuth callback error:', error);
-                    showError('OAuth callback failed: ' + error.message);
                 }
             }
         }
