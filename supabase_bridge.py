@@ -124,19 +124,38 @@ class SupabaseBridge:
         Get Supabase user by access token
         """
         if not self.supabase:
+            logger.error("Supabase client not available")
             return None
         
+        logger.info(f"Attempting to get user with access token: {access_token[:20]}...")
+        
         try:
-            # Set the session with the access token
+            # Set the session with the access token and empty refresh token
+            # The access token from OAuth should work with set_session
             self.supabase.auth.set_session(access_token, "")
+            logger.info("Session set successfully")
             
             # Get user from Supabase
             response = self.supabase.auth.get_user()
+            logger.info(f"Get user response: {response}")
             if response and response.user:
+                logger.info(f"User found: {response.user.get('email', 'no-email')}")
                 return response.user
+            logger.warning("No user found in response")
             return None
         except Exception as e:
             logger.error(f"Error getting Supabase user by token: {e}")
+            # Try alternative approach with service role
+            try:
+                if self.service_role_key:
+                    logger.info("Trying service role approach...")
+                    service_client = create_client(self.supabase_url, self.service_role_key)
+                    response = service_client.auth.get_user(access_token)
+                    if response and response.user:
+                        logger.info(f"User found via service role: {response.user.get('email', 'no-email')}")
+                        return response.user
+            except Exception as e2:
+                logger.error(f"Error with service role approach: {e2}")
             return None
     
     def sign_in_with_oauth(self, provider: str, redirect_to: str = None) -> Optional[str]:
