@@ -591,49 +591,64 @@
 
         // Handle OAuth callback
         async function handleOAuthCallback() {
-            // Check for OAuth callback in URL fragment (after #)
+            console.log('🔍 Checking for OAuth callback...');
+            console.log('Current URL:', window.location.href);
+            console.log('Hash:', window.location.hash);
+            console.log('Search:', window.location.search);
+            
+            // Check for OAuth callback in URL fragment (after #) or query params (after ?)
             const hash = window.location.hash;
+            const search = window.location.search;
+            
+            let accessToken = null;
+            let error = null;
+            
             if (hash && hash.includes('access_token=')) {
                 console.log('🔍 OAuth callback detected in URL fragment');
-                
-                // Parse the URL fragment
                 const params = new URLSearchParams(hash.substring(1));
-                const accessToken = params.get('access_token');
-                const error = params.get('error');
+                accessToken = params.get('access_token');
+                error = params.get('error');
+            } else if (search && search.includes('access_token=')) {
+                console.log('🔍 OAuth callback detected in URL query params');
+                const params = new URLSearchParams(search.substring(1));
+                accessToken = params.get('access_token');
+                error = params.get('error');
+            }
 
-                if (error) {
-                    showError('OAuth error: ' + error);
-                    return;
-                }
+            if (error) {
+                showError('OAuth error: ' + error);
+                return;
+            }
 
-                if (accessToken) {
-                    console.log('🔑 Access token found, creating session...');
-                    try {
-                        // Create JWT token for the user
-                        const response = await fetch('/api/auth/supabase/callback', {
-                            method: 'POST',
-                            headers: {
-                                'Authorization': `Bearer ${accessToken}`,
-                                'Content-Type': 'application/json',
-                            }
-                        });
-
-                        if (response.ok) {
-                            const tokenData = await response.json();
-                            localStorage.setItem('access_token', tokenData.access_token);
-                            showSuccess('Login successful! Redirecting...');
-                            setTimeout(() => {
-                                window.location.href = '/';
-                            }, 1000);
-                        } else {
-                            const error = await response.json();
-                            showError(error.detail || 'Failed to create session');
+            if (accessToken) {
+                console.log('🔑 Access token found, creating session...');
+                try {
+                    // Create JWT token for the user
+                    const response = await fetch('/api/auth/supabase/callback', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${accessToken}`,
+                            'Content-Type': 'application/json',
                         }
-                    } catch (error) {
-                        console.error('OAuth callback error:', error);
-                        showError('OAuth callback failed: ' + error.message);
+                    });
+
+                    if (response.ok) {
+                        const tokenData = await response.json();
+                        localStorage.setItem('access_token', tokenData.access_token);
+                        showSuccess('Login successful! Redirecting...');
+                        setTimeout(() => {
+                            window.location.href = '/';
+                        }, 1000);
+                    } else {
+                        const error = await response.json();
+                        showError(error.detail || 'Failed to create session');
                     }
+                } catch (error) {
+                    console.error('OAuth callback error:', error);
+                    showError('OAuth callback failed: ' + error.message);
                 }
+            } else {
+                console.log('🔍 No OAuth callback detected');
             }
         }
 
