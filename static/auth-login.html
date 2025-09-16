@@ -376,17 +376,23 @@
 
             showLoading();
             try {
-                const { data, error } = await supabase.auth.signInWithOAuth({
-                    provider: 'google',
-                    options: {
-                        redirectTo: window.location.origin + '/auth/callback'
+                // Use our backend OAuth endpoint
+                const response = await fetch('/api/auth/supabase/oauth/google', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
                     }
                 });
                 
-                if (error) throw error;
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
                 
-                console.log('✅ Google OAuth initiated');
-                // The redirect will happen automatically
+                const data = await response.json();
+                console.log('✅ Google OAuth URL received:', data.oauth_url);
+                
+                // Redirect to the OAuth URL
+                window.location.href = data.oauth_url;
             } catch (error) {
                 console.error('❌ Google sign-in error:', error);
                 showError('Error signing in with Google: ' + error.message);
@@ -403,17 +409,23 @@
 
             showLoading();
             try {
-                const { data, error } = await supabase.auth.signInWithOAuth({
-                    provider: 'github',
-                    options: {
-                        redirectTo: window.location.origin + '/auth/callback'
+                // Use our backend OAuth endpoint
+                const response = await fetch('/api/auth/supabase/oauth/github', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
                     }
                 });
                 
-                if (error) throw error;
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
                 
-                console.log('✅ GitHub OAuth initiated');
-                // The redirect will happen automatically
+                const data = await response.json();
+                console.log('✅ GitHub OAuth URL received:', data.oauth_url);
+                
+                // Redirect to the OAuth URL
+                window.location.href = data.oauth_url;
             } catch (error) {
                 console.error('❌ GitHub sign-in error:', error);
                 showError('Error signing in with GitHub: ' + error.message);
