@@ -682,23 +682,29 @@ def handle_oauth_callback(request: Request):
     if not supabase_bridge.is_available():
         raise HTTPException(status_code=503, detail="Supabase not configured")
     
-    # Get the access token from the request
-    # This would typically come from the OAuth callback
-    access_token = request.headers.get("Authorization", "").replace("Bearer ", "")
-    if not access_token:
-        raise HTTPException(status_code=400, detail="No access token provided")
-    
-    # Get user from Supabase
-    supabase_user = supabase_bridge.get_supabase_user_by_token(access_token)
-    if not supabase_user:
-        raise HTTPException(status_code=401, detail="Invalid access token")
-    
-    # Create JWT token for the user
-    jwt_token = supabase_bridge.create_jwt_for_supabase_user(supabase_user)
-    if not jwt_token:
-        raise HTTPException(status_code=500, detail="Failed to create JWT token")
-    
-    return {"access_token": jwt_token, "token_type": "bearer"}
+    try:
+        # Get the request body
+        body = request.json()
+        code = body.get("code")
+        
+        if not code:
+            raise HTTPException(status_code=400, detail="No authorization code provided")
+        
+        # Exchange authorization code for tokens using Supabase
+        supabase_user = supabase_bridge.exchange_code_for_user(code)
+        if not supabase_user:
+            raise HTTPException(status_code=401, detail="Failed to exchange authorization code")
+        
+        # Create JWT token for the user
+        jwt_token = supabase_bridge.create_jwt_for_supabase_user(supabase_user)
+        if not jwt_token:
+            raise HTTPException(status_code=500, detail="Failed to create JWT token")
+        
+        return {"access_token": jwt_token, "token_type": "bearer"}
+        
+    except Exception as e:
+        logger.error(f"OAuth callback error: {e}")
+        raise HTTPException(status_code=500, detail=f"OAuth callback failed: {str(e)}")
 
 @api_router.post("/auth/supabase/email/login")
 def supabase_email_login(request: Request, email: str, password: str):
@@ -3928,6 +3934,17 @@ def auth_callback(request: Request):
     
     # Redirect to the login page with the callback parameters
     return RedirectResponse(url=f"/login?{url_params}")
+
+@app.get("/")
+def read_root(request: Request):
+    """Root handler - check for OAuth callback and redirect appropriately"""
+    # Check if this is an OAuth callback (has code parameter)
+    if request.url.query and "code=" in request.url.query:
+        # This is an OAuth callback, redirect to auth/callback
+        return RedirectResponse(url=f"/auth/callback?{request.url.query}")
+    
+    # Normal root request, serve the main app
+    return FileResponse("static/index.html")
 
 @api_router.get("/debug/movies")
 def debug_movies():

@@ -119,6 +119,32 @@ class SupabaseBridge:
             logger.error(f"Error creating JWT for Supabase user: {e}")
             return None
     
+    def exchange_code_for_user(self, code: str) -> Optional[Dict[str, Any]]:
+        """
+        Exchange authorization code for user session
+        """
+        if not self.supabase:
+            logger.error("Supabase client not available")
+            return None
+        
+        logger.info(f"Exchanging authorization code: {code[:20]}...")
+        
+        try:
+            # Exchange the authorization code for a session
+            response = self.supabase.auth.exchange_code_for_session(code)
+            logger.info(f"Code exchange response: {response}")
+            
+            if response and response.user:
+                logger.info(f"User found after code exchange: {response.user.get('email', 'no-email')}")
+                return response.user
+            else:
+                logger.warning("No user found after code exchange")
+                return None
+                
+        except Exception as e:
+            logger.error(f"Error exchanging code for user: {e}")
+            return None
+
     def get_supabase_user_by_token(self, access_token: str) -> Optional[Dict[str, Any]]:
         """
         Get Supabase user by access token

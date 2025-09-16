@@ -608,40 +608,27 @@
             console.log('Hash:', window.location.hash);
             console.log('Search:', window.location.search);
             
-            // Check for OAuth callback in URL fragment (after #) or query params (after ?)
-            const hash = window.location.hash;
+            // Check for OAuth callback with authorization code
             const search = window.location.search;
-            
-            let accessToken = null;
-            let error = null;
-            
-            if (hash && hash.includes('access_token=')) {
-                console.log('🔍 OAuth callback detected in URL fragment');
-                const params = new URLSearchParams(hash.substring(1));
-                accessToken = params.get('access_token');
-                error = params.get('error');
-            } else if (search && search.includes('access_token=')) {
-                console.log('🔍 OAuth callback detected in URL query params');
-                const params = new URLSearchParams(search.substring(1));
-                accessToken = params.get('access_token');
-                error = params.get('error');
-            }
+            const urlParams = new URLSearchParams(search);
+            const code = urlParams.get('code');
+            const error = urlParams.get('error');
 
             if (error) {
                 showError('OAuth error: ' + error);
                 return;
             }
 
-            if (accessToken) {
-                console.log('🔑 Access token found, creating session...');
+            if (code) {
+                console.log('🔑 Authorization code found, exchanging for tokens...');
                 try {
-                    // Create JWT token for the user
+                    // Exchange authorization code for tokens
                     const response = await fetch('/api/auth/supabase/callback', {
                         method: 'POST',
                         headers: {
-                            'Authorization': `Bearer ${accessToken}`,
                             'Content-Type': 'application/json',
-                        }
+                        },
+                        body: JSON.stringify({ code: code })
                     });
 
                     if (response.ok) {
