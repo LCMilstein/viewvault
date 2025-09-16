@@ -677,14 +677,14 @@ def initiate_oauth_login(provider: str, request: Request):
     return {"oauth_url": oauth_url}
 
 @api_router.post("/auth/supabase/callback")
-def handle_oauth_callback(request: Request):
+async def handle_oauth_callback(request: Request):
     """Handle OAuth callback and create JWT token"""
     if not supabase_bridge.is_available():
         raise HTTPException(status_code=503, detail="Supabase not configured")
     
     try:
         # Get the request body
-        body = request.json()
+        body = await request.json()
         code = body.get("code")
         
         if not code:
