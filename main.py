@@ -691,7 +691,7 @@ async def handle_oauth_callback(request: Request):
             raise HTTPException(status_code=400, detail="No authorization code provided")
         
         # Exchange authorization code for tokens using Supabase
-        supabase_user = supabase_bridge.exchange_code_for_user(code)
+        supabase_user = await supabase_bridge.exchange_code_for_user(code)
         if not supabase_user:
             raise HTTPException(status_code=401, detail="Failed to exchange authorization code")
         

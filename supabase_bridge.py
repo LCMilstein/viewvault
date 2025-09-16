@@ -119,7 +119,7 @@ class SupabaseBridge:
             logger.error(f"Error creating JWT for Supabase user: {e}")
             return None
     
-    def exchange_code_for_user(self, code: str) -> Optional[Dict[str, Any]]:
+    async def exchange_code_for_user(self, code: str) -> Optional[Dict[str, Any]]:
         """
         Exchange authorization code for user session
         """
@@ -131,7 +131,7 @@ class SupabaseBridge:
         
         try:
             # Exchange the authorization code for a session
-            response = self.supabase.auth.exchange_code_for_session(code)
+            response = await self.supabase.auth.exchange_code_for_session(code)
             logger.info(f"Code exchange response: {response}")
             
             if response and response.user:
