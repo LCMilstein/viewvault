@@ -308,6 +308,9 @@
                         isInitialized = true;
                         console.log('✅ Supabase initialized');
                         hideError();
+                        
+                        // Handle OAuth callback after Supabase is initialized
+                        handleOAuthCallback();
                     } else {
                         showError('Supabase authentication not available');
                     }
@@ -673,7 +676,6 @@
         document.addEventListener('DOMContentLoaded', function() {
             console.log('🔧 Initializing authentication...');
             initSupabase();
-            handleOAuthCallback();
         });
     </script>
 </body>
