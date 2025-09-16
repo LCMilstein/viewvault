@@ -657,54 +657,32 @@ def get_supabase_config():
         "available": True
     }
 
-@api_router.post("/auth/supabase/oauth/{provider}")
-def initiate_oauth_login(provider: str, request: Request):
-    """Initiate OAuth login with specified provider"""
-    if not supabase_bridge.is_available():
-        raise HTTPException(status_code=503, detail="Supabase not configured")
-    
-    if provider not in ["google", "github"]:
-        raise HTTPException(status_code=400, detail="Unsupported provider")
-    
-    # Get the base URL from the request
-    base_url = f"{request.url.scheme}://{request.url.netloc}"
-    redirect_to = f"{base_url}/auth/callback"
-    
-    oauth_url = supabase_bridge.sign_in_with_oauth(provider, redirect_to)
-    if not oauth_url:
-        raise HTTPException(status_code=500, detail="Failed to initiate OAuth")
-    
-    return {"oauth_url": oauth_url}
 
-@api_router.post("/auth/supabase/callback")
-async def handle_oauth_callback(request: Request):
-    """Handle OAuth callback and create JWT token"""
+@api_router.post("/auth/supabase/create-jwt")
+async def create_jwt_from_supabase_user(request: Request):
+    """Create JWT token from Supabase user data"""
     if not supabase_bridge.is_available():
         raise HTTPException(status_code=503, detail="Supabase not configured")
     
     try:
         # Get the request body
         body = await request.json()
-        code = body.get("code")
+        user_data = body.get("user")
+        access_token = body.get("access_token")
         
-        if not code:
-            raise HTTPException(status_code=400, detail="No authorization code provided")
-        
-        # Exchange authorization code for tokens using Supabase
-        supabase_user = await supabase_bridge.exchange_code_for_user(code)
-        if not supabase_user:
-            raise HTTPException(status_code=401, detail="Failed to exchange authorization code")
+        if not user_data:
+            raise HTTPException(status_code=400, detail="No user data provided")
         
         # Create JWT token for the user
-        jwt_token = supabase_bridge.create_jwt_for_supabase_user(supabase_user)
+        jwt_token = supabase_bridge.create_jwt_for_supabase_user(user_data)
         if not jwt_token:
             raise HTTPException(status_code=500, detail="Failed to create JWT token")
         
         return {"access_token": jwt_token, "token_type": "bearer"}
         
     except Exception as e:
-        logger.error(f"OAuth callback error: {e}")
-        raise HTTPException(status_code=500, detail=f"OAuth callback failed: {str(e)}")
+        logger.error(f"JWT creation error: {e}")
+        raise HTTPException(status_code=500, detail=f"JWT creation failed: {str(e)}")
 
 @api_router.post("/auth/supabase/email/login")
 def supabase_email_login(request: Request, email: str, password: str):

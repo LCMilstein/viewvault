@@ -119,31 +119,6 @@ class SupabaseBridge:
             logger.error(f"Error creating JWT for Supabase user: {e}")
             return None
     
-    async def exchange_code_for_user(self, code: str) -> Optional[Dict[str, Any]]:
-        """
-        Exchange authorization code for user session
-        """
-        if not self.supabase:
-            logger.error("Supabase client not available")
-            return None
-        
-        logger.info(f"Exchanging authorization code: {code[:20]}...")
-        
-        try:
-            # Exchange the authorization code for a session
-            response = await self.supabase.auth.exchange_code_for_session(code)
-            logger.info(f"Code exchange response: {response}")
-            
-            if response and response.user:
-                logger.info(f"User found after code exchange: {response.user.get('email', 'no-email')}")
-                return response.user
-            else:
-                logger.warning("No user found after code exchange")
-                return None
-                
-        except Exception as e:
-            logger.error(f"Error exchanging code for user: {e}")
-            return None
 
     def get_supabase_user_by_token(self, access_token: str) -> Optional[Dict[str, Any]]:
         """
@@ -184,26 +159,6 @@ class SupabaseBridge:
                 logger.error(f"Error with service role approach: {e2}")
             return None
     
-    def sign_in_with_oauth(self, provider: str, redirect_to: str = None) -> Optional[str]:
-        """
-        Initiate OAuth sign-in with specified provider
-        Returns redirect URL for OAuth flow
-        """
-        if not self.supabase:
-            logger.error("Supabase not available")
-            return None
-        
-        try:
-            response = self.supabase.auth.sign_in_with_oauth({
-                'provider': provider,
-                'options': {
-                    'redirect_to': redirect_to or f"{os.getenv('BASE_URL', 'http://localhost:8000')}/auth/callback"
-                }
-            })
-            return response.url
-        except Exception as e:
-            logger.error(f"Error initiating OAuth sign-in: {e}")
-            return None
     
     def sign_in_with_email(self, email: str, password: str) -> Optional[Dict[str, Any]]:
         """
