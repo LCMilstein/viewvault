@@ -3940,8 +3940,8 @@ def read_root(request: Request):
     """Root handler - check for OAuth callback and redirect appropriately"""
     # Check if this is an OAuth callback (has code parameter)
     if request.url.query and "code=" in request.url.query:
-        # This is an OAuth callback, redirect to auth/callback
-        return RedirectResponse(url=f"/auth/callback?{request.url.query}")
+        # This is an OAuth callback, redirect to login with the callback parameters
+        return RedirectResponse(url=f"/login?{request.url.query}")
     
     # Normal root request, serve the main app
     return FileResponse("static/index.html")
