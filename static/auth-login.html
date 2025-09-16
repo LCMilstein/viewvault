@@ -377,7 +377,7 @@
             showLoading();
             try {
                 // Use Supabase client directly for OAuth
-                const { data, error } = await supabase.auth.signInWithOAuth({
+                const { data, error } = supabase.auth.signInWithOAuth({
                     provider: 'google',
                     options: {
                         redirectTo: `${window.location.origin}/login`
@@ -387,8 +387,12 @@
                 if (error) {
                     console.error('❌ Google OAuth error:', error);
                     showError('Google sign-in failed: ' + error.message);
+                } else if (data.url) {
+                    // Redirect to the OAuth URL
+                    window.location.href = data.url;
+                } else {
+                    showError('Failed to get OAuth URL');
                 }
-                // If successful, user will be redirected to Google
                 
             } catch (error) {
                 console.error('❌ Google sign-in error:', error);
@@ -407,7 +411,7 @@
             showLoading();
             try {
                 // Use Supabase client directly for OAuth
-                const { data, error } = await supabase.auth.signInWithOAuth({
+                const { data, error } = supabase.auth.signInWithOAuth({
                     provider: 'github',
                     options: {
                         redirectTo: `${window.location.origin}/login`
@@ -417,8 +421,12 @@
                 if (error) {
                     console.error('❌ GitHub OAuth error:', error);
                     showError('GitHub sign-in failed: ' + error.message);
+                } else if (data.url) {
+                    // Redirect to the OAuth URL
+                    window.location.href = data.url;
+                } else {
+                    showError('Failed to get OAuth URL');
                 }
-                // If successful, user will be redirected to GitHub
                 
             } catch (error) {
                 console.error('❌ GitHub sign-in error:', error);
