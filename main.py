@@ -14,7 +14,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel, Session, select, text, update
 from models import Series, Episode, Movie, MovieCreate, SeriesCreate, EpisodeCreate, User, UserCreate, UserLogin, Token, List, ListItem, ListPermission, ListCreate, ListUpdate, ListItemAdd, ListItemUpdate, ChangePassword, LibraryImportHistory
 from security import get_current_user, get_current_admin_user, authenticate_user, create_access_token, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES
-from supabase_bridge import supabase_bridge
+from auth0_bridge import auth0_bridge
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
@@ -642,79 +642,70 @@ def delete_current_user(current_user: User = Depends(get_current_user)):
         return {"message": f"User {current_user.username} and all their data have been deleted"}
 
 # =============================================================================
-# SUPABASE AUTHENTICATION ROUTES (Web Frontend Only)
+# AUTH0 AUTHENTICATION ROUTES
 # =============================================================================
 
-@api_router.get("/auth/supabase/config")
-def get_supabase_config():
-    """Get Supabase configuration for frontend"""
-    if not supabase_bridge.is_available():
-        raise HTTPException(status_code=503, detail="Supabase not configured")
+@api_router.get("/auth/auth0/config")
+def get_auth0_config():
+    """Get Auth0 configuration for frontend"""
+    if not auth0_bridge.is_available:
+        raise HTTPException(status_code=503, detail="Auth0 not configured")
     
     return {
-        "supabase_url": supabase_bridge.supabase_url,
-        "supabase_anon_key": supabase_bridge.supabase_key,
-        "available": True
+        "domain": auth0_bridge.domain,
+        "client_id": auth0_bridge.client_id,
+        "audience": auth0_bridge.audience
     }
 
+@api_router.get("/auth/auth0/oauth/{provider}")
+def initiate_auth0_oauth(provider: str, request: Request):
+    """Initiate Auth0 OAuth login with specified provider"""
+    if not auth0_bridge.is_available:
+        raise HTTPException(status_code=503, detail="Auth0 not configured")
+    
+    if provider not in ["google", "github", "facebook", "twitter"]:
+        raise HTTPException(status_code=400, detail="Unsupported provider")
+    
+    oauth_url = auth0_bridge.get_authorization_url(provider)
+    if not oauth_url:
+        raise HTTPException(status_code=500, detail="Failed to generate OAuth URL")
+    
+    return {"oauth_url": oauth_url}
 
-@api_router.post("/auth/supabase/create-jwt")
-async def create_jwt_from_supabase_user(request: Request):
-    """Create JWT token from Supabase user data"""
-    if not supabase_bridge.is_available():
-        raise HTTPException(status_code=503, detail="Supabase not configured")
+@api_router.post("/auth/auth0/callback")
+async def handle_auth0_callback(request: Request):
+    """Handle Auth0 OAuth callback and create JWT token"""
+    if not auth0_bridge.is_available:
+        raise HTTPException(status_code=503, detail="Auth0 not configured")
     
     try:
-        # Get the request body
         body = await request.json()
-        user_data = body.get("user")
-        access_token = body.get("access_token")
+        code = body.get("code")
+        redirect_uri = body.get("redirect_uri")
         
+        if not code or not redirect_uri:
+            raise HTTPException(status_code=400, detail="Missing code or redirect_uri")
+        
+        # Exchange code for token
+        token_data = auth0_bridge.exchange_code_for_token(code, redirect_uri)
+        if not token_data:
+            raise HTTPException(status_code=401, detail="Failed to exchange code for token")
+        
+        # Get user info
+        user_data = auth0_bridge.get_user_info(token_data.get("access_token"))
         if not user_data:
-            raise HTTPException(status_code=400, detail="No user data provided")
+            raise HTTPException(status_code=401, detail="Failed to get user information")
         
-        # Create JWT token for the user
-        jwt_token = supabase_bridge.create_jwt_for_supabase_user(user_data)
+        # Create JWT token
+        jwt_token = auth0_bridge.create_jwt_for_auth0_user(user_data)
         if not jwt_token:
             raise HTTPException(status_code=500, detail="Failed to create JWT token")
         
         return {"access_token": jwt_token, "token_type": "bearer"}
         
     except Exception as e:
-        logger.error(f"JWT creation error: {e}")
-        raise HTTPException(status_code=500, detail=f"JWT creation failed: {str(e)}")
-
-@api_router.post("/auth/supabase/email/login")
-def supabase_email_login(request: Request, email: str, password: str):
-    """Login with email and password via Supabase"""
-    if not supabase_bridge.is_available():
-        raise HTTPException(status_code=503, detail="Supabase not configured")
-    
-    supabase_user = supabase_bridge.sign_in_with_email(email, password)
-    if not supabase_user:
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    
-    jwt_token = supabase_bridge.create_jwt_for_supabase_user(supabase_user)
-    if not jwt_token:
-        raise HTTPException(status_code=500, detail="Failed to create JWT token")
-    
-    return {"access_token": jwt_token, "token_type": "bearer"}
-
-@api_router.post("/auth/supabase/email/register")
-def supabase_email_register(request: Request, email: str, password: str, username: str = None):
-    """Register with email and password via Supabase"""
-    if not supabase_bridge.is_available():
-        raise HTTPException(status_code=503, detail="Supabase not configured")
-    
-    supabase_user = supabase_bridge.sign_up_with_email(email, password, username)
-    if not supabase_user:
-        raise HTTPException(status_code=400, detail="Registration failed")
-    
-    jwt_token = supabase_bridge.create_jwt_for_supabase_user(supabase_user)
-    if not jwt_token:
-        raise HTTPException(status_code=500, detail="Failed to create JWT token")
-    
-    return {"access_token": jwt_token, "token_type": "bearer"}
+        logger.error(f"Auth0 callback error: {e}")
+        raise HTTPException(status_code=500, detail=f"Auth0 callback failed: {str(e)}")
 
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
 
@@ -3897,11 +3888,25 @@ def read_root():
 
 @app.get("/login")
 def read_login():
-    return FileResponse("static/auth-login.html")
+    return FileResponse("static/auth0-login.html")
+
+@app.get("/auth0-login")
+def read_auth0_login():
+    return FileResponse("static/auth0-login.html")
+
+@app.get("/auth0/callback")
+def auth0_callback_redirect(code: str = None, error: str = None):
+    """Redirect Auth0 callback to login page with parameters"""
+    if error:
+        return RedirectResponse(f"/auth0-login?error={error}")
+    elif code:
+        return RedirectResponse(f"/auth0-login?code={code}")
+    else:
+        return RedirectResponse("/auth0-login")
 
 @app.get("/auth")
 def read_auth_login():
-    """Modern authentication page with OAuth support"""
+    """Legacy authentication page"""
     return FileResponse("static/auth-login.html")
 
 @app.get("/auth/callback")

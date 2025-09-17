@@ -6,9 +6,12 @@ class User(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     username: str = Field(unique=True, index=True)
     email: Optional[str] = None
+    full_name: Optional[str] = None
     hashed_password: str
     is_active: bool = True
     is_admin: bool = False
+    auth0_user_id: Optional[str] = Field(default=None, unique=True, index=True)
+    auth_provider: Optional[str] = Field(default="local")  # "local" or "auth0"
 
 class UserCreate(SQLModel):
     username: str

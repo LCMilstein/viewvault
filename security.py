@@ -60,23 +60,62 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             detail="Could not validate credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    username = payload.get("sub")
-    if username is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
     
-    with Session(engine) as session:
-        user = session.exec(select(User).where(User.username == username)).first()
-        if user is None:
+    # Check if this is an Auth0 user
+    auth_provider = payload.get("auth_provider")
+    if auth_provider == "auth0":
+        # Handle Auth0 users
+        auth0_user_id = payload.get("sub")
+        email = payload.get("email")
+        name = payload.get("name", "")
+        
+        if not auth0_user_id or not email:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
+                detail="Invalid Auth0 token",
                 headers={"WWW-Authenticate": "Bearer"},
             )
-        return user
+        
+        with Session(engine) as session:
+            # Look for existing Auth0 user by auth0_user_id
+            user = session.exec(select(User).where(User.auth0_user_id == auth0_user_id)).first()
+            
+            if user is None:
+                # Create new Auth0 user
+                user = User(
+                    username=email,  # Use email as username for Auth0 users
+                    email=email,
+                    full_name=name,
+                    auth0_user_id=auth0_user_id,
+                    is_admin=False,  # Auth0 users start as non-admin
+                    hashed_password="",  # No password for Auth0 users
+                    auth_provider="auth0"
+                )
+                session.add(user)
+                session.commit()
+                session.refresh(user)
+                print(f"🔑 Created new Auth0 user: {email} (ID: {user.id})")
+            
+            return user
+    else:
+        # Handle regular JWT users (legacy)
+        username = payload.get("sub")
+        if username is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Could not validate credentials",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        
+        with Session(engine) as session:
+            user = session.exec(select(User).where(User.username == username)).first()
+            if user is None:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="User not found",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            return user
 
 def get_current_admin_user(current_user: User = Depends(get_current_user)) -> User:
     """Get the current authenticated admin user"""
