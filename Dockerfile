@@ -28,11 +28,11 @@ RUN echo "0 2 * * * /app/cron_release_checker.sh" > /etc/cron.d/release-checker 
     crontab /etc/cron.d/release-checker
 
 # Create startup script
-RUN echo '#!/bin/bash\nservice cron start\nuvicorn main:app --host 0.0.0.0 --port 8000' > /app/start.sh && \
+RUN echo '#!/bin/bash\nservice cron start\nuvicorn main:app --host 0.0.0.0 --port 8008' > /app/start.sh && \
     chmod +x /app/start.sh
 
 # Expose port
-EXPOSE 8000
+EXPOSE 8008
 
 # Run the startup script
 CMD ["/app/start.sh"] 
