@@ -353,7 +353,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 # Health check endpoint
 @app.get("/health")
 async def health_check():
-    return {"status": "healthy", "service": "viewvault-server"}
+    return {"status": "healthy", "service": "viewvault-server", "timestamp": datetime.now().isoformat()}
 
 # Favicon route
 @app.get("/favicon.ico")
