@@ -2,10 +2,10 @@ version: '3.8'
 
 services:
   viewvault-server:
-    image: lcmilstein/viewvault:latest
+    image: lcmilstein/viewvault:auth0-integration
     container_name: viewvault-server
     ports:
-      - "8008:8000"
+      - "8008:8008"
     volumes:
       - viewvault-server_db:/app/db
       - viewvault-server_posters:/app/static/posters
