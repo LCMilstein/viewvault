@@ -4,6 +4,7 @@ services:
   viewvault-server:
     image: lcmilstein/viewvault:auth0-integration
     container_name: viewvault-server
+    pull_policy: always
     ports:
       - "8008:8008"
     volumes:
