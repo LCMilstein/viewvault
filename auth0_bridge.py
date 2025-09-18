@@ -21,6 +21,12 @@ class Auth0Bridge:
         self.audience = os.getenv('AUTH0_AUDIENCE')
         self.secret_key = os.getenv('SECRET_KEY')
         
+        # Debug logging
+        logger.info(f"🔍 AUTH0 DEBUG: AUTH0_DOMAIN = {self.domain}")
+        logger.info(f"🔍 AUTH0 DEBUG: AUTH0_CLIENT_ID = {self.client_id}")
+        logger.info(f"🔍 AUTH0 DEBUG: AUTH0_CLIENT_SECRET = {'***' if self.client_secret else None}")
+        logger.info(f"🔍 AUTH0 DEBUG: AUTH0_AUDIENCE = {self.audience}")
+        
         self.is_available = bool(self.domain and self.client_id and self.client_secret and self.audience)
         
         if self.is_available:
