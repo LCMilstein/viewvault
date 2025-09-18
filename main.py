@@ -262,30 +262,30 @@ def create_db_and_tables():
                 """))
                 session.commit()
                 logger.info("Created user table")
-            else:
-                # Check if Auth0 fields exist and add if missing
-                logger.info("Checking user table schema for Auth0 fields...")
-                user_result = session.execute(text("PRAGMA table_info(user)"))
-                user_columns = [row[1] for row in user_result.fetchall()]
-                logger.info(f"User table columns: {user_columns}")
-                
-                if 'full_name' not in user_columns:
-                    logger.info("Adding full_name column to user table...")
-                    session.execute(text("ALTER TABLE user ADD COLUMN full_name TEXT"))
-                    session.commit()
-                    logger.info("Added missing full_name column to user table")
-                
-                if 'auth0_user_id' not in user_columns:
-                    logger.info("Adding auth0_user_id column to user table...")
-                    session.execute(text("ALTER TABLE user ADD COLUMN auth0_user_id TEXT UNIQUE"))
-                    session.commit()
-                    logger.info("Added missing auth0_user_id column to user table")
-                
-                if 'auth_provider' not in user_columns:
-                    logger.info("Adding auth_provider column to user table...")
-                    session.execute(text("ALTER TABLE user ADD COLUMN auth_provider TEXT"))
-                    session.commit()
-                    logger.info("Added missing auth_provider column to user table")
+            
+            # Always check and add Auth0 fields (for both new and existing tables)
+            logger.info("Checking user table schema for Auth0 fields...")
+            user_result = session.execute(text("PRAGMA table_info(user)"))
+            user_columns = [row[1] for row in user_result.fetchall()]
+            logger.info(f"User table columns: {user_columns}")
+            
+            if 'full_name' not in user_columns:
+                logger.info("Adding full_name column to user table...")
+                session.execute(text("ALTER TABLE user ADD COLUMN full_name TEXT"))
+                session.commit()
+                logger.info("Added missing full_name column to user table")
+            
+            if 'auth0_user_id' not in user_columns:
+                logger.info("Adding auth0_user_id column to user table...")
+                session.execute(text("ALTER TABLE user ADD COLUMN auth0_user_id TEXT UNIQUE"))
+                session.commit()
+                logger.info("Added missing auth0_user_id column to user table")
+            
+            if 'auth_provider' not in user_columns:
+                logger.info("Adding auth_provider column to user table...")
+                session.execute(text("ALTER TABLE user ADD COLUMN auth_provider TEXT"))
+                session.commit()
+                logger.info("Added missing auth_provider column to user table")
             
             # Create default user if none exists
             logger.info("Checking for existing users...")
