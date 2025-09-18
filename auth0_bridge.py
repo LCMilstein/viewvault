@@ -58,7 +58,7 @@ class Auth0Bridge:
             
             # Build authorization URL
             auth_url = f"https://{self.domain}/authorize"
-            base_url = os.getenv('BASE_URL', 'http://localhost:8008')
+            base_url = os.getenv('BASE_URL', 'https://app.viewvault.app')
             params = {
                 'response_type': 'code',
                 'client_id': self.client_id,
