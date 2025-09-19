@@ -5,6 +5,7 @@ from passlib.context import CryptContext
 from fastapi import HTTPException, status, Depends
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlmodel import Session, select
+from sqlalchemy.exc import IntegrityError
 from models import User
 from database import engine
 import os
@@ -82,19 +83,30 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
             
             if user is None:
                 # Create new Auth0 user
-                user = User(
-                    username=email,  # Use email as username for Auth0 users
-                    email=email,
-                    full_name=name,
-                    auth0_user_id=auth0_user_id,
-                    is_admin=False,  # Auth0 users start as non-admin
-                    hashed_password="",  # No password for Auth0 users
-                    auth_provider="auth0"
-                )
-                session.add(user)
-                session.commit()
-                session.refresh(user)
-                print(f"🔑 Created new Auth0 user: {email} (ID: {user.id})")
+                try:
+                    user = User(
+                        username=email,  # Use email as username for Auth0 users
+                        email=email,
+                        full_name=name,
+                        auth0_user_id=auth0_user_id,
+                        is_admin=False,  # Auth0 users start as non-admin
+                        hashed_password="",  # No password for Auth0 users
+                        auth_provider="auth0"
+                    )
+                    session.add(user)
+                    session.commit()
+                    session.refresh(user)
+                    print(f"🔑 Created new Auth0 user: {email} (ID: {user.id})")
+                except IntegrityError:
+                    # User already exists (race condition), fetch it
+                    session.rollback()
+                    user = session.exec(select(User).where(User.auth0_user_id == auth0_user_id)).first()
+                    if user is None:
+                        raise HTTPException(
+                            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                            detail="Failed to create or find user"
+                        )
+                    print(f"🔑 Found existing Auth0 user: {email} (ID: {user.id})")
             
             return user
     else:

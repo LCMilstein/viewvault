@@ -90,18 +90,6 @@ def create_db_and_tables():
     logger.info("Starting database initialization...")
     
     try:
-        # Check if user table exists and has Auth0 columns
-        with Session(engine) as session:
-            try:
-                # Try to query the auth0_user_id column
-                result = session.execute(text("SELECT auth0_user_id FROM user LIMIT 1"))
-                logger.info("Auth0 columns exist, using existing database")
-            except Exception:
-                logger.warning("Auth0 columns missing, recreating database...")
-                # Drop all tables and recreate
-                SQLModel.metadata.drop_all(engine)
-                logger.info("Dropped existing tables")
-        
         # Create all tables based on current models
         logger.info("Creating SQLModel tables...")
         SQLModel.metadata.create_all(engine)
@@ -114,6 +102,267 @@ def create_db_and_tables():
         logger.error(f"Traceback: {traceback.format_exc()}")
         # Don't raise the exception - let the app start even if there are DB issues
         logger.warning("Continuing with app startup despite database errors...")
+            logger.info("Checking movie table schema...")
+            result = session.execute(text("PRAGMA table_info(movie)"))
+            columns = [row[1] for row in result.fetchall()]
+            logger.info(f"Movie table columns: {columns}")
+            
+            if 'quality' not in columns:
+                logger.info("Adding quality column to movie table...")
+                session.execute(text("ALTER TABLE movie ADD COLUMN quality TEXT"))
+                session.commit()
+                logger.info("Added missing quality column to movie table")
+            
+            # Check if is_new column exists in movie table
+            if 'is_new' not in columns:
+                logger.info("Adding is_new column to movie table...")
+                session.execute(text("ALTER TABLE movie ADD COLUMN is_new BOOLEAN DEFAULT FALSE"))
+                session.commit()
+                logger.info("Added missing is_new column to movie table")
+            
+            # Check if is_new column exists in series table
+            logger.info("Checking series table schema...")
+            series_result = session.execute(text("PRAGMA table_info(series)"))
+            series_columns = [row[1] for row in series_result.fetchall()]
+            logger.info(f"Series table columns: {series_columns}")
+            
+            if 'is_new' not in series_columns:
+                logger.info("Adding is_new column to series table...")
+                session.execute(text("ALTER TABLE series ADD COLUMN is_new BOOLEAN DEFAULT FALSE"))
+                session.commit()
+                logger.info("Added missing is_new column to series table")
+            
+            # Check if runtime column exists in movie table
+            if 'runtime' not in columns:
+                logger.info("Adding runtime column to movie table...")
+                session.execute(text("ALTER TABLE movie ADD COLUMN runtime INTEGER"))
+                session.commit()
+                logger.info("Added missing runtime column to movie table")
+            
+            # Check if imported_at column exists in movie table
+            if 'imported_at' not in columns:
+                logger.info("Adding imported_at column to movie table...")
+                session.execute(text("ALTER TABLE movie ADD COLUMN imported_at DATETIME"))
+                session.commit()
+                logger.info("Added missing imported_at column to movie table")
+                
+                # Set default values for existing movies
+                logger.info("Setting default imported_at values for existing movies...")
+                session.execute(text("UPDATE movie SET imported_at = COALESCE(added_at, datetime('now')) WHERE imported_at IS NULL"))
+                session.commit()
+                logger.info("Set default imported_at values for existing movies")
+            
+            # Check if average_episode_runtime column exists in series table
+            if 'average_episode_runtime' not in series_columns:
+                logger.info("Adding average_episode_runtime column to series table...")
+                session.execute(text("ALTER TABLE series ADD COLUMN average_episode_runtime INTEGER"))
+                session.commit()
+                logger.info("Added missing average_episode_runtime column to series table")
+            
+            # Check if imported_at column exists in series table
+            if 'imported_at' not in series_columns:
+                logger.info("Adding imported_at column to series table...")
+                session.execute(text("ALTER TABLE series ADD COLUMN imported_at DATETIME"))
+                session.commit()
+                logger.info("Added missing imported_at column to series table")
+                
+                # Set default values for existing series
+                logger.info("Setting default imported_at values for existing series...")
+                session.execute(text("UPDATE series SET imported_at = COALESCE(added_at, datetime('now')) WHERE imported_at IS NULL"))
+                session.commit()
+                logger.info("Set default imported_at values for existing series")
+            
+            # Check if user_id columns exist and add if missing
+            if 'user_id' not in columns:
+                logger.info("Adding user_id column to movie table...")
+                session.execute(text("ALTER TABLE movie ADD COLUMN user_id INTEGER"))
+                session.commit()
+                logger.info("Added missing user_id column to movie table")
+            
+            if 'user_id' not in series_columns:
+                logger.info("Adding user_id column to series table...")
+                session.execute(text("ALTER TABLE series ADD COLUMN user_id INTEGER"))
+                session.commit()
+                logger.info("Added missing user_id column to series table")
+            
+            # Check if deleted columns exist and add if missing
+            if 'deleted' not in columns:
+                logger.info("Adding deleted column to movie table...")
+                session.execute(text("ALTER TABLE movie ADD COLUMN deleted BOOLEAN DEFAULT FALSE"))
+                session.commit()
+                logger.info("Added missing deleted column to movie table")
+            
+            if 'deleted' not in series_columns:
+                logger.info("Adding deleted column to series table...")
+                session.execute(text("ALTER TABLE series ADD COLUMN deleted BOOLEAN DEFAULT FALSE"))
+                session.commit()
+                logger.info("Added missing deleted column to series table")
+            
+            # Check if notes columns exist and add if missing
+            if 'notes' not in columns:
+                logger.info("Adding notes column to movie table...")
+                session.execute(text("ALTER TABLE movie ADD COLUMN notes TEXT"))
+                session.commit()
+                logger.info("Added missing notes column to movie table")
+            
+            if 'notes' not in series_columns:
+                logger.info("Adding notes column to series table...")
+                session.execute(text("ALTER TABLE series ADD COLUMN notes TEXT"))
+                session.commit()
+                logger.info("Added missing notes column to series table")
+            
+            # Check if added_at column exists and add if missing
+            if 'added_at' not in columns:
+                logger.info("Adding added_at column to movie table...")
+                session.execute(text("ALTER TABLE movie ADD COLUMN added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+                session.commit()
+                logger.info("Added missing added_at column to movie table")
+            
+            # Check if series.added_at column exists and add if missing
+            if 'added_at' not in series_columns:
+                logger.info("Adding added_at column to series table...")
+                session.execute(text("ALTER TABLE series ADD COLUMN added_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP"))
+                session.commit()
+                logger.info("Added missing added_at column to series table")
+            
+            # Check episode table schema
+            logger.info("Checking episode table schema...")
+            episode_result = session.execute(text("PRAGMA table_info(episode)"))
+            episode_columns = [row[1] for row in episode_result.fetchall()]
+            logger.info(f"Episode table columns: {episode_columns}")
+            
+            if 'notes' not in episode_columns:
+                logger.info("Adding notes column to episode table...")
+                session.execute(text("ALTER TABLE episode ADD COLUMN notes TEXT"))
+                session.commit()
+                logger.info("Added missing notes column to episode table")
+            
+            # Ensure soft-delete column exists on episode table
+            if 'deleted' not in episode_columns:
+                logger.info("Adding deleted column to episode table...")
+                session.execute(text("ALTER TABLE episode ADD COLUMN deleted BOOLEAN DEFAULT FALSE"))
+                session.commit()
+                logger.info("Added missing deleted column to episode table")
+            
+            # Check if user table exists, create if not
+            logger.info("Checking user table...")
+            user_table_result = session.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='user'"))
+            if not user_table_result.fetchone():
+                logger.info("Creating user table...")
+                session.execute(text("""
+                    CREATE TABLE user (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        username TEXT UNIQUE NOT NULL,
+                        email TEXT,
+                        hashed_password TEXT NOT NULL,
+                        is_active BOOLEAN DEFAULT 1,
+                        is_admin BOOLEAN DEFAULT 0,
+                        full_name TEXT,
+                        auth0_user_id TEXT UNIQUE,
+                        auth_provider TEXT
+                    )
+                """))
+                session.commit()
+                logger.info("Created user table")
+            
+            # Always check and add Auth0 fields (for both new and existing tables)
+            logger.info("Checking user table schema for Auth0 fields...")
+            user_result = session.execute(text("PRAGMA table_info(user)"))
+            user_columns = [row[1] for row in user_result.fetchall()]
+            logger.info(f"User table columns: {user_columns}")
+            
+            if 'full_name' not in user_columns:
+                logger.info("Adding full_name column to user table...")
+                session.execute(text("ALTER TABLE user ADD COLUMN full_name TEXT"))
+                session.commit()
+                logger.info("Added missing full_name column to user table")
+            
+            if 'auth0_user_id' not in user_columns:
+                logger.info("Adding auth0_user_id column to user table...")
+                try:
+                    # First add the column without UNIQUE constraint
+                    session.execute(text("ALTER TABLE user ADD COLUMN auth0_user_id TEXT"))
+                    session.commit()
+                    logger.info("Added auth0_user_id column to user table")
+                    
+                    # Then create a unique index
+                    try:
+                        session.execute(text("CREATE UNIQUE INDEX idx_user_auth0_user_id ON user(auth0_user_id)"))
+                        session.commit()
+                        logger.info("Created unique index on auth0_user_id")
+                    except Exception as idx_error:
+                        logger.warning(f"Could not create unique index (may already exist): {idx_error}")
+                        session.rollback()
+                        
+                except Exception as e:
+                    logger.error(f"Error adding auth0_user_id column: {e}")
+                    session.rollback()
+            
+            if 'auth_provider' not in user_columns:
+                logger.info("Adding auth_provider column to user table...")
+                session.execute(text("ALTER TABLE user ADD COLUMN auth_provider TEXT"))
+                session.commit()
+                logger.info("Added missing auth_provider column to user table")
+            
+            # Create default user if none exists
+            logger.info("Checking for existing users...")
+            user_count_result = session.execute(text("SELECT COUNT(*) FROM user"))
+            user_count = user_count_result.fetchone()[0]
+            logger.info(f"Found {user_count} existing users")
+            
+            if user_count == 0:
+                logger.info("Creating default user...")
+                from security import get_password_hash
+                default_password_hash = get_password_hash("password")
+                session.execute(text("""
+                    INSERT INTO user (username, email, hashed_password, is_active, is_admin)
+                    VALUES (:username, :email, :hashed_password, :is_active, :is_admin)
+                """), {
+                    "username": "default", 
+                    "email": "default@example.com", 
+                    "hashed_password": default_password_hash, 
+                    "is_active": True, 
+                    "is_admin": True
+                })
+                default_user_id = session.execute(text("SELECT last_insert_rowid()")).fetchone()[0]
+                session.commit()
+                logger.info(f"Created default user with ID: {default_user_id}")
+            else:
+                # Get the first user's ID
+                default_user_result = session.execute(text("SELECT id FROM user LIMIT 1"))
+                default_user_id = default_user_result.fetchone()[0]
+                logger.info(f"Using existing user with ID: {default_user_id}")
+            
+            # Update existing movies to belong to default user
+            logger.info("Updating existing movies to belong to default user...")
+            try:
+                movie_update_result = session.execute(text("UPDATE movie SET user_id = :user_id WHERE user_id IS NULL"), {"user_id": default_user_id})
+                movie_count = movie_update_result.rowcount
+                logger.info(f"Updated {movie_count} movies to belong to user {default_user_id}")
+            except Exception as e:
+                logger.warning(f"Could not update movies: {e}")
+                movie_count = 0
+            
+            # Update existing series to belong to default user
+            logger.info("Updating existing series to belong to default user...")
+            try:
+                series_update_result = session.execute(text("UPDATE series SET user_id = :user_id WHERE user_id IS NULL"), {"user_id": default_user_id})
+                series_count = series_update_result.rowcount
+                logger.info(f"Updated {series_count} series to belong to user {default_user_id}")
+            except Exception as e:
+                logger.warning(f"Could not update series: {e}")
+                series_count = 0
+            
+            session.commit()
+            logger.info("User ID migration completed successfully!")
+                
+    except Exception as e:
+        logger.error(f"Error during database schema update: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        # Don't raise the exception - let the app start even if there are DB issues
+        logger.warning("Continuing with app startup despite database errors...")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("Starting application lifespan...")
@@ -3677,17 +3926,17 @@ def get_notification_details(current_user: User = Depends(get_current_user)):
         return {"error": f"Failed to get notification details: {str(e)}"}, 500
 
 # Serve the frontend HTML at root and /login
+@app.get("/")
+def read_root():
+    return FileResponse("static/index.html")
+
 @app.get("/login")
 def read_login():
-    return FileResponse("static/login.html")
+    return FileResponse("static/auth0-login.html")
 
 @app.get("/auth0-login")
 def read_auth0_login():
     return FileResponse("static/auth0-login.html")
-
-@app.get("/email-login")
-def read_email_login():
-    return FileResponse("static/email-login.html")
 
 @app.get("/auth0/callback")
 def auth0_callback_redirect(code: str = None, error: str = None):
@@ -3721,8 +3970,8 @@ def read_root(request: Request):
         # This is an OAuth callback, redirect to login with the callback parameters
         return RedirectResponse(url=f"/login?{request.url.query}")
     
-    # Normal root request, redirect to login page
-    return RedirectResponse(url="/login")
+    # Normal root request, serve the main app
+    return FileResponse("static/index.html")
 
 @api_router.get("/debug/movies")
 def debug_movies():
@@ -3744,28 +3993,6 @@ def debug_movies():
             return {
                 "total_movies": len(movie_data),
                 "movies": movie_data
-            }
-    except Exception as e:
-        return {"error": str(e)}
-
-@api_router.get("/debug/users")
-def debug_users():
-    """Debug endpoint to check users in database"""
-    try:
-        with Session(engine) as session:
-            users = session.exec(select(User)).all()
-            user_data = []
-            for user in users:
-                user_data.append({
-                    "id": user.id,
-                    "username": user.username,
-                    "email": user.email,
-                    "auth_provider": user.auth_provider,
-                    "is_admin": user.is_admin
-                })
-            return {
-                "total_users": len(user_data),
-                "users": user_data
             }
     except Exception as e:
         return {"error": str(e)}
