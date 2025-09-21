@@ -3721,8 +3721,8 @@ def read_root(request: Request):
         # This is an OAuth callback, redirect to login with the callback parameters
         return RedirectResponse(url=f"/login?{request.url.query}")
     
-    # Normal root request, redirect to login page
-    return RedirectResponse(url="/login")
+    # Normal root request, serve the main application
+    return FileResponse("static/index.html")
 
 @api_router.get("/debug/movies")
 def debug_movies():
