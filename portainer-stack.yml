@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   viewvault-server:
-    image: lcmilstein/viewvault:auth0-working-20250921-130031
+    image: lcmilstein/viewvault:auth0-fixed-redirect-20250921-132242
     container_name: viewvault-server
     pull_policy: always
     ports:
