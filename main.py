@@ -448,7 +448,7 @@ def get_auth0_config():
     
     return {
         "domain": auth0_bridge.domain,
-        "client_id": auth0_bridge.client_id,
+        "client_id": auth0_bridge.web_client_id,
         "audience": auth0_bridge.audience
     }
 
@@ -501,6 +501,30 @@ async def handle_auth0_callback(request: Request):
     except Exception as e:
         logger.error(f"Auth0 callback error: {e}")
         raise HTTPException(status_code=500, detail=f"Auth0 callback failed: {str(e)}")
+
+@api_router.post("/auth/auth0/mobile-callback")
+async def handle_auth0_mobile_callback(request: Request):
+    """Handle Auth0 mobile callback with direct access token"""
+    if not auth0_bridge.is_available:
+        raise HTTPException(status_code=503, detail="Auth0 not configured")
+    
+    try:
+        body = await request.json()
+        access_token = body.get("access_token")
+        
+        if not access_token:
+            raise HTTPException(status_code=400, detail="Missing access_token")
+        
+        # Handle mobile callback with access token
+        jwt_token = auth0_bridge.handle_mobile_callback(access_token)
+        if not jwt_token:
+            raise HTTPException(status_code=401, detail="Failed to process mobile authentication")
+        
+        return {"access_token": jwt_token, "token_type": "bearer"}
+        
+    except Exception as e:
+        logger.error(f"Auth0 mobile callback error: {e}")
+        raise HTTPException(status_code=500, detail=f"Auth0 mobile callback failed: {str(e)}")
 
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
 

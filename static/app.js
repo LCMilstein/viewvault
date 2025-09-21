@@ -528,9 +528,9 @@ function checkTokenExpiration() {
         const currentTime = Date.now();
         const timeUntilExpiration = expirationTime - currentTime;
         
-        // Show warning if token expires in less than 30 days
-        const thirtyDaysInMs = 30 * 24 * 60 * 60 * 1000;
-        if (timeUntilExpiration < thirtyDaysInMs && timeUntilExpiration > 0) {
+        // Show warning if token expires in less than 7 days
+        const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
+        if (timeUntilExpiration < sevenDaysInMs && timeUntilExpiration > 0) {
             const daysLeft = Math.ceil(timeUntilExpiration / (24 * 60 * 60 * 1000));
             showWarning(`Your login session will expire in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}. Please log in again to continue using the app.`);
         }

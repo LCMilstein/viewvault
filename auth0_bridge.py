@@ -16,18 +16,27 @@ logger = logging.getLogger(__name__)
 class Auth0Bridge:
     def __init__(self):
         self.domain = os.getenv('AUTH0_DOMAIN')
-        self.client_id = os.getenv('AUTH0_CLIENT_ID')
+        self.web_client_id = os.getenv('AUTH0_WEB_CLIENT_ID')
+        self.mobile_client_id = os.getenv('AUTH0_MOBILE_CLIENT_ID')
         self.client_secret = os.getenv('AUTH0_CLIENT_SECRET')
         self.audience = os.getenv('AUTH0_AUDIENCE')
         self.secret_key = os.getenv('SECRET_KEY')
         
+        
         # Debug logging
         logger.info(f"🔍 AUTH0 DEBUG: AUTH0_DOMAIN = {self.domain}")
-        logger.info(f"🔍 AUTH0 DEBUG: AUTH0_CLIENT_ID = {self.client_id}")
+        logger.info(f"🔍 AUTH0 DEBUG: AUTH0_WEB_CLIENT_ID = {self.web_client_id}")
+        logger.info(f"🔍 AUTH0 DEBUG: AUTH0_MOBILE_CLIENT_ID = {self.mobile_client_id}")
         logger.info(f"🔍 AUTH0 DEBUG: AUTH0_CLIENT_SECRET = {'***' if self.client_secret else None}")
         logger.info(f"🔍 AUTH0 DEBUG: AUTH0_AUDIENCE = {self.audience}")
         
-        self.is_available = bool(self.domain and self.client_id and self.client_secret and self.audience)
+        # Available if we have domain, at least one client ID, secret, and audience
+        self.is_available = bool(
+            self.domain and 
+            (self.web_client_id or self.mobile_client_id) and 
+            self.client_secret and 
+            self.audience
+        )
         
         if self.is_available:
             logger.info("Auth0 bridge initialized successfully")
@@ -61,7 +70,7 @@ class Auth0Bridge:
             base_url = os.getenv('BASE_URL', 'https://app.viewvault.app')
             params = {
                 'response_type': 'code',
-                'client_id': self.client_id,
+                'client_id': self.web_client_id,
                 'redirect_uri': f"{base_url}/auth0/callback",
                 'scope': 'openid profile email',
                 'connection': connection
@@ -93,7 +102,7 @@ class Auth0Bridge:
             
             data = {
                 'grant_type': 'authorization_code',
-                'client_id': self.client_id,
+                'client_id': self.web_client_id,
                 'client_secret': self.client_secret,
                 'code': code,
                 'redirect_uri': redirect_uri
@@ -160,7 +169,7 @@ class Auth0Bridge:
                 'name': name,
                 'picture': picture,
                 'iat': now,
-                'exp': now + timedelta(days=7),  # 7 day expiration
+                'exp': now + timedelta(days=90),  # 90 day expiration
                 'iss': 'viewvault',
                 'auth_provider': 'auth0'
             }
@@ -173,6 +182,70 @@ class Auth0Bridge:
         except Exception as e:
             logger.error(f"Error creating JWT for Auth0 user: {e}")
             return None
+    
+    def handle_mobile_callback(self, access_token: str) -> Optional[str]:
+        """
+        Handle mobile Auth0 callback with direct access token
+        """
+        if not self.is_available:
+            logger.error("Auth0 not configured")
+            return None
+        
+        try:
+            # Get user info using the access token
+            user_data = self.get_user_info(access_token)
+            if not user_data:
+                logger.error("Failed to get user info from access token")
+                return None
+            
+            # Create JWT token for the user
+            jwt_token = self.create_jwt_for_auth0_user(user_data)
+            if not jwt_token:
+                logger.error("Failed to create JWT token for mobile user")
+                return None
+            
+            logger.info(f"Successfully handled mobile callback for: {user_data.get('email', 'unknown')}")
+            return jwt_token
+            
+        except Exception as e:
+            logger.error(f"Error handling mobile callback: {e}")
+            return None
+    
+    def validate_token_client_id(self, token_data: Dict[str, Any]) -> bool:
+        """
+        Validate that the token was issued for a supported client ID
+        """
+        try:
+            # Decode the JWT token to get the client_id claim
+            import base64
+            import json
+            
+            # Split the token and decode the payload
+            token_parts = token_data.get('access_token', '').split('.')
+            if len(token_parts) != 3:
+                return False
+            
+            # Decode the payload (add padding if needed)
+            payload = token_parts[1]
+            payload += '=' * (4 - len(payload) % 4)  # Add padding
+            decoded_payload = base64.urlsafe_b64decode(payload)
+            claims = json.loads(decoded_payload)
+            
+            # Check if the client_id is one of our supported clients
+            client_id = claims.get('aud')  # Auth0 uses 'aud' for audience/client_id
+            supported_clients = [self.web_client_id, self.mobile_client_id]
+            supported_clients = [c for c in supported_clients if c]  # Remove None values
+            
+            if client_id in supported_clients:
+                logger.info(f"Token validated for client: {client_id}")
+                return True
+            else:
+                logger.warning(f"Token from unsupported client: {client_id}")
+                return False
+                
+        except Exception as e:
+            logger.error(f"Error validating token client ID: {e}")
+            return False
     
     def sync_user_from_auth0(self, user_data: Dict[str, Any]) -> Optional[Dict[str, Any]]:
         """
