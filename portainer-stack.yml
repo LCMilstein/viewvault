@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   viewvault-server:
-    image: lcmilstein/viewvault:mobile-auth0-multiarch-20250921-162335
+    image: lcmilstein/viewvault:mobile-auth0-extended-sessions-20250921-164349
     container_name: viewvault-server
     pull_policy: always
     ports:
