@@ -157,38 +157,30 @@ class Auth0Bridge:
             name = user_data.get('name', '')
             picture = user_data.get('picture', '')
             
-            logger.info(f"Creating JWT for Auth0 user - ID: {user_id}, Email: {email}")
-            
             if not user_id or not email:
-                logger.error(f"Missing required user data - user_id: {user_id}, email: {email}")
+                logger.error("Missing required user data")
                 return None
             
-            # Create JWT payload with proper timezone handling
+            # Create JWT payload
             now = datetime.utcnow()
-            exp_time = now + timedelta(days=90)  # 90 day expiration
-            
             payload = {
                 'sub': user_id,
                 'email': email,
                 'name': name,
                 'picture': picture,
-                'iat': int(now.timestamp()),  # Convert to Unix timestamp
-                'exp': int(exp_time.timestamp()),  # Convert to Unix timestamp
+                'iat': now,
+                'exp': now + timedelta(days=90),  # 90 day expiration
                 'iss': 'viewvault',
                 'auth_provider': 'auth0'
             }
             
-            logger.info(f"JWT payload created: {payload}")
-            
-            # Create JWT token with proper header
+            # Create JWT token
             token = jwt.encode({'alg': 'HS256'}, payload, self.secret_key)
-            logger.info(f"Successfully created JWT for Auth0 user: {email}")
+            logger.info(f"Created JWT for Auth0 user: {email}")
             return token
             
         except Exception as e:
             logger.error(f"Error creating JWT for Auth0 user: {e}")
-            import traceback
-            logger.error(f"Traceback: {traceback.format_exc()}")
             return None
     
     def handle_mobile_callback(self, access_token: str) -> Optional[str]:

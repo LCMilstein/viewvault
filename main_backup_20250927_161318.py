@@ -505,40 +505,25 @@ async def handle_auth0_callback(request: Request):
 @api_router.post("/auth/auth0/mobile-callback")
 async def handle_auth0_mobile_callback(request: Request):
     """Handle Auth0 mobile callback with direct access token"""
-    print("🔍 MOBILE CALLBACK: Starting mobile callback processing")
-    
     if not auth0_bridge.is_available:
-        print("🔍 MOBILE CALLBACK: Auth0 not configured")
         raise HTTPException(status_code=503, detail="Auth0 not configured")
     
     try:
         body = await request.json()
         access_token = body.get("access_token")
         
-        print(f"🔍 MOBILE CALLBACK: Received access token: {access_token[:20]}..." if access_token else "🔍 MOBILE CALLBACK: No access token provided")
-        
         if not access_token:
-            print("🔍 MOBILE CALLBACK: Missing access_token in request")
             raise HTTPException(status_code=400, detail="Missing access_token")
         
         # Handle mobile callback with access token
-        print("🔍 MOBILE CALLBACK: Calling auth0_bridge.handle_mobile_callback")
         jwt_token = auth0_bridge.handle_mobile_callback(access_token)
-        
         if not jwt_token:
-            print("🔍 MOBILE CALLBACK: Failed to create JWT token")
             raise HTTPException(status_code=401, detail="Failed to process mobile authentication")
         
-        print(f"🔍 MOBILE CALLBACK: Successfully created JWT token: {jwt_token[:20]}...")
         return {"access_token": jwt_token, "token_type": "bearer"}
         
-    except HTTPException:
-        raise
     except Exception as e:
-        print(f"🔍 MOBILE CALLBACK: Unexpected error: {e}")
         logger.error(f"Auth0 mobile callback error: {e}")
-        import traceback
-        logger.error(f"Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Auth0 mobile callback failed: {str(e)}")
 
 TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
@@ -1851,8 +1836,6 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
     """
     Returns all movies (standalone and grouped), collections, and series (with episodes) in the watchlist.
     """
-    print(f"🔍 WATCHLIST ENDPOINT: Called for user: {current_user.username} (ID: {current_user.id})")
-    print(f"🔍 WATCHLIST ENDPOINT: User auth_provider: {getattr(current_user, 'auth_provider', 'unknown')}")
     try:
         with Session(engine) as session:
             # --- Movies ---
@@ -3960,8 +3943,7 @@ async def get_progress_performance(current_user: User = Depends(get_current_admi
 @api_router.get("/lists")
 def get_user_lists(current_user: User = Depends(get_current_user)):
     """Get all lists for the current user"""
-    print(f"🔍 LISTS ENDPOINT: Called for user: {current_user.username} (ID: {current_user.id})")
-    print(f"🔍 LISTS ENDPOINT: User auth_provider: {getattr(current_user, 'auth_provider', 'unknown')}")
+    print(f"DEBUG: get_user_lists called for user: {current_user.username}")
     try:
         # Create a fresh database session
         with Session(engine) as session:
