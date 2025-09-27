@@ -300,6 +300,46 @@ def get_current_user_info(current_user: User = Depends(get_current_user)):
         "is_admin": current_user.is_admin
     }
 
+@api_router.get("/debug/auth-test")
+def debug_auth_test(current_user: User = Depends(get_current_user)):
+    """Debug endpoint to test authentication - similar to watchlist but simpler"""
+    print(f"🔍 AUTH_TEST: Called for user: {current_user.username} (ID: {current_user.id})")
+    print(f"🔍 AUTH_TEST: User auth_provider: {getattr(current_user, 'auth_provider', 'unknown')}")
+    print(f"🔍 AUTH_TEST: User is_active: {current_user.is_active}")
+    print(f"🔍 AUTH_TEST: User auth0_user_id: {getattr(current_user, 'auth0_user_id', 'None')}")
+    
+    # Test database access
+    try:
+        with Session(engine) as session:
+            print(f"🔍 AUTH_TEST: Database session created successfully")
+            
+            # Simple query to test database access
+            user_count = session.exec(select(User)).all()
+            print(f"🔍 AUTH_TEST: Total users in database: {len(user_count)}")
+            
+            # Test user-specific query
+            user_movies = session.exec(select(Movie).where(Movie.user_id == current_user.id)).all()
+            print(f"🔍 AUTH_TEST: Movies for user {current_user.id}: {len(user_movies)}")
+            
+            return {
+                "status": "success",
+                "user": {
+                    "id": current_user.id,
+                    "username": current_user.username,
+                    "auth_provider": getattr(current_user, 'auth_provider', 'unknown'),
+                    "auth0_user_id": getattr(current_user, 'auth0_user_id', None)
+                },
+                "database_test": {
+                    "total_users": len(user_count),
+                    "user_movies": len(user_movies)
+                }
+            }
+    except Exception as e:
+        print(f"🔍 AUTH_TEST: Database error: {e}")
+        import traceback
+        print(f"🔍 AUTH_TEST: Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Database test failed: {str(e)}")
+
 @api_router.post("/auth/change-password")
 def change_password(payload: ChangePassword, current_user: User = Depends(get_current_user)):
     """Allow the authenticated user to change their own password."""
@@ -1853,8 +1893,20 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
     """
     print(f"🔍 WATCHLIST ENDPOINT: Called for user: {current_user.username} (ID: {current_user.id})")
     print(f"🔍 WATCHLIST ENDPOINT: User auth_provider: {getattr(current_user, 'auth_provider', 'unknown')}")
+    print(f"🔍 WATCHLIST ENDPOINT: User is_active: {current_user.is_active}")
+    print(f"🔍 WATCHLIST ENDPOINT: User auth0_user_id: {getattr(current_user, 'auth0_user_id', 'None')}")
+    
+    # Additional validation for Auth0 users
+    if hasattr(current_user, 'auth_provider') and current_user.auth_provider == 'auth0':
+        if not getattr(current_user, 'auth0_user_id', None):
+            print("🔍 WATCHLIST ENDPOINT: ERROR - Auth0 user missing auth0_user_id")
+            raise HTTPException(status_code=401, detail="Invalid user configuration")
+    
     try:
         with Session(engine) as session:
+            print(f"🔍 WATCHLIST ENDPOINT: Database session created successfully")
+            print(f"🔍 WATCHLIST ENDPOINT: Querying movies for user_id: {current_user.id}")
+            
             # --- Movies ---
             # Check if is_new column exists in the database
             try:
@@ -2096,10 +2148,14 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
                 "series": series_data,
                 "movies": standalone_movies
             }
+    except HTTPException:
+        # Re-raise HTTP exceptions (like 401 Unauthorized)
+        raise
     except Exception as e:
-        print(f"Error in get_watchlist: {e}")
+        print(f"🔍 WATCHLIST ENDPOINT: Unexpected error: {e}")
+        print(f"🔍 WATCHLIST ENDPOINT: Error type: {type(e).__name__}")
         import traceback
-        traceback.print_exc()
+        print(f"🔍 WATCHLIST ENDPOINT: Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Failed to load watchlist: {str(e)}")
 
 @api_router.post("/watchlist/movie/{movie_id}/toggle")
