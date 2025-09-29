@@ -121,28 +121,36 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
                     if existing_user:
                         print(f"🔍 AUTH DEBUG: Found existing user with email {email}")
                         
-                        # SECURITY: Only merge if the existing user is also Auth0 or if it's the same Auth0 user
-                        if existing_user.auth_provider == "auth0" and existing_user.auth0_user_id == auth0_user_id:
+                        # Check if this is the same Auth0 user (already linked)
+                        if existing_user.auth0_user_id == auth0_user_id:
                             print(f"🔍 AUTH DEBUG: Same Auth0 user, updating info")
                             existing_user.full_name = name  # Update name from Auth0
                             existing_user.username = email  # Standardize username
+                            existing_user.oauth_enabled = True  # Mark OAuth as enabled
                             session.add(existing_user)
                             session.commit()
                             session.refresh(existing_user)
                             user = existing_user
                             print(f"🔄 Updated Auth0 user info: {email} (ID: {user.id})")
-                        elif existing_user.auth_provider == "local":
-                            print(f"❌ SECURITY: Email {email} already registered with password. Cannot merge without verification.")
-                            raise HTTPException(
-                                status_code=status.HTTP_409_CONFLICT,
-                                detail=f"An account with email {email} already exists with password authentication. Please use password login or contact support to link your Google account."
-                            )
                         else:
-                            print(f"❌ SECURITY: Email {email} already registered with different Auth0 account. Cannot merge.")
-                            raise HTTPException(
-                                status_code=status.HTTP_409_CONFLICT,
-                                detail=f"An account with email {email} already exists with a different Google account. Please contact support."
-                            )
+                            # Different Auth0 user or existing password user - link accounts
+                            print(f"🔍 AUTH DEBUG: Linking Auth0 account with existing user")
+                            existing_user.auth0_user_id = auth0_user_id
+                            existing_user.oauth_enabled = True
+                            existing_user.full_name = name  # Update name from Auth0
+                            existing_user.username = email  # Standardize username
+                            
+                            # Update auth provider to indicate multiple methods
+                            if existing_user.password_enabled and existing_user.oauth_enabled:
+                                existing_user.auth_provider = "both"
+                            else:
+                                existing_user.auth_provider = "auth0"
+                            
+                            session.add(existing_user)
+                            session.commit()
+                            session.refresh(existing_user)
+                            user = existing_user
+                            print(f"🔗 Linked Auth0 account with existing user: {email} (ID: {user.id})")
                     else:
                         print(f"🔍 AUTH DEBUG: No existing user found, creating new Auth0 user for: {email}")
                         # Create new Auth0 user
@@ -154,7 +162,10 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
                                 auth0_user_id=auth0_user_id,
                                 is_admin=False,  # Auth0 users start as non-admin
                                 hashed_password="",  # No password for Auth0 users
-                                auth_provider="auth0"
+                                auth_provider="auth0",
+                                email_verified=True,  # Auth0 handles email verification
+                                password_enabled=False,  # No password initially
+                                oauth_enabled=True  # OAuth is enabled
                             )
                             session.add(user)
                             session.commit()

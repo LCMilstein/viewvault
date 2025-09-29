@@ -205,14 +205,18 @@ def register(request: Request, user: UserCreate):
             print(f"❌ REGISTER: Username {user.username} already exists")
             raise HTTPException(status_code=400, detail="Username already registered")
         
-        # Check if email is already in use by another auth provider
+        # Check if email is already in use - allow if user wants to add password to OAuth account
         existing_email_user = session.exec(select(User).where(User.email == user.email)).first()
         if existing_email_user:
-            print(f"❌ REGISTER: Email {user.email} already registered with different auth method")
-            raise HTTPException(
-                status_code=400, 
-                detail=f"An account with email {user.email} already exists. Please use the same login method or contact support."
-            )
+            if existing_email_user.oauth_enabled:
+                print(f"🔍 REGISTER: Email {user.email} exists with OAuth, suggesting OAuth login")
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"An account with email {user.email} already exists with Google/GitHub login. Please use 'Continue with Google' or 'Continue with GitHub' instead. If this is your account, you can add a password in your profile settings."
+                )
+            else:
+                print(f"❌ REGISTER: Email {user.email} already registered with password")
+                raise HTTPException(status_code=400, detail="Email already registered")
         
         # Create new user
         hashed_password = get_password_hash(user.password)
@@ -221,6 +225,9 @@ def register(request: Request, user: UserCreate):
             email=user.email,
             hashed_password=hashed_password,
             auth_provider="local",
+            email_verified=False,  # Will be verified via Auth0
+            password_enabled=True,  # Password is enabled
+            oauth_enabled=False,  # No OAuth initially
             is_admin=False  # First user becomes admin
         )
         
@@ -368,6 +375,38 @@ def change_password(payload: ChangePassword, current_user: User = Depends(get_cu
         session.add(db_user)
         session.commit()
         return {"status": "ok"}
+
+@api_router.post("/auth/add-password")
+def add_password(payload: ChangePassword, current_user: User = Depends(get_current_user)):
+    """Allow OAuth users to add password authentication to their account."""
+    with Session(engine) as session:
+        db_user = session.get(User, current_user.id)
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        if db_user.password_enabled:
+            raise HTTPException(status_code=400, detail="Password authentication is already enabled for this account")
+        
+        if not db_user.oauth_enabled:
+            raise HTTPException(status_code=400, detail="This account doesn't support adding password authentication")
+        
+        # Validate new password
+        if len(payload.new_password) < 8:
+            raise HTTPException(status_code=400, detail="Password must be at least 8 characters")
+        
+        # Set password
+        from security import get_password_hash
+        db_user.hashed_password = get_password_hash(payload.new_password)
+        db_user.password_enabled = True
+        
+        # Update auth provider to indicate both methods
+        if db_user.oauth_enabled and db_user.password_enabled:
+            db_user.auth_provider = "both"
+        
+        session.add(db_user)
+        session.commit()
+        
+        return {"message": "Password added successfully. You can now login with either method."}
 
 @api_router.post("/auth/make-admin")
 def make_current_user_admin(current_user: User = Depends(get_current_user)):
