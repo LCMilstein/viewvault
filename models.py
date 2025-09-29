@@ -11,7 +11,10 @@ class User(SQLModel, table=True):
     is_active: bool = True
     is_admin: bool = False
     auth0_user_id: Optional[str] = Field(default=None, unique=True, index=True)
-    auth_provider: Optional[str] = Field(default="local")  # "local" or "auth0"
+    auth_provider: Optional[str] = Field(default="local")  # "local", "auth0", or "both"
+    email_verified: bool = Field(default=False)
+    password_enabled: bool = Field(default=True)  # Can login with password
+    oauth_enabled: bool = Field(default=False)  # Can login with OAuth
 
 class UserCreate(SQLModel):
     username: str
@@ -29,6 +32,21 @@ class Token(SQLModel):
 class ChangePassword(SQLModel):
     current_password: str
     new_password: str
+
+class EmailVerification(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    email: str = Field(index=True)
+    verification_code: str
+    expires_at: datetime
+    used: bool = Field(default=False)
+    purpose: str  # "registration", "add_password", "link_account"
+
+class VerifyEmailRequest(SQLModel):
+    email: str
+    verification_code: str
+
+class ResendVerificationRequest(SQLModel):
+    email: str
 
 class List(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)

@@ -12,9 +12,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import SQLModel, Session, select, text, update
-from models import Series, Episode, Movie, MovieCreate, SeriesCreate, EpisodeCreate, User, UserCreate, UserLogin, Token, List, ListItem, ListPermission, ListCreate, ListUpdate, ListItemAdd, ListItemUpdate, ChangePassword, LibraryImportHistory
+from models import Series, Episode, Movie, MovieCreate, SeriesCreate, EpisodeCreate, User, UserCreate, UserLogin, Token, List, ListItem, ListPermission, ListCreate, ListUpdate, ListItemAdd, ListItemUpdate, ChangePassword, LibraryImportHistory, VerifyEmailRequest, ResendVerificationRequest
 from security import get_current_user, get_current_admin_user, authenticate_user, create_access_token, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES
 from auth0_bridge import auth0_bridge
+from email_service import email_service
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
 from slowapi.errors import RateLimitExceeded
