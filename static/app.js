@@ -528,12 +528,12 @@ function checkTokenExpiration() {
         const currentTime = Date.now();
         const timeUntilExpiration = expirationTime - currentTime;
         
-        // Show warning if token expires in less than 7 days
-        const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
-        if (timeUntilExpiration < sevenDaysInMs && timeUntilExpiration > 0) {
-            const daysLeft = Math.ceil(timeUntilExpiration / (24 * 60 * 60 * 1000));
-            showWarning(`Your login session will expire in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}. Please log in again to continue using the app.`);
-        }
+        // Show warning if token expires in less than 7 days - DISABLED FOR LAUNCH
+        // const sevenDaysInMs = 7 * 24 * 60 * 60 * 1000;
+        // if (timeUntilExpiration < sevenDaysInMs && timeUntilExpiration > 0) {
+        //     const daysLeft = Math.ceil(timeUntilExpiration / (24 * 60 * 60 * 1000));
+        //     showWarning(`Your login session will expire in ${daysLeft} day${daysLeft !== 1 ? 's' : ''}. Please log in again to continue using the app.`);
+        // }
         
         // If token is expired, redirect to login
         if (timeUntilExpiration <= 0) {

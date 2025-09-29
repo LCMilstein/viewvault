@@ -166,8 +166,8 @@ def api_root():
     return {"message": "ViewVault API", "version": "1.0.0", "test": "UPDATED_CODE_RUNNING"}
 
 @api_router.get("/test-db")
-def test_database():
-    """Test database connection and basic queries"""
+def test_database(current_user: User = Depends(get_current_admin_user)):
+    """Test database connection and basic queries (admin only)"""
     try:
         with Session(engine) as session:
             # Test basic queries
@@ -195,14 +195,23 @@ def test_database():
 @api_router.post("/auth/register", response_model=Token)
 @limiter.limit("5/minute")
 def register(request: Request, user: UserCreate):
-    """Register a new user"""
+    """Register a new user with email verification"""
     print(f"🔍 REGISTER: Starting registration for user: {user.username}")
     with Session(engine) as session:
-        # Check if user already exists
+        # Check if user already exists by username
         existing_user = session.exec(select(User).where(User.username == user.username)).first()
         if existing_user:
             print(f"❌ REGISTER: Username {user.username} already exists")
             raise HTTPException(status_code=400, detail="Username already registered")
+        
+        # Check if email is already in use by another auth provider
+        existing_email_user = session.exec(select(User).where(User.email == user.email)).first()
+        if existing_email_user:
+            print(f"❌ REGISTER: Email {user.email} already registered with different auth method")
+            raise HTTPException(
+                status_code=400, 
+                detail=f"An account with email {user.email} already exists. Please use the same login method or contact support."
+            )
         
         # Create new user
         hashed_password = get_password_hash(user.password)
@@ -210,6 +219,7 @@ def register(request: Request, user: UserCreate):
             username=user.username,
             email=user.email,
             hashed_password=hashed_password,
+            auth_provider="local",
             is_admin=False  # First user becomes admin
         )
         
@@ -1856,7 +1866,7 @@ def get_episode_details(episode_id: int):
 
 # Utility endpoints
 @api_router.get("/stats/")
-def get_stats():
+def get_stats(current_user: User = Depends(get_current_user)):
     with Session(engine) as session:
         total_movies = session.exec(select(Movie)).all()
         total_series = session.exec(select(Series)).all()
