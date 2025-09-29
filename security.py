@@ -113,30 +113,48 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
                 user = session.exec(select(User).where(User.auth0_user_id == auth0_user_id)).first()
                 
                 if user is None:
-                    print(f"🔍 AUTH DEBUG: Auth0 user not found, creating new user for: {email}")
-                    # Create new Auth0 user
-                    try:
-                        user = User(
-                            username=email,  # Use email as username for Auth0 users
-                            email=email,
-                            full_name=name,
-                            auth0_user_id=auth0_user_id,
-                            is_admin=False,  # Auth0 users start as non-admin
-                            hashed_password="",  # No password for Auth0 users
-                            auth_provider="auth0"
-                        )
-                        session.add(user)
+                    print(f"🔍 AUTH DEBUG: Auth0 user not found, checking for existing account with email: {email}")
+                    
+                    # Check if user exists with same email but different auth provider
+                    existing_user = session.exec(select(User).where(User.email == email)).first()
+                    
+                    if existing_user:
+                        print(f"🔍 AUTH DEBUG: Found existing user with email {email}, merging accounts")
+                        # Merge accounts - update existing user with Auth0 info
+                        existing_user.auth0_user_id = auth0_user_id
+                        existing_user.auth_provider = "auth0"  # Now supports both auth methods
+                        existing_user.full_name = name  # Update name from Auth0
+                        existing_user.username = email  # Standardize username
+                        session.add(existing_user)
                         session.commit()
-                        session.refresh(user)
-                        print(f"🔑 Created new Auth0 user: {email} (ID: {user.id})")
-                    except IntegrityError as e:
-                        print(f"🔍 AUTH DEBUG: Integrity error during user creation: {e}")
-                        # User already exists (race condition), fetch it
-                        session.rollback()
-                        user = session.exec(select(User).where(User.auth0_user_id == auth0_user_id)).first()
-                        if user is None:
-                            print("🔍 AUTH DEBUG: Failed to find user after integrity error")
-                            raise HTTPException(
+                        session.refresh(existing_user)
+                        user = existing_user
+                        print(f"🔗 Merged Auth0 account with existing user: {email} (ID: {user.id})")
+                    else:
+                        print(f"🔍 AUTH DEBUG: No existing user found, creating new Auth0 user for: {email}")
+                        # Create new Auth0 user
+                        try:
+                            user = User(
+                                username=email,  # Use email as username for Auth0 users
+                                email=email,
+                                full_name=name,
+                                auth0_user_id=auth0_user_id,
+                                is_admin=False,  # Auth0 users start as non-admin
+                                hashed_password="",  # No password for Auth0 users
+                                auth_provider="auth0"
+                            )
+                            session.add(user)
+                            session.commit()
+                            session.refresh(user)
+                            print(f"🔑 Created new Auth0 user: {email} (ID: {user.id})")
+                        except IntegrityError as e:
+                            print(f"🔍 AUTH DEBUG: Integrity error during user creation: {e}")
+                            # User already exists (race condition), fetch it
+                            session.rollback()
+                            user = session.exec(select(User).where(User.auth0_user_id == auth0_user_id)).first()
+                            if user is None:
+                                print("🔍 AUTH DEBUG: Failed to find user after integrity error")
+                                raise HTTPException(
                                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
                                 detail="Failed to create or find user"
                             )
