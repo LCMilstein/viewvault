@@ -193,78 +193,35 @@ def test_database(current_user: User = Depends(get_current_admin_user)):
             "code_version": "UPDATED_2024"
         }
 
-@api_router.post("/auth/register", response_model=Token)
+@api_router.post("/auth/register")
 @limiter.limit("5/minute")
 def register(request: Request, user: UserCreate):
-    """Register a new user with email verification"""
-    print(f"🔍 REGISTER: Starting registration for user: {user.username}")
+    """Registration is now handled by Auth0 - redirect to Auth0 signup"""
+    print(f"🔍 REGISTER: Registration request for {user.email} - redirecting to Auth0")
+    
+    # Check if user already exists
     with Session(engine) as session:
-        # Check if user already exists by username
-        existing_user = session.exec(select(User).where(User.username == user.username)).first()
+        existing_user = session.exec(select(User).where(User.email == user.email)).first()
         if existing_user:
-            print(f"❌ REGISTER: Username {user.username} already exists")
-            raise HTTPException(status_code=400, detail="Username already registered")
-        
-        # Check if email is already in use - allow if user wants to add password to OAuth account
-        existing_email_user = session.exec(select(User).where(User.email == user.email)).first()
-        if existing_email_user:
-            if existing_email_user.oauth_enabled:
-                print(f"🔍 REGISTER: Email {user.email} exists with OAuth, suggesting OAuth login")
+            if existing_user.oauth_enabled:
                 raise HTTPException(
                     status_code=400, 
-                    detail=f"An account with email {user.email} already exists with Google/GitHub login. Please use 'Continue with Google' or 'Continue with GitHub' instead. If this is your account, you can add a password in your profile settings."
+                    detail=f"An account with email {user.email} already exists. Please use 'Continue with Google' or 'Continue with GitHub' to sign in."
                 )
             else:
-                print(f"❌ REGISTER: Email {user.email} already registered with password")
-                raise HTTPException(status_code=400, detail="Email already registered")
-        
-        # Create new user
-        hashed_password = get_password_hash(user.password)
-        db_user = User(
-            username=user.username,
-            email=user.email,
-            hashed_password=hashed_password,
-            auth_provider="local",
-            email_verified=False,  # Will be verified via Auth0
-            password_enabled=True,  # Password is enabled
-            oauth_enabled=False,  # No OAuth initially
-            is_admin=False  # First user becomes admin
-        )
-        
-        # Make first user admin
-        print(f"🔍 REGISTER: Checking for existing admin users...")
-        admin_count = session.exec(select(User).where(User.is_admin == True)).all()
-        print(f"🔍 REGISTER: Found {len(admin_count)} admin users")
-        if len(admin_count) == 0:
-            print(f"✅ REGISTER: Making {db_user.username} the first admin user")
-            db_user.is_admin = True
-        else:
-            print(f"❌ REGISTER: User {db_user.username} will be regular user (not first)")
-        
-        # Double-check admin count
-        admin_count = session.exec(select(User).where(User.is_admin == True)).all()
-        if len(admin_count) == 0:
-            print(f"✅ REGISTER: Double-check confirmed - making {db_user.username} admin")
-            db_user.is_admin = True
-        
-        print(f"🔍 REGISTER: Final user object - is_admin: {db_user.is_admin}")
-        
-        session.add(db_user)
-        session.commit()
-        session.refresh(db_user)
-        
-        print(f"🔍 REGISTER: User created successfully - ID: {db_user.id}, is_admin: {db_user.is_admin}")
-        
-        # Verify the user was actually saved as admin
-        saved_user = session.get(User, db_user.id)
-        print(f"🔍 REGISTER: Saved user verification - ID: {saved_user.id}, is_admin: {saved_user.is_admin}")
-        
-        # Create access token
-        access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-        access_token = create_access_token(
-            data={"sub": db_user.username}, expires_delta=access_token_expires
-        )
-        return {"access_token": access_token, "token_type": "bearer"}
+                raise HTTPException(
+                    status_code=400, 
+                    detail=f"An account with email {user.email} already exists. Please sign in with your password or use 'Continue with Google' or 'Continue with GitHub'."
+                )
+    
+    # Get Auth0 authorization URL for signup
+    auth_url = auth0_bridge.get_authorization_url("signup")
+    
+    return {
+        "message": "Registration is handled by Auth0 for secure email verification",
+        "auth_url": auth_url,
+        "instructions": "Please use the Auth0 signup flow to create your account with email verification."
+    }
 
 @api_router.post("/auth/login", response_model=Token)
 @limiter.limit("10/minute")

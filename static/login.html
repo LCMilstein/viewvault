@@ -393,8 +393,8 @@
                 <input type="text" id="register-username" required>
             </div>
             <div class="form-group">
-                <label for="register-email">Email (optional)</label>
-                <input type="email" id="register-email">
+                <label for="register-email">Email (required)</label>
+                <input type="email" id="register-email" required>
             </div>
             <div class="form-group">
                 <label for="register-password">Password</label>
@@ -439,7 +439,7 @@
             } else {
                 loginForm.style.display = 'none';
                 registerForm.style.display = 'block';
-                formTitle.textContent = 'Create a new account';
+                formTitle.textContent = 'Create account with email verification';
                 toggleLink.textContent = 'Already have an account? Login';
             }
 
@@ -620,36 +620,50 @@
             }
         });
 
-        // Email/Password Register Form
+        // Email/Password Register Form - Now redirects to Auth0
         document.getElementById('register-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
-            const username = document.getElementById('register-username').value;
             const email = document.getElementById('register-email').value;
             const password = document.getElementById('register-password').value;
 
+            if (!email) {
+                showError('Email is required for registration');
+                return;
+            }
+
+            showLoading();
             try {
                 const response = await fetch('/api/auth/register', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ username, email, password })
+                    body: JSON.stringify({ 
+                        username: email, // Use email as username for Auth0
+                        email: email, 
+                        password: password 
+                    })
                 });
 
                 if (response.ok) {
                     const data = await response.json();
-                    localStorage.setItem('access_token', data.access_token);
-                    showSuccess('Registration successful! Redirecting...');
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 1000);
+                    if (data.auth_url) {
+                        showSuccess('Redirecting to secure registration...');
+                        setTimeout(() => {
+                            window.location.href = data.auth_url;
+                        }, 1000);
+                    } else {
+                        showError('Registration failed - no auth URL received');
+                    }
                 } else {
                     const error = await response.json();
                     showError(error.detail || 'Registration failed');
                 }
             } catch (error) {
                 showError('Error during registration: ' + error.message);
+            } finally {
+                hideLoading();
             }
         });
 

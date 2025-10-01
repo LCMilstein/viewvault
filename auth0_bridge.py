@@ -43,45 +43,60 @@ class Auth0Bridge:
         else:
             logger.warning("Auth0 not configured - missing required environment variables")
     
-    def get_authorization_url(self, provider: str = 'google') -> Optional[str]:
+    def get_authorization_url(self, provider: str = 'google', mode: str = 'login') -> Optional[str]:
         """
-        Get Auth0 authorization URL for OAuth provider
+        Get Auth0 authorization URL for OAuth provider or email/password
+        
+        Args:
+            provider: 'google', 'github', 'facebook', 'twitter', or 'signup'
+            mode: 'login' or 'signup' (for email/password)
         """
         if not self.is_available:
             logger.error("Auth0 not configured")
             return None
         
         try:
-            # Auth0 connection names (these need to be configured in Auth0 dashboard)
-            connection_map = {
-                'google': 'google-oauth2',
-                'github': 'github',
-                'facebook': 'facebook',
-                'twitter': 'twitter-oauth2'
-            }
-            
-            connection = connection_map.get(provider.lower())
-            if not connection:
-                logger.error(f"Unsupported provider: {provider}")
-                return None
-            
-            # Build authorization URL
-            auth_url = f"https://{self.domain}/authorize"
             base_url = os.getenv('BASE_URL', 'https://app.viewvault.app')
-            params = {
-                'response_type': 'code',
-                'client_id': self.web_client_id,
-                'redirect_uri': f"{base_url}/auth0/callback",
-                'scope': 'openid profile email',
-                'connection': connection
-            }
+            auth_url = f"https://{self.domain}/authorize"
+            
+            # Handle email/password signup
+            if provider.lower() == 'signup':
+                params = {
+                    'response_type': 'code',
+                    'client_id': self.web_client_id,
+                    'redirect_uri': f"{base_url}/auth0/callback",
+                    'scope': 'openid profile email',
+                    'connection': 'Username-Password-Authentication',
+                    'screen_hint': 'signup'  # This forces signup mode
+                }
+            else:
+                # Auth0 connection names (these need to be configured in Auth0 dashboard)
+                connection_map = {
+                    'google': 'google-oauth2',
+                    'github': 'github',
+                    'facebook': 'facebook',
+                    'twitter': 'twitter-oauth2'
+                }
+                
+                connection = connection_map.get(provider.lower())
+                if not connection:
+                    logger.error(f"Unsupported provider: {provider}")
+                    return None
+                
+                params = {
+                    'response_type': 'code',
+                    'client_id': self.web_client_id,
+                    'redirect_uri': f"{base_url}/auth0/callback",
+                    'scope': 'openid profile email',
+                    'connection': connection
+                }
             
             # Add query parameters
             query_string = '&'.join([f"{k}={v}" for k, v in params.items()])
             full_url = f"{auth_url}?{query_string}"
             
-            logger.info(f"Generated Auth0 authorization URL for {provider}")
-            logger.info(f"OAuth URL: {full_url}")
+            logger.info(f"Generated Auth0 authorization URL for {provider} (mode: {mode})")
+            logger.info(f"Auth URL: {full_url}")
             logger.info(f"Params: {params}")
             return full_url
             
