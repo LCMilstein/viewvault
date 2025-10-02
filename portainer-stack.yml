@@ -2,7 +2,9 @@ version: '3.8'
 
 services:
   viewvault-server:
-    image: lcmilstein/viewvault:latest
+    build:
+      context: https://github.com/LCMilstein/viewvault.git#main
+      dockerfile: Dockerfile
     container_name: viewvault-server
     pull_policy: always
     ports:
