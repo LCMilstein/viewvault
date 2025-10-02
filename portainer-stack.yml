@@ -2,9 +2,7 @@ version: '3.8'
 
 services:
   viewvault-server:
-    build:
-      context: https://github.com/LCMilstein/viewvault.git#main
-      dockerfile: Dockerfile
+    image: lcmilstein/viewvault:auth0-email-verification
     container_name: viewvault-server
     pull_policy: always
     ports:
