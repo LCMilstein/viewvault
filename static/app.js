@@ -4,7 +4,7 @@ const API_BASE = '/api';
 console.log('🚨 ViewVault JavaScript loaded! - FIX-MODAL-UI BRANCH v1.0');
 console.log('🚨 API_BASE set to:', API_BASE);
 
-// Handle Auth0 callback token
+// Handle Auth0 callback token - must run BEFORE any authentication checks
 function handleAuth0Callback() {
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
@@ -20,15 +20,15 @@ function handleAuth0Callback() {
         // Show success message
         showSuccess('Successfully logged in!');
         
-        // Refresh the page to update the UI
-        setTimeout(() => {
-            window.location.reload();
-        }, 1000);
+        // Don't reload - just continue with normal page load
+        console.log('🔍 AUTH0 CALLBACK: Token stored, continuing with page load');
+        return true; // Indicate we have a token
     }
+    return false; // No token found
 }
 
-// Check for Auth0 callback token on page load
-handleAuth0Callback();
+// Check for Auth0 callback token immediately when script loads
+const hasAuth0Token = handleAuth0Callback();
 
 // Offline functionality and PWA support
 let isOnline = navigator.onLine;
@@ -3367,17 +3367,27 @@ async function importByUrlUnified(url) {
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('DOMContentLoaded event fired');
     
-    // Check authentication on page load
-    const authResult = await checkAuth();
-    if (!authResult) {
-        console.log('Authentication failed, redirecting to login');
-        return;
+    // If we just received an Auth0 token, skip the auth check since we know we're authenticated
+    if (hasAuth0Token) {
+        console.log('🔍 AUTH0 CALLBACK: Just received token, skipping auth check');
+        // Check admin status after successful authentication
+        await checkAdminStatus();
+        
+        console.log('Setting up event listeners...');
+        // Continue with normal page setup (same as below)
+    } else {
+        // Normal authentication flow
+        const authResult = await checkAuth();
+        if (!authResult) {
+            console.log('Authentication failed, redirecting to login');
+            return;
+        }
+        
+        // Check admin status after successful authentication
+        await checkAdminStatus();
+        
+        console.log('Setting up event listeners...');
     }
-    
-    // Check admin status after successful authentication
-    await checkAdminStatus();
-    
-    console.log('Setting up event listeners...');
     
     // Add event listeners
     // Note: importTypeSubmitBtn is handled by smart omnibox system
