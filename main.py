@@ -86,22 +86,69 @@ else:
     print("🔍 IMDB DEBUG: Using MockIMDBService")
     imdb_service = MockIMDBService()
 
+def migrate_user_table():
+    """Add missing columns to user table if they don't exist"""
+    try:
+        with Session(engine) as session:
+            # Check if user table exists
+            result = session.execute(text("SELECT name FROM sqlite_master WHERE type='table' AND name='user'"))
+            if not result.fetchone():
+                logger.info("User table doesn't exist yet, will be created with all columns")
+                return
+            
+            # Check which columns exist
+            result = session.execute(text("PRAGMA table_info(user)"))
+            existing_columns = [row[1] for row in result.fetchall()]
+            logger.info(f"Existing user table columns: {existing_columns}")
+            
+            # Add missing columns
+            new_columns = [
+                ('email_verified', 'BOOLEAN DEFAULT FALSE'),
+                ('password_enabled', 'BOOLEAN DEFAULT TRUE'),
+                ('oauth_enabled', 'BOOLEAN DEFAULT FALSE')
+            ]
+            
+            for column_name, column_def in new_columns:
+                if column_name not in existing_columns:
+                    logger.info(f"Adding missing column: {column_name}")
+                    session.execute(text(f"ALTER TABLE user ADD COLUMN {column_name} {column_def}"))
+                    session.commit()
+                else:
+                    logger.info(f"Column {column_name} already exists")
+            
+            # Update existing users based on their auth_provider
+            logger.info("Updating existing user records...")
+            session.execute(text("""
+                UPDATE user 
+                SET email_verified = TRUE, 
+                    password_enabled = FALSE, 
+                    oauth_enabled = TRUE 
+                WHERE auth_provider = 'auth0'
+            """))
+            
+            session.execute(text("""
+                UPDATE user 
+                SET email_verified = FALSE, 
+                    password_enabled = TRUE, 
+                    oauth_enabled = FALSE 
+                WHERE auth_provider = 'local' OR auth_provider IS NULL
+            """))
+            
+            session.commit()
+            logger.info("User table migration completed successfully")
+            
+    except Exception as e:
+        logger.error(f"Error during user table migration: {e}")
+        import traceback
+        logger.error(f"Migration traceback: {traceback.format_exc()}")
+
 def create_db_and_tables():
-    """Create database tables with better error handling"""
+    """Create database tables with proper migration handling"""
     logger.info("Starting database initialization...")
     
     try:
-        # Check if user table exists and has Auth0 columns
-        with Session(engine) as session:
-            try:
-                # Try to query the auth0_user_id column
-                result = session.execute(text("SELECT auth0_user_id FROM user LIMIT 1"))
-                logger.info("Auth0 columns exist, using existing database")
-            except Exception:
-                logger.warning("Auth0 columns missing, recreating database...")
-                # Drop all tables and recreate
-                SQLModel.metadata.drop_all(engine)
-                logger.info("Dropped existing tables")
+        # First, migrate existing user table if needed
+        migrate_user_table()
         
         # Create all tables based on current models
         logger.info("Creating SQLModel tables...")
@@ -193,34 +240,38 @@ def test_database(current_user: User = Depends(get_current_admin_user)):
             "code_version": "UPDATED_2024"
         }
 
-@api_router.post("/auth/register")
-@limiter.limit("5/minute")
-def register(request: Request, user: UserCreate):
-    """Registration is now handled by Auth0 - redirect to Auth0 signup"""
-    print(f"🔍 REGISTER: Registration request for {user.email} - redirecting to Auth0")
+@api_router.post("/auth/auth0/universal-login")
+@limiter.limit("10/minute")
+def auth0_universal_login(request: Request, data: dict):
+    """Get Auth0 Universal Login URL for login or signup"""
+    mode = data.get('mode', 'login')  # 'login' or 'signup'
+    email = data.get('email', '')
+    password = data.get('password', '')
     
-    # Check if user already exists
-    with Session(engine) as session:
-        existing_user = session.exec(select(User).where(User.email == user.email)).first()
-        if existing_user:
-            if existing_user.oauth_enabled:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"An account with email {user.email} already exists. Please use 'Continue with Google' or 'Continue with GitHub' to sign in."
-                )
-            else:
-                raise HTTPException(
-                    status_code=400, 
-                    detail=f"An account with email {user.email} already exists. Please sign in with your password or use 'Continue with Google' or 'Continue with GitHub'."
-                )
+    print(f"🔍 AUTH0 UNIVERSAL LOGIN: Mode={mode}, Email={email}")
+    print(f"🔍 AUTH0 UNIVERSAL LOGIN: Auth0 bridge available: {auth0_bridge.is_available}")
     
-    # Get Auth0 authorization URL for signup
-    auth_url = auth0_bridge.get_authorization_url("signup")
+    if not auth0_bridge.is_available:
+        print(f"❌ AUTH0 UNIVERSAL LOGIN: Auth0 not available")
+        raise HTTPException(
+            status_code=503,
+            detail="Authentication service is currently unavailable. Please try again later."
+        )
     
+    # Generate Auth0 Universal Login URL
+    auth_url = auth0_bridge.get_universal_login_url(mode)
+    
+    if not auth_url:
+        print(f"❌ AUTH0 UNIVERSAL LOGIN: Failed to generate URL")
+        raise HTTPException(
+            status_code=503,
+            detail="Authentication service is currently unavailable. Please try again later."
+        )
+    
+    print(f"✅ AUTH0 UNIVERSAL LOGIN: Generated URL for {mode}")
     return {
-        "message": "Registration is handled by Auth0 for secure email verification",
         "auth_url": auth_url,
-        "instructions": "Please use the Auth0 signup flow to create your account with email verification."
+        "mode": mode
     }
 
 @api_router.post("/auth/login", response_model=Token)

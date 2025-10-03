@@ -43,6 +43,43 @@ class Auth0Bridge:
         else:
             logger.warning("Auth0 not configured - missing required environment variables")
     
+    def get_universal_login_url(self, mode: str = 'login') -> Optional[str]:
+        """
+        Get Auth0 Universal Login URL for login or signup
+        
+        Args:
+            mode: 'login' or 'signup'
+        """
+        if not self.is_available:
+            logger.error("Auth0 not configured")
+            return None
+        
+        try:
+            base_url = os.getenv('BASE_URL', 'https://app.viewvault.app')
+            auth_url = f"https://{self.domain}/authorize"
+            
+            # Universal Login parameters - let Auth0 handle the UI
+            params = {
+                'response_type': 'code',
+                'client_id': self.web_client_id,
+                'redirect_uri': f"{base_url}/auth0/callback",
+                'scope': 'openid profile email',
+                'screen_hint': mode  # 'login' or 'signup'
+            }
+            
+            # Add query parameters
+            query_string = '&'.join([f"{k}={v}" for k, v in params.items()])
+            full_url = f"{auth_url}?{query_string}"
+            
+            logger.info(f"Generated Auth0 Universal Login URL for {mode}")
+            logger.info(f"Auth URL: {full_url}")
+            logger.info(f"Params: {params}")
+            return full_url
+            
+        except Exception as e:
+            logger.error(f"Error generating Auth0 Universal Login URL: {e}")
+            return None
+
     def get_authorization_url(self, provider: str = 'google', mode: str = 'login') -> Optional[str]:
         """
         Get Auth0 authorization URL for OAuth provider or email/password
@@ -66,8 +103,8 @@ class Auth0Bridge:
                     'client_id': self.web_client_id,
                     'redirect_uri': f"{base_url}/auth0/callback",
                     'scope': 'openid profile email',
-                    'connection': 'Username-Password-Authentication',
-                    'screen_hint': 'signup'  # This forces signup mode
+                    'connection': 'Username-Password-Authentication'
+                    # Removed screen_hint - let Auth0 handle the flow naturally
                 }
             else:
                 # Auth0 connection names (these need to be configured in Auth0 dashboard)

@@ -588,39 +588,50 @@
             }
         }
 
-        // Email/Password Login Form
+        // Email/Password Login Form - Direct Auth0 Universal Login
         document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const username = document.getElementById('login-username').value;
             const password = document.getElementById('login-password').value;
 
+            showLoading();
             try {
-                const response = await fetch('/api/auth/login', {
+                // Get Auth0 Universal Login URL for login
+                const response = await fetch('/api/auth/auth0/universal-login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
-                    body: JSON.stringify({ username, password })
+                    body: JSON.stringify({ 
+                        mode: 'login',
+                        email: username,
+                        password: password
+                    })
                 });
 
                 if (response.ok) {
                     const data = await response.json();
-                    localStorage.setItem('access_token', data.access_token);
-                    showSuccess('Login successful! Redirecting...');
-                    setTimeout(() => {
-                        window.location.href = '/';
-                    }, 1000);
+                    if (data.auth_url) {
+                        showSuccess('Redirecting to Auth0...');
+                        setTimeout(() => {
+                            window.location.href = data.auth_url;
+                        }, 1000);
+                    } else {
+                        showError('Login failed - no auth URL received');
+                    }
                 } else {
                     const error = await response.json();
                     showError(error.detail || 'Login failed');
                 }
             } catch (error) {
                 showError('Error during login: ' + error.message);
+            } finally {
+                hideLoading();
             }
         });
 
-        // Email/Password Register Form - Now redirects to Auth0
+        // Email/Password Register Form - Direct Auth0 Universal Login
         document.getElementById('register-form').addEventListener('submit', async (e) => {
             e.preventDefault();
             
@@ -634,22 +645,23 @@
 
             showLoading();
             try {
-                const response = await fetch('/api/auth/register', {
+                // Get Auth0 Universal Login URL for signup
+                const response = await fetch('/api/auth/auth0/universal-login', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({ 
-                        username: email, // Use email as username for Auth0
-                        email: email, 
-                        password: password 
+                        mode: 'signup',
+                        email: email,
+                        password: password
                     })
                 });
 
                 if (response.ok) {
                     const data = await response.json();
                     if (data.auth_url) {
-                        showSuccess('Redirecting to secure registration...');
+                        showSuccess('Redirecting to Auth0...');
                         setTimeout(() => {
                             window.location.href = data.auth_url;
                         }, 1000);
