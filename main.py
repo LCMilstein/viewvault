@@ -3843,14 +3843,53 @@ def read_email_login():
     return FileResponse("static/email-login.html")
 
 @app.get("/auth0/callback")
-def auth0_callback_redirect(code: str = None, error: str = None):
-    """Redirect Auth0 callback to login page with parameters"""
+async def auth0_callback_redirect(code: str = None, error: str = None):
+    """Handle Auth0 callback and authenticate user"""
     if error:
-        return RedirectResponse(f"/auth0-login?error={error}")
-    elif code:
-        return RedirectResponse(f"/auth0-login?code={code}")
-    else:
-        return RedirectResponse("/auth0-login")
+        print(f"🔍 AUTH0 CALLBACK: Error received: {error}")
+        return RedirectResponse(f"/login?error={error}")
+    
+    if not code:
+        print("🔍 AUTH0 CALLBACK: No code received")
+        return RedirectResponse("/login?error=no_code")
+    
+    if not auth0_bridge.is_available:
+        print("🔍 AUTH0 CALLBACK: Auth0 not configured")
+        return RedirectResponse("/login?error=auth0_not_configured")
+    
+    try:
+        print(f"🔍 AUTH0 CALLBACK: Processing code: {code[:20]}...")
+        
+        # Exchange code for token
+        base_url = os.getenv('BASE_URL', 'https://app.viewvault.app')
+        redirect_uri = f"{base_url}/auth0/callback"
+        
+        token_data = auth0_bridge.exchange_code_for_token(code, redirect_uri)
+        if not token_data:
+            print("🔍 AUTH0 CALLBACK: Failed to exchange code for token")
+            return RedirectResponse("/login?error=token_exchange_failed")
+        
+        # Get user info
+        user_data = auth0_bridge.get_user_info(token_data.get("access_token"))
+        if not user_data:
+            print("🔍 AUTH0 CALLBACK: Failed to get user information")
+            return RedirectResponse("/login?error=user_info_failed")
+        
+        # Create JWT token
+        jwt_token = auth0_bridge.create_jwt_for_auth0_user(user_data)
+        if not jwt_token:
+            print("🔍 AUTH0 CALLBACK: Failed to create JWT token")
+            return RedirectResponse("/login?error=jwt_creation_failed")
+        
+        print(f"🔍 AUTH0 CALLBACK: Successfully authenticated user: {user_data.get('email', 'unknown')}")
+        
+        # Redirect to main app with token
+        redirect_url = f"/?token={jwt_token}"
+        return RedirectResponse(url=redirect_url, status_code=302)
+        
+    except Exception as e:
+        print(f"🔍 AUTH0 CALLBACK: Exception during processing: {e}")
+        return RedirectResponse(f"/login?error=callback_error")
 
 @app.get("/auth")
 def read_auth_login():

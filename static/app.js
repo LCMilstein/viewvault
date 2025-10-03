@@ -4,6 +4,32 @@ const API_BASE = '/api';
 console.log('🚨 ViewVault JavaScript loaded! - FIX-MODAL-UI BRANCH v1.0');
 console.log('🚨 API_BASE set to:', API_BASE);
 
+// Handle Auth0 callback token
+function handleAuth0Callback() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    
+    if (token) {
+        console.log('🔍 AUTH0 CALLBACK: Token received from URL, storing in localStorage');
+        localStorage.setItem('access_token', token);
+        
+        // Remove token from URL to clean up
+        const newUrl = window.location.origin + window.location.pathname;
+        window.history.replaceState({}, document.title, newUrl);
+        
+        // Show success message
+        showSuccess('Successfully logged in!');
+        
+        // Refresh the page to update the UI
+        setTimeout(() => {
+            window.location.reload();
+        }, 1000);
+    }
+}
+
+// Check for Auth0 callback token on page load
+handleAuth0Callback();
+
 // Offline functionality and PWA support
 let isOnline = navigator.onLine;
 let offlineData = null;
