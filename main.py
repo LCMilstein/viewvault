@@ -3893,6 +3893,90 @@ async def auth0_callback_redirect(code: str = None, error: str = None):
         print(f"🔍 AUTH0 CALLBACK: Exception during processing: {e}")
         return RedirectResponse(f"/login?error=callback_error")
 
+# Mobile Auth0 Universal Login endpoints
+@app.get("/api/auth/auth0/mobile/login")
+async def get_mobile_auth0_login_url():
+    """Get Auth0 Universal Login URL for mobile apps"""
+    if not auth0_bridge.is_available:
+        raise HTTPException(status_code=503, detail="Auth0 not configured")
+    
+    try:
+        auth_url = auth0_bridge.get_universal_login_url("login")
+        return {"auth_url": auth_url}
+    except Exception as e:
+        logger.error(f"Mobile Auth0 login URL error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate login URL: {str(e)}")
+
+@app.get("/api/auth/auth0/mobile/signup")
+async def get_mobile_auth0_signup_url():
+    """Get Auth0 Universal Login URL for mobile app signup"""
+    if not auth0_bridge.is_available:
+        raise HTTPException(status_code=503, detail="Auth0 not configured")
+    
+    try:
+        auth_url = auth0_bridge.get_universal_login_url("signup")
+        return {"auth_url": auth_url}
+    except Exception as e:
+        logger.error(f"Mobile Auth0 signup URL error: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate signup URL: {str(e)}")
+
+@app.post("/api/auth/auth0/mobile/callback")
+async def handle_mobile_auth0_callback(request: Request):
+    """Handle Auth0 mobile callback with authorization code (same as web)"""
+    print("🔍 MOBILE AUTH CALLBACK: Starting mobile callback processing")
+    
+    if not auth0_bridge.is_available:
+        print("🔍 MOBILE AUTH CALLBACK: Auth0 not configured")
+        raise HTTPException(status_code=503, detail="Auth0 not configured")
+    
+    try:
+        body = await request.json()
+        code = body.get("code")
+        error = body.get("error")
+        
+        print(f"🔍 MOBILE AUTH CALLBACK: Received callback with code: {code[:20] if code else 'None'}...")
+        
+        if error:
+            print(f"🔍 MOBILE AUTH CALLBACK: Auth0 error: {error}")
+            raise HTTPException(status_code=400, detail=f"Auth0 authentication failed: {error}")
+        
+        if not code:
+            print("🔍 MOBILE AUTH CALLBACK: No authorization code provided")
+            raise HTTPException(status_code=400, detail="No authorization code provided")
+        
+        # Exchange code for token (same logic as web callback)
+        base_url = os.getenv('BASE_URL', 'https://app.viewvault.app')
+        redirect_uri = f"{base_url}/auth0/callback"  # Use same redirect URI as web
+        
+        token_data = auth0_bridge.exchange_code_for_token(code, redirect_uri)
+        if not token_data:
+            print("🔍 MOBILE AUTH CALLBACK: Failed to exchange code for token")
+            raise HTTPException(status_code=401, detail="Failed to exchange authorization code")
+        
+        # Get user info from Auth0 (same logic as web)
+        user_data = auth0_bridge.get_user_info(token_data.get("access_token"))
+        if not user_data:
+            print("🔍 MOBILE AUTH CALLBACK: Failed to get user information")
+            raise HTTPException(status_code=401, detail="Failed to get user information")
+        
+        # Create JWT token for ViewVault (same logic as web)
+        jwt_token = auth0_bridge.create_jwt_for_auth0_user(user_data)
+        if not jwt_token:
+            print("🔍 MOBILE AUTH CALLBACK: Failed to create JWT token")
+            raise HTTPException(status_code=401, detail="Failed to create authentication token")
+        
+        print(f"🔍 MOBILE AUTH CALLBACK: Successfully created JWT token: {jwt_token[:20]}...")
+        return {"access_token": jwt_token, "token_type": "bearer"}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"🔍 MOBILE AUTH CALLBACK: Unexpected error: {e}")
+        logger.error(f"Auth0 mobile callback error: {e}")
+        import traceback
+        logger.error(f"Traceback: {traceback.format_exc()}")
+        raise HTTPException(status_code=500, detail=f"Auth0 mobile callback failed: {str(e)}")
+
 @app.get("/auth")
 def read_auth_login():
     """Legacy authentication page"""

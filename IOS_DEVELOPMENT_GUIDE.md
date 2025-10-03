@@ -28,31 +28,70 @@ The ViewVault backend now has **fully functional Auth0 Universal Login** and is 
 6. **JWT stored** → Used for all API calls
 
 ### iOS Implementation Requirements
-```swift
-// 1. Check for existing token
-let token = Keychain.shared.get("viewvault_token")
 
-// 2. If no token, redirect to Auth0 Universal Login
-if token == nil {
-    // Open Auth0 Universal Login URL
-    let authURL = "https://dev-a6z1zwjm1wj3xpjg.us.auth0.com/authorize?client_id=YOUR_MOBILE_CLIENT_ID&response_type=code&redirect_uri=YOUR_REDIRECT_URI&scope=openid profile email"
+#### Step 1: Get Auth0 Universal Login URL
+```swift
+// Get Auth0 Universal Login URL from backend
+func getAuth0LoginURL() async throws -> String {
+    let response = try await APIService.shared.get("/api/auth/auth0/mobile/login")
+    return response["auth_url"] as! String
 }
 
-// 3. Handle Auth0 callback
-func handleAuth0Callback(authorizationCode: String) {
-    // Exchange code for token via backend
-    let response = await exchangeCodeForToken(code: authorizationCode)
+// For signup
+func getAuth0SignupURL() async throws -> String {
+    let response = try await APIService.shared.get("/api/auth/auth0/mobile/signup")
+    return response["auth_url"] as! String
+}
+```
+
+#### Step 2: Open Auth0 Universal Login in Safari/WebView
+```swift
+// Open Auth0 Universal Login URL
+func openAuth0Login() async {
+    do {
+        let authURL = try await getAuth0LoginURL()
+        // Open in Safari or WebView
+        await UIApplication.shared.open(URL(string: authURL)!)
+    } catch {
+        print("Failed to get Auth0 login URL: \(error)")
+    }
+}
+```
+
+#### Step 3: Handle Auth0 Callback
+```swift
+// Handle Auth0 callback with authorization code
+func handleAuth0Callback(authorizationCode: String) async throws {
+    let requestBody = ["code": authorizationCode]
+    let response = try await APIService.shared.post("/api/auth/auth0/mobile/callback", body: requestBody)
+    
     // Store JWT for API calls
-    Keychain.shared.set(response.jwt, forKey: "viewvault_token")
+    let jwtToken = response["access_token"] as! String
+    Keychain.shared.set(jwtToken, forKey: "viewvault_token")
+}
+```
+
+#### Step 4: Check Authentication Status
+```swift
+// Check for existing token
+func checkAuthStatus() -> Bool {
+    let token = Keychain.shared.get("viewvault_token")
+    return token != nil && !isTokenExpired(token!)
 }
 ```
 
 ## 📡 **API Endpoints**
 
 ### Authentication Endpoints
+#### Web Endpoints (for reference)
 - `GET /login` - Redirects to Auth0 Universal Login
 - `GET /register` - Redirects to Auth0 Universal Login for signup
 - `GET /auth0/callback` - Processes Auth0 authorization code
+
+#### Mobile Endpoints (for iOS)
+- `GET /api/auth/auth0/mobile/login` - Get Auth0 Universal Login URL for mobile login
+- `GET /api/auth/auth0/mobile/signup` - Get Auth0 Universal Login URL for mobile signup
+- `POST /api/auth/auth0/mobile/callback` - Process Auth0 authorization code for mobile
 - `GET /api/auth/me` - Get current user info (requires JWT)
 
 ### Core Data Endpoints
