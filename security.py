@@ -138,7 +138,20 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
                             existing_user.auth0_user_id = auth0_user_id
                             existing_user.oauth_enabled = True
                             existing_user.full_name = name  # Update name from Auth0
-                            existing_user.username = email  # Standardize username
+                            
+                            # Only update username if it's different and doesn't conflict
+                            if existing_user.username != email:
+                                # Check if email is already used as username by another user
+                                existing_username_user = session.exec(
+                                    select(User).where(User.username == email, User.id != existing_user.id)
+                                ).first()
+                                
+                                if existing_username_user is None:
+                                    existing_user.username = email  # Safe to use email as username
+                                    print(f"🔍 AUTH DEBUG: Updated username to email: {email}")
+                                else:
+                                    # Keep existing username to avoid conflict
+                                    print(f"🔍 AUTH DEBUG: Keeping existing username '{existing_user.username}' to avoid conflict with email '{email}'")
                             
                             # Update auth provider to indicate multiple methods
                             if existing_user.password_enabled and existing_user.oauth_enabled:
