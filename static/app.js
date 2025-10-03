@@ -467,49 +467,44 @@ async function logout() {
             }
         }
         
+        // Check if this is an Auth0 user BEFORE clearing the token
+        const token = localStorage.getItem('access_token');
+        let isAuth0User = false;
+        
+        if (token) {
+            try {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                if (payload.auth_provider === 'auth0' || payload.auth_provider === 'both') {
+                    isAuth0User = true;
+                }
+            } catch (e) {
+                console.log('Could not parse token for logout detection');
+            }
+        }
+        
         // Clear localStorage
         localStorage.removeItem('access_token');
         
         // Small delay to ensure cleanup completes
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Redirect to login page with a timeout to prevent hanging
-        setTimeout(() => {
-            // Check if this is an Auth0 user
-            const token = localStorage.getItem('access_token');
-            if (token) {
-                try {
-                    const payload = JSON.parse(atob(token.split('.')[1]));
-                    if (payload.auth_provider === 'auth0' || payload.auth_provider === 'both') {
-                        // Redirect to Auth0 logout endpoint
-                        const auth0Domain = 'dev-a6z1zwjm1wj3xpjg.us.auth0.com';
-                        const clientId = '6O0NKgLmUN6fo0psLnu6jNUYQERk5fRw';
-                        const returnTo = encodeURIComponent(window.location.origin + '/login?logout=true');
-                        window.location.href = `https://${auth0Domain}/v2/logout?client_id=${clientId}&returnTo=${returnTo}`;
-                        return;
-                    }
-                } catch (e) {
-                    console.log('Could not parse token, using fallback logout');
-                }
-            }
-            // Fallback: redirect to login page
-            window.location.href = '/login';
-        }, 50);
-        
-    } catch (error) {
-        console.error('Error during logout:', error);
-        // Fallback: just clear token and redirect to Auth0 logout
-        localStorage.removeItem('access_token');
-        
-        // Try Auth0 logout even in error case
-        try {
+        // Handle logout based on auth provider
+        if (isAuth0User) {
+            // Redirect to Auth0 logout endpoint to clear Auth0 session
             const auth0Domain = 'dev-a6z1zwjm1wj3xpjg.us.auth0.com';
             const clientId = '6O0NKgLmUN6fo0psLnu6jNUYQERk5fRw';
             const returnTo = encodeURIComponent(window.location.origin + '/login?logout=true');
             window.location.href = `https://${auth0Domain}/v2/logout?client_id=${clientId}&returnTo=${returnTo}`;
-        } catch (e) {
+        } else {
+            // Direct redirect to login page for non-Auth0 users
             window.location.href = '/login?logout=true';
         }
+        
+    } catch (error) {
+        console.error('Error during logout:', error);
+        // Fallback: clear token and redirect to login
+        localStorage.removeItem('access_token');
+        window.location.href = '/login?logout=true';
     }
 }
 
