@@ -240,39 +240,7 @@ def test_database(current_user: User = Depends(get_current_admin_user)):
             "code_version": "UPDATED_2024"
         }
 
-@api_router.post("/auth/auth0/universal-login")
-@limiter.limit("10/minute")
-def auth0_universal_login(request: Request, data: dict):
-    """Get Auth0 Universal Login URL for login or signup"""
-    mode = data.get('mode', 'login')  # 'login' or 'signup'
-    email = data.get('email', '')
-    password = data.get('password', '')
-    
-    print(f"🔍 AUTH0 UNIVERSAL LOGIN: Mode={mode}, Email={email}")
-    print(f"🔍 AUTH0 UNIVERSAL LOGIN: Auth0 bridge available: {auth0_bridge.is_available}")
-    
-    if not auth0_bridge.is_available:
-        print(f"❌ AUTH0 UNIVERSAL LOGIN: Auth0 not available")
-        raise HTTPException(
-            status_code=503,
-            detail="Authentication service is currently unavailable. Please try again later."
-        )
-    
-    # Generate Auth0 Universal Login URL
-    auth_url = auth0_bridge.get_universal_login_url(mode)
-    
-    if not auth_url:
-        print(f"❌ AUTH0 UNIVERSAL LOGIN: Failed to generate URL")
-        raise HTTPException(
-            status_code=503,
-            detail="Authentication service is currently unavailable. Please try again later."
-        )
-    
-    print(f"✅ AUTH0 UNIVERSAL LOGIN: Generated URL for {mode}")
-    return {
-        "auth_url": auth_url,
-        "mode": mode
-    }
+# Auth0 Universal Login API endpoint removed - now handled by direct redirects
 
 @api_router.post("/auth/login", response_model=Token)
 @limiter.limit("10/minute")
@@ -3833,8 +3801,38 @@ def get_notification_details(current_user: User = Depends(get_current_user)):
 
 # Serve the frontend HTML at root and /login
 @app.get("/login")
-def read_login():
-    return FileResponse("static/login.html")
+async def login_page(request: Request):
+    """Redirect directly to Auth0 Universal Login"""
+    if not auth0_bridge.is_available:
+        # Fallback to custom login page if Auth0 not available
+        return FileResponse("static/login.html")
+    
+    # Get Auth0 Universal Login URL
+    auth_url = auth0_bridge.get_universal_login_url("login")
+    
+    if not auth_url:
+        # Fallback to custom login page if URL generation fails
+        return FileResponse("static/login.html")
+    
+    # Redirect directly to Auth0 Universal Login
+    return RedirectResponse(url=auth_url, status_code=302)
+
+@app.get("/register")
+async def register_page(request: Request):
+    """Redirect directly to Auth0 Universal Login for signup"""
+    if not auth0_bridge.is_available:
+        # Fallback to custom login page if Auth0 not available
+        return FileResponse("static/login.html")
+    
+    # Get Auth0 Universal Login URL for signup
+    auth_url = auth0_bridge.get_universal_login_url("signup")
+    
+    if not auth_url:
+        # Fallback to custom login page if URL generation fails
+        return FileResponse("static/login.html")
+    
+    # Redirect directly to Auth0 Universal Login for signup
+    return RedirectResponse(url=auth_url, status_code=302)
 
 @app.get("/auth0-login")
 def read_auth0_login():
