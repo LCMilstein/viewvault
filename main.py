@@ -3883,8 +3883,10 @@ async def auth0_callback_redirect(code: str = None, error: str = None):
         
         print(f"🔍 AUTH0 CALLBACK: Successfully authenticated user: {user_data.get('email', 'unknown')}")
         
-        # Redirect to main app with token
-        redirect_url = f"/?token={jwt_token}"
+        # Redirect to main app with token (URL encode the token)
+        from urllib.parse import quote
+        encoded_token = quote(jwt_token)
+        redirect_url = f"/?token={encoded_token}"
         return RedirectResponse(url=redirect_url, status_code=302)
         
     except Exception as e:

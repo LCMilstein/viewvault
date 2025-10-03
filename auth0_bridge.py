@@ -235,6 +235,10 @@ class Auth0Bridge:
             # Create JWT token with proper header
             token = jwt.encode({'alg': 'HS256'}, payload, self.secret_key)
             logger.info(f"Successfully created JWT for Auth0 user: {email}")
+            
+            # Ensure token is returned as string, not bytes
+            if isinstance(token, bytes):
+                token = token.decode('utf-8')
             return token
             
         except Exception as e:
