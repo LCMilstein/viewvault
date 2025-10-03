@@ -680,9 +680,28 @@
         });
 
         // Check if user is already logged in
-        const token = localStorage.getItem('access_token');
-        if (token) {
-            window.location.href = '/';
+        // But only if we're not coming from a logout (check URL params)
+        const urlParams = new URLSearchParams(window.location.search);
+        const fromLogout = urlParams.get('logout') === 'true';
+        
+        if (!fromLogout) {
+            const token = localStorage.getItem('access_token');
+            if (token) {
+                // Validate token before redirecting
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    const currentTime = Date.now() / 1000;
+                    if (payload.exp && payload.exp > currentTime) {
+                        window.location.href = '/';
+                    } else {
+                        // Token expired, clear it
+                        localStorage.removeItem('access_token');
+                    }
+                } catch (e) {
+                    // Invalid token, clear it
+                    localStorage.removeItem('access_token');
+                }
+            }
         }
 
         // Initialize on page load

@@ -484,7 +484,7 @@ async function logout() {
                         // Redirect to Auth0 logout endpoint
                         const auth0Domain = 'dev-a6z1zwjm1wj3xpjg.us.auth0.com';
                         const clientId = '6O0NKgLmUN6fo0psLnu6jNUYQERk5fRw';
-                        const returnTo = encodeURIComponent(window.location.origin + '/login');
+                        const returnTo = encodeURIComponent(window.location.origin + '/login?logout=true');
                         window.location.href = `https://${auth0Domain}/v2/logout?client_id=${clientId}&returnTo=${returnTo}`;
                         return;
                     }
@@ -505,10 +505,10 @@ async function logout() {
         try {
             const auth0Domain = 'dev-a6z1zwjm1wj3xpjg.us.auth0.com';
             const clientId = '6O0NKgLmUN6fo0psLnu6jNUYQERk5fRw';
-            const returnTo = encodeURIComponent(window.location.origin + '/login');
+            const returnTo = encodeURIComponent(window.location.origin + '/login?logout=true');
             window.location.href = `https://${auth0Domain}/v2/logout?client_id=${clientId}&returnTo=${returnTo}`;
         } catch (e) {
-            window.location.href = '/login';
+            window.location.href = '/login?logout=true';
         }
     }
 }
