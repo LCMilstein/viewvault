@@ -44,16 +44,49 @@ func getAuth0SignupURL() async throws -> String {
 }
 ```
 
-#### Step 2: Open Auth0 Universal Login in Safari/WebView
+#### Step 2: Display Auth0 Universal Login in Native WebView
 ```swift
-// Open Auth0 Universal Login URL
-func openAuth0Login() async {
+// Display Auth0 Universal Login in native WebView
+func showAuth0Login() {
     do {
         let authURL = try await getAuth0LoginURL()
-        // Open in Safari or WebView
-        await UIApplication.shared.open(URL(string: authURL)!)
+        
+        // Create WebView controller
+        let webView = WKWebView()
+        let controller = UIViewController()
+        controller.view = webView
+        
+        // Handle navigation to capture callback
+        webView.navigationDelegate = self
+        
+        // Load Auth0 Universal Login page
+        webView.load(URLRequest(url: URL(string: authURL)!))
+        
+        // Present modally
+        present(controller, animated: true)
     } catch {
         print("Failed to get Auth0 login URL: \(error)")
+    }
+}
+
+// WKNavigationDelegate method to handle Auth0 callback
+func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction, decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+    if let url = navigationAction.request.url,
+       url.absoluteString.contains("auth0/callback") {
+        
+        // Extract authorization code from URL
+        let components = URLComponents(url: url, resolvingAgainstBaseURL: false)
+        if let code = components?.queryItems?.first(where: { $0.name == "code" })?.value {
+            // Handle the callback
+            Task {
+                await handleAuth0Callback(authorizationCode: code)
+                // Dismiss WebView
+                dismiss(animated: true)
+            }
+        }
+        decisionHandler(.cancel)
+    } else {
+        decisionHandler(.allow)
     }
 }
 ```
@@ -234,12 +267,38 @@ class APIService {
 - **Solution**: Implement proper Auth0 logout flow
 - **Check**: Clear both local tokens and Auth0 session
 
+## 📱 **Native iOS Experience**
+
+### **In-App Authentication (Recommended)**
+The iOS app should provide a **native in-app experience** using `WKWebView` to display Auth0 Universal Login pages. This provides:
+
+- ✅ **Seamless UX** - Users stay within the app
+- ✅ **Native feel** - Custom styling and branding
+- ✅ **Better control** - Handle callbacks without browser redirects
+- ✅ **Consistent experience** - Same Auth0 pages as web, but native
+
+### **Implementation Benefits**
+```swift
+// Native WebView approach provides:
+// 1. Full control over the authentication flow
+// 2. Custom loading states and error handling
+// 3. Seamless integration with app navigation
+// 4. Better user experience than external browser
+```
+
+### **Alternative: Auth0 iOS SDK**
+For even more native experience, consider using Auth0's iOS SDK:
+- **Pros**: Fully native UI, better performance
+- **Cons**: Requires custom UI implementation
+- **Recommendation**: Start with WebView approach, migrate to SDK later
+
 ## 🎯 **Success Metrics**
 
 - ✅ **Web client reference** - Fully working authentication
 - ✅ **Backend stability** - Production ready with Auth0
 - ✅ **API completeness** - All endpoints documented and working
 - ✅ **Multi-arch support** - Docker images work on all platforms
+- ✅ **Native iOS experience** - In-app authentication flow
 
 ## 📞 **Support & Resources**
 
