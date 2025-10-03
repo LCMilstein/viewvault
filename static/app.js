@@ -435,14 +435,41 @@ async function logout() {
         
         // Redirect to login page with a timeout to prevent hanging
         setTimeout(() => {
+            // Check if this is an Auth0 user
+            const token = localStorage.getItem('access_token');
+            if (token) {
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    if (payload.auth_provider === 'auth0' || payload.auth_provider === 'both') {
+                        // Redirect to Auth0 logout endpoint
+                        const auth0Domain = 'dev-a6z1zwjm1wj3xpjg.us.auth0.com';
+                        const clientId = '6O0NKgLmUN6fo0psLnu6jNUYQERk5fRw';
+                        const returnTo = encodeURIComponent(window.location.origin + '/login');
+                        window.location.href = `https://${auth0Domain}/v2/logout?client_id=${clientId}&returnTo=${returnTo}`;
+                        return;
+                    }
+                } catch (e) {
+                    console.log('Could not parse token, using fallback logout');
+                }
+            }
+            // Fallback: redirect to login page
             window.location.href = '/login';
         }, 50);
         
     } catch (error) {
         console.error('Error during logout:', error);
-        // Fallback: just clear token and redirect
+        // Fallback: just clear token and redirect to Auth0 logout
         localStorage.removeItem('access_token');
-        window.location.href = '/login';
+        
+        // Try Auth0 logout even in error case
+        try {
+            const auth0Domain = 'dev-a6z1zwjm1wj3xpjg.us.auth0.com';
+            const clientId = '6O0NKgLmUN6fo0psLnu6jNUYQERk5fRw';
+            const returnTo = encodeURIComponent(window.location.origin + '/login');
+            window.location.href = `https://${auth0Domain}/v2/logout?client_id=${clientId}&returnTo=${returnTo}`;
+        } catch (e) {
+            window.location.href = '/login';
+        }
     }
 }
 
