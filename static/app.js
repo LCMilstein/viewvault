@@ -17,9 +17,6 @@ function handleAuth0Callback() {
         const newUrl = window.location.origin + window.location.pathname;
         window.history.replaceState({}, document.title, newUrl);
         
-        // Show success message
-        showSuccess('Successfully logged in!');
-        
         // Don't reload - just continue with normal page load
         console.log('🔍 AUTH0 CALLBACK: Token stored, continuing with page load');
         return true; // Indicate we have a token
@@ -3389,6 +3386,21 @@ document.addEventListener('DOMContentLoaded', async function() {
         console.log('Setting up event listeners...');
     }
     
+    // Load saved filter state or set defaults
+    loadFilterState();
+    // Only set defaults if no saved state exists
+    if (!localStorage.getItem('watchlistFilters')) {
+        setDefaultFilterState();
+    }
+    
+    // Ensure watchlistState is properly initialized
+    ensureWatchlistStateInitialized();
+    
+    loadWatchlist();
+    
+    // Update sort button text to show current sort option
+    updateSortButtonText();
+    
     // Add event listeners
     // Note: importTypeSubmitBtn is handled by smart omnibox system
     document.getElementById('settingsBtn').addEventListener('click', toggleSettingsMenu);
@@ -3484,21 +3496,6 @@ document.addEventListener('DOMContentLoaded', async function() {
             }
         }
     });
-    
-    // Load saved filter state or set defaults
-    loadFilterState();
-    // Only set defaults if no saved state exists
-    if (!localStorage.getItem('watchlistFilters')) {
-        setDefaultFilterState();
-    }
-    
-    // Ensure watchlistState is properly initialized
-    ensureWatchlistStateInitialized();
-    
-    loadWatchlist();
-    
-    // Update sort button text to show current sort option
-    updateSortButtonText();
     
     // Update filter button text to show current filter state
     updateFilterButtonText();
