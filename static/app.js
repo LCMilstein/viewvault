@@ -27,6 +27,11 @@ function handleAuth0Callback() {
 // Check for Auth0 callback token immediately when script loads
 const hasAuth0Token = handleAuth0Callback();
 
+// Set a flag to indicate we just received an Auth0 token
+if (hasAuth0Token) {
+    window.justReceivedAuth0Token = true;
+}
+
 // Offline functionality and PWA support
 let isOnline = navigator.onLine;
 let offlineData = null;
@@ -252,6 +257,18 @@ async function checkAuth() {
     
     if (!token) {
         console.log('No token found, redirecting to login');
+        // Don't redirect if we just received an Auth0 token
+        if (window.justReceivedAuth0Token) {
+            console.log('🔍 AUTH0 CALLBACK: Just received Auth0 token, should be stored');
+            // Clear the flag
+            window.justReceivedAuth0Token = false;
+            // Check again for the token
+            const retryToken = localStorage.getItem('access_token');
+            if (retryToken) {
+                console.log('🔍 AUTH0 CALLBACK: Token found, continuing');
+                return true;
+            }
+        }
         window.location.href = '/login';
         return false;
     }
@@ -3364,27 +3381,17 @@ async function importByUrlUnified(url) {
 document.addEventListener('DOMContentLoaded', async function() {
     console.log('DOMContentLoaded event fired');
     
-    // If we just received an Auth0 token, skip the auth check since we know we're authenticated
-    if (hasAuth0Token) {
-        console.log('🔍 AUTH0 CALLBACK: Just received token, skipping auth check');
-        // Check admin status after successful authentication
-        await checkAdminStatus();
-        
-        console.log('Setting up event listeners...');
-        // Continue with normal page setup (same as below)
-    } else {
-        // Normal authentication flow
-        const authResult = await checkAuth();
-        if (!authResult) {
-            console.log('Authentication failed, redirecting to login');
-            return;
-        }
-        
-        // Check admin status after successful authentication
-        await checkAdminStatus();
-        
-        console.log('Setting up event listeners...');
+    // Check authentication - this will work for both normal login and Auth0 callback
+    const authResult = await checkAuth();
+    if (!authResult) {
+        console.log('Authentication failed, redirecting to login');
+        return;
     }
+    
+    // Check admin status after successful authentication
+    await checkAdminStatus();
+    
+    console.log('Setting up event listeners...');
     
     // Load saved filter state or set defaults
     loadFilterState();
