@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   viewvault-server:
-    image: lcmilstein/viewvault:auth0-universal-login-v12
+    image: lcmilstein/viewvault:latest
     container_name: viewvault-server
     pull_policy: always
     ports:

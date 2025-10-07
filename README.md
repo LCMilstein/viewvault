@@ -147,7 +147,7 @@ For full IMDB integration, get a free API key from [OMDB API](http://www.omdbapi
 
 ## 🗄️ Database
 
-The application uses SQLite for data storage. The database file (`watchlist.db`) is automatically created on first run and contains:
+The application uses SQLite for data storage. The database file (`viewvault.db`) is automatically created on first run and contains:
 
 - **Movies**: Movie information and watched status
 - **Series**: TV series information
