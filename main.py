@@ -86,6 +86,15 @@ else:
     print("🔍 IMDB DEBUG: Using MockIMDBService")
     imdb_service = MockIMDBService()
 
+# Initialize database tables on startup
+print("🔧 Initializing database...")
+try:
+    from init_database import init_database
+    init_database()
+except Exception as e:
+    print(f"❌ Database initialization failed: {e}")
+    # Don't crash the app, but log the error
+
 def migrate_user_table():
     """Add missing columns to user table if they don't exist"""
     try:
