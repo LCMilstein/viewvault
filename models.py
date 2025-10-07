@@ -7,7 +7,7 @@ class User(SQLModel, table=True):
     username: str = Field(unique=True, index=True)
     email: Optional[str] = None
     full_name: Optional[str] = None
-    hashed_password: str
+    hashed_password: Optional[str] = None
     is_active: bool = True
     is_admin: bool = False
     auth0_user_id: Optional[str] = Field(default=None, unique=True, index=True)
@@ -15,6 +15,8 @@ class User(SQLModel, table=True):
     email_verified: bool = Field(default=False)
     password_enabled: bool = Field(default=True)  # Can login with password
     oauth_enabled: bool = Field(default=False)  # Can login with OAuth
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    last_login: Optional[datetime] = None
 
 class UserCreate(SQLModel):
     username: str

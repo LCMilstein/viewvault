@@ -9,7 +9,7 @@ from typing import Optional, Dict, Any
 from authlib.integrations.requests_client import OAuth2Session
 from authlib.jose import jwt
 import requests
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 logger = logging.getLogger(__name__)
 
@@ -143,7 +143,7 @@ class Auth0Bridge:
     
     def exchange_code_for_token(self, code: str, redirect_uri: str) -> Optional[Dict[str, Any]]:
         """
-        Exchange authorization code for access token
+        Exchange authorization code for access token using web client ID
         """
         if not self.is_available:
             logger.error("Auth0 not configured")
@@ -164,11 +164,42 @@ class Auth0Bridge:
             response.raise_for_status()
             
             token_data = response.json()
-            logger.info("Successfully exchanged code for token")
+            logger.info("Successfully exchanged code for token using web client")
             return token_data
             
         except Exception as e:
-            logger.error(f"Error exchanging code for token: {e}")
+            logger.error(f"Error exchanging code for token with web client: {e}")
+            return None
+    
+    def exchange_code_for_token_mobile(self, code: str, redirect_uri: str) -> Optional[Dict[str, Any]]:
+        """
+        Exchange authorization code for access token using mobile client ID
+        """
+        if not self.is_available or not self.mobile_client_id:
+            logger.error("Mobile Auth0 not configured - missing mobile client ID")
+            return None
+        
+        try:
+            token_url = f"https://{self.domain}/oauth/token"
+            
+            data = {
+                'grant_type': 'authorization_code',
+                'client_id': self.mobile_client_id,  # Use mobile client ID
+                'client_secret': self.client_secret,
+                'code': code,
+                'redirect_uri': redirect_uri
+            }
+            
+            logger.info(f"Exchanging code for token using mobile client ID: {self.mobile_client_id}")
+            response = requests.post(token_url, data=data)
+            response.raise_for_status()
+            
+            token_data = response.json()
+            logger.info("Successfully exchanged code for token using mobile client")
+            return token_data
+            
+        except Exception as e:
+            logger.error(f"Error exchanging code for token with mobile client: {e}")
             return None
     
     def get_user_info(self, access_token: str) -> Optional[Dict[str, Any]]:
@@ -197,6 +228,7 @@ class Auth0Bridge:
     def create_jwt_for_auth0_user(self, user_data: Dict[str, Any]) -> Optional[str]:
         """
         Create ViewVault JWT token from Auth0 user data
+        Also creates/updates user in database and handles first-user admin logic
         """
         if not self.secret_key:
             logger.error("SECRET_KEY not configured")
@@ -213,6 +245,12 @@ class Auth0Bridge:
             
             if not user_id or not email:
                 logger.error(f"Missing required user data - user_id: {user_id}, email: {email}")
+                return None
+            
+            # Create or update user in database
+            db_user = self._create_or_update_auth0_user(user_id, email, name, picture)
+            if not db_user:
+                logger.error("Failed to create/update user in database")
                 return None
             
             # Create JWT payload with proper timezone handling
@@ -246,6 +284,131 @@ class Auth0Bridge:
             import traceback
             logger.error(f"Traceback: {traceback.format_exc()}")
             return None
+    
+    def _create_or_update_auth0_user(self, auth0_user_id: str, email: str, name: str, picture: str):
+        """
+        Create or update user in database for Auth0 authentication
+        Handles first-user admin logic
+        """
+        try:
+            from sqlmodel import Session, select
+            from database import engine
+            from models import User
+            
+            with Session(engine) as session:
+                # Check if user already exists by Auth0 ID
+                existing_user = session.exec(
+                    select(User).where(User.auth0_user_id == auth0_user_id)
+                ).first()
+                
+                if existing_user:
+                    # Update existing user
+                    existing_user.email = email
+                    existing_user.full_name = name
+                    existing_user.oauth_enabled = True
+                    existing_user.auth_provider = "auth0"
+                    existing_user.last_login = datetime.now(timezone.utc)
+                    session.add(existing_user)
+                    session.commit()
+                    session.refresh(existing_user)
+                    logger.info(f"Updated existing Auth0 user: {email}")
+                    return existing_user
+                
+                # Create new user
+                # Generate username from email (before @)
+                username = email.split('@')[0] if email else f"user_{auth0_user_id[:8]}"
+                
+                # Ensure username is unique
+                original_username = username
+                counter = 1
+                while session.exec(select(User).where(User.username == username)).first():
+                    username = f"{original_username}_{counter}"
+                    counter += 1
+                
+                # Check if this is the first user (make admin)
+                admin_count = len(session.exec(select(User).where(User.is_admin == True)).all())
+                is_first_user = admin_count == 0
+                
+                new_user = User(
+                    username=username,
+                    email=email,
+                    full_name=name,
+                    hashed_password=None,  # Auth0 users don't have local passwords
+                    auth0_user_id=auth0_user_id,
+                    auth_provider="auth0",
+                    oauth_enabled=True,
+                    password_enabled=False,
+                    email_verified=True,  # Auth0 users are pre-verified
+                    is_admin=is_first_user  # First user becomes admin
+                )
+                
+                session.add(new_user)
+                session.commit()
+                session.refresh(new_user)
+                
+                if is_first_user:
+                    logger.info(f"✅ Created first Auth0 user as admin: {email}")
+                else:
+                    logger.info(f"✅ Created new Auth0 user: {email}")
+                
+                return new_user
+                
+        except Exception as e:
+            logger.error(f"Error creating/updating Auth0 user: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return None
+    
+    def link_oauth_to_existing_user(self, auth0_user_data: Dict[str, Any], existing_user_id: int) -> bool:
+        """
+        Link OAuth account to existing password-based user
+        """
+        try:
+            from sqlmodel import Session, select
+            from database import engine
+            from models import User
+            
+            with Session(engine) as session:
+                # Get the existing user
+                existing_user = session.get(User, existing_user_id)
+                if not existing_user:
+                    logger.error(f"User with ID {existing_user_id} not found for linking")
+                    return False
+                
+                # Check if email matches (for security)
+                auth0_email = auth0_user_data.get('email')
+                if existing_user.email != auth0_email:
+                    logger.error(f"Email mismatch: existing user email {existing_user.email} != Auth0 email {auth0_email}")
+                    return False
+                
+                # Check if user already has OAuth enabled
+                if existing_user.oauth_enabled:
+                    logger.error(f"User {existing_user_id} already has OAuth enabled")
+                    return False
+                
+                # Link the OAuth account
+                auth0_user_id = auth0_user_data.get('sub')
+                existing_user.auth0_user_id = auth0_user_id
+                existing_user.oauth_enabled = True
+                existing_user.email_verified = True  # Auth0 users are pre-verified
+                
+                # Update auth provider
+                if existing_user.password_enabled and existing_user.oauth_enabled:
+                    existing_user.auth_provider = "both"
+                else:
+                    existing_user.auth_provider = "auth0"
+                
+                session.add(existing_user)
+                session.commit()
+                
+                logger.info(f"Successfully linked OAuth account to user {existing_user_id}")
+                return True
+                
+        except Exception as e:
+            logger.error(f"Error linking OAuth account: {e}")
+            import traceback
+            logger.error(f"Traceback: {traceback.format_exc()}")
+            return False
     
     def handle_mobile_callback(self, access_token: str) -> Optional[str]:
         """

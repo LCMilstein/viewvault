@@ -508,45 +508,162 @@ async function logout() {
     }
 }
 
-// Simple Account modal for changing password on web
-function openAccountModal() {
+// Clean Account Settings modal for Google OAuth users
+async function openAccountModal() {
+    // Get current user account info
+    let accountInfo = null;
+    try {
+        const response = await fetch('/api/auth/account-info', {
+            headers: getAuthHeaders()
+        });
+        if (response.ok) {
+            accountInfo = await response.json();
+        }
+    } catch (error) {
+        console.error('Failed to get account info:', error);
+    }
+
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
+    
+    // Helper function to format dates
+    function formatDate(dateString) {
+        if (!dateString) return 'Never';
+        const date = new Date(dateString);
+        return date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+    }
+    
+    // Build account info display
+    const accountInfoHtml = accountInfo ? `
+        <div class="account-info-section">
+            <h4>Account Information</h4>
+            <div class="info-row">
+                <span class="info-label">Username:</span>
+                <span class="info-value">${accountInfo.username}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Email:</span>
+                <span class="info-value">${accountInfo.email || 'Not set'}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Full Name:</span>
+                <span class="info-value">${accountInfo.full_name || 'Not set'}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Authentication:</span>
+                <span class="info-value">Google OAuth</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Email Verified:</span>
+                <span class="info-value">${accountInfo.email_verified ? '✅ Yes' : '❌ No'}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Account Created:</span>
+                <span class="info-value">${formatDate(accountInfo.created_at)}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Last Login:</span>
+                <span class="info-value">${formatDate(accountInfo.last_login)}</span>
+            </div>
+        </div>
+    ` : '';
+
+    // Build danger zone section
+    const dangerZoneHtml = `
+        <div class="danger-zone-section">
+            <h4>Danger Zone</h4>
+            <div class="danger-item">
+                <div class="danger-info">
+                    <h5>Delete My Account</h5>
+                    <p>Permanently delete your account and all associated data. This action cannot be undone.</p>
+                </div>
+                <button class="btn btn-danger" id="deleteAccountBtn">Delete Account</button>
+            </div>
+        </div>
+    `;
+
     overlay.innerHTML = `
-      <div class="modal" role="dialog" aria-label="Account">
-        <div class="modal-header"><h3>Account</h3><p class="modal-subtitle">Update your password</p></div>
+      <div class="modal" role="dialog" aria-label="Account Settings" style="max-width: 600px;">
+        <div class="modal-header">
+            <h3>Account Settings</h3>
+            <p class="modal-subtitle">Manage your account information</p>
+        </div>
         <div class="modal-body">
-          <div class="form-group"><label>Current Password</label><input type="password" id="curPw" placeholder="Current password"/></div>
-          <div class="form-group"><label>New Password</label><input type="password" id="newPw" placeholder="New password (min 8)"/></div>
-          <div class="form-group"><label>Confirm New Password</label><input type="password" id="newPw2" placeholder="Confirm new password"/></div>
-          <div id="pwError" style="color:#ff6b6b;margin-top:8px;display:none"></div>
+            ${accountInfoHtml}
+            ${dangerZoneHtml}
         </div>
         <div class="modal-buttons">
-          <button class="btn btn-secondary" id="accCancel">Cancel</button>
-          <button class="btn btn-primary" id="accSave">Change Password</button>
+            <button class="btn btn-secondary" id="accCancel">Close</button>
         </div>
       </div>`;
     document.body.appendChild(overlay);
+    
     const close = () => document.body.removeChild(overlay);
     overlay.querySelector('#accCancel').addEventListener('click', close);
     overlay.addEventListener('click', (e)=>{ if(e.target===overlay) close(); });
-    overlay.querySelector('#accSave').addEventListener('click', async ()=>{
-        const cur = overlay.querySelector('#curPw').value;
-        const np = overlay.querySelector('#newPw').value;
-        const np2 = overlay.querySelector('#newPw2').value;
-        const err = overlay.querySelector('#pwError');
-        err.style.display='none';
-        if(!cur || !np || !np2){ err.textContent='Please fill out all fields.'; err.style.display='block'; return; }
-        if(np!==np2){ err.textContent='New passwords do not match.'; err.style.display='block'; return; }
-        if(np.length<8){ err.textContent='New password must be at least 8 characters.'; err.style.display='block'; return; }
-        try{
-            const res = await fetch('/api/auth/change-password', { method:'POST', headers:{ 'Content-Type':'application/json', ...getAuthHeaders() }, body: JSON.stringify({ current_password: cur, new_password: np }) });
-            if(!res.ok){ const t=await res.text(); throw new Error(t||'Failed'); }
-            showToast('Password updated. Please sign in again.');
-            await logout();
-            close();
-        }catch(e){ err.textContent = (e?.message||'Failed to change password'); err.style.display='block'; }
-    });
+    
+    // Delete account handler
+    const deleteAccountBtn = overlay.querySelector('#deleteAccountBtn');
+    if (deleteAccountBtn) {
+        deleteAccountBtn.addEventListener('click', async () => {
+            // Show confirmation dialog
+            const confirmOverlay = document.createElement('div');
+            confirmOverlay.className = 'modal-overlay';
+            confirmOverlay.innerHTML = `
+                <div class="modal" role="dialog" aria-label="Confirm Account Deletion" style="max-width: 400px;">
+                    <div class="modal-header">
+                        <h3>⚠️ Delete Account</h3>
+                        <p class="modal-subtitle">This action cannot be undone</p>
+                    </div>
+                    <div class="modal-body">
+                        <p>Are you sure you want to permanently delete your account?</p>
+                        <p><strong>This will delete:</strong></p>
+                        <ul>
+                            <li>Your account and profile</li>
+                            <li>All your watchlists and lists</li>
+                            <li>All your movies and series</li>
+                            <li>All your viewing history and statistics</li>
+                        </ul>
+                        <p style="color: #ff6b6b; font-weight: bold;">This action cannot be undone!</p>
+                    </div>
+                    <div class="modal-buttons">
+                        <button class="btn btn-secondary" id="confirmCancel">Cancel</button>
+                        <button class="btn btn-danger" id="confirmDelete">Delete My Account</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(confirmOverlay);
+            
+            const closeConfirm = () => document.body.removeChild(confirmOverlay);
+            confirmOverlay.querySelector('#confirmCancel').addEventListener('click', closeConfirm);
+            confirmOverlay.addEventListener('click', (e)=>{ if(e.target===confirmOverlay) closeConfirm(); });
+            
+            // Handle actual deletion
+            confirmOverlay.querySelector('#confirmDelete').addEventListener('click', async () => {
+                try {
+                    const response = await fetch('/api/auth/delete-current-user', {
+                        method: 'DELETE',
+                        headers: getAuthHeaders()
+                    });
+                    
+                    if (response.ok) {
+                        showToast('Account deleted successfully. Redirecting to login...');
+                        // Clear local storage and redirect to login
+                        localStorage.clear();
+                        setTimeout(() => {
+                            window.location.href = '/login.html';
+                        }, 2000);
+                    } else {
+                        const error = await response.json();
+                        showToast('Failed to delete account: ' + (error.detail || 'Unknown error'));
+                    }
+                } catch (error) {
+                    showToast('Failed to delete account: ' + error.message);
+                }
+                closeConfirm();
+            });
+        });
+    }
 }
 
 // Toast notification function

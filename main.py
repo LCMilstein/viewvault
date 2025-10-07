@@ -168,6 +168,12 @@ async def lifespan(app: FastAPI):
     try:
         create_db_and_tables()
         logger.info("Database initialization completed")
+        
+        # Run database migrations
+        from database_migration import run_database_migration, fix_hashed_password_constraint
+        run_database_migration()
+        fix_hashed_password_constraint()
+        logger.info("Database migrations completed")
     except Exception as e:
         logger.error(f"Error in lifespan: {e}")
         import traceback
@@ -384,6 +390,58 @@ def add_password(payload: ChangePassword, current_user: User = Depends(get_curre
         
         return {"message": "Password added successfully. You can now login with either method."}
 
+@api_router.get("/auth/account-info")
+def get_account_info(current_user: User = Depends(get_current_user)):
+    """Get current user's account information and available linking options"""
+    with Session(engine) as session:
+        db_user = session.get(User, current_user.id)
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        return {
+            "username": db_user.username,
+            "email": db_user.email,
+            "full_name": db_user.full_name,
+            "auth_provider": db_user.auth_provider,
+            "password_enabled": db_user.password_enabled,
+            "oauth_enabled": db_user.oauth_enabled,
+            "email_verified": db_user.email_verified,
+            "can_add_password": db_user.oauth_enabled and not db_user.password_enabled,
+            "can_add_oauth": db_user.password_enabled and not db_user.oauth_enabled,
+            "is_admin": db_user.is_admin,
+            "created_at": db_user.created_at.isoformat() if db_user.created_at else None,
+            "last_login": db_user.last_login.isoformat() if db_user.last_login else None
+        }
+
+@api_router.post("/auth/link-oauth")
+def link_oauth_account(current_user: User = Depends(get_current_user)):
+    """Get Auth0 login URL for linking OAuth to existing password account"""
+    if not auth0_bridge.is_available:
+        raise HTTPException(status_code=503, detail="OAuth linking not available")
+    
+    with Session(engine) as session:
+        db_user = session.get(User, current_user.id)
+        if not db_user:
+            raise HTTPException(status_code=404, detail="User not found")
+        
+        if not db_user.password_enabled:
+            raise HTTPException(status_code=400, detail="This account doesn't support OAuth linking")
+        
+        if db_user.oauth_enabled:
+            raise HTTPException(status_code=400, detail="OAuth is already linked to this account")
+        
+        # Generate Auth0 login URL for account linking
+        # We'll use a special state parameter to indicate this is for linking
+        auth_url = auth0_bridge.get_universal_login_url("login", state=f"link_account_{db_user.id}")
+        
+        if not auth_url:
+            raise HTTPException(status_code=500, detail="Failed to generate OAuth link URL")
+        
+        return {
+            "auth_url": auth_url,
+            "message": "Use this URL to link your OAuth account. After authentication, your accounts will be linked."
+        }
+
 @api_router.post("/auth/make-admin")
 def make_current_user_admin(current_user: User = Depends(get_current_user)):
     """Make the current user an admin (for testing purposes)"""
@@ -512,10 +570,16 @@ def get_auth0_config():
     if not auth0_bridge.is_available:
         raise HTTPException(status_code=503, detail="Auth0 not configured")
     
+    # Fix the audience URL if it's missing the colon (common typo)
+    audience = auth0_bridge.audience
+    if audience and "https//api.viewvault.app" in audience:
+        audience = audience.replace("https//api.viewvault.app", "https://api.viewvault.app")
+        logger.warning("Fixed malformed audience URL in config response")
+    
     return {
         "domain": auth0_bridge.domain,
         "client_id": auth0_bridge.web_client_id,
-        "audience": auth0_bridge.audience
+        "audience": audience
     }
 
 @api_router.get("/auth/auth0/oauth/{provider}")
@@ -3834,6 +3898,9 @@ async def register_page(request: Request):
     # Redirect directly to Auth0 Universal Login for signup
     return RedirectResponse(url=auth_url, status_code=302)
 
+# Note: Local registration endpoint removed - all authentication now goes through Auth0 Universal Login
+# This ensures email verification, password reset, and account management are handled by Auth0
+
 @app.get("/auth0-login")
 def read_auth0_login():
     return FileResponse("static/auth0-login.html")
@@ -3843,8 +3910,8 @@ def read_email_login():
     return FileResponse("static/email-login.html")
 
 @app.get("/auth0/callback")
-async def auth0_callback_redirect(code: str = None, error: str = None):
-    """Handle Auth0 callback and authenticate user"""
+async def auth0_callback_redirect(code: str = None, error: str = None, state: str = None):
+    """Handle Auth0 callback and authenticate user with account linking support"""
     if error:
         print(f"🔍 AUTH0 CALLBACK: Error received: {error}")
         return RedirectResponse(f"/login?error={error}")
@@ -3859,6 +3926,7 @@ async def auth0_callback_redirect(code: str = None, error: str = None):
     
     try:
         print(f"🔍 AUTH0 CALLBACK: Processing code: {code[:20]}...")
+        print(f"🔍 AUTH0 CALLBACK: State parameter: {state}")
         
         # Exchange code for token
         base_url = os.getenv('BASE_URL', 'https://app.viewvault.app')
@@ -3875,6 +3943,21 @@ async def auth0_callback_redirect(code: str = None, error: str = None):
             print("🔍 AUTH0 CALLBACK: Failed to get user information")
             return RedirectResponse("/login?error=user_info_failed")
         
+        # Check if this is an account linking request
+        if state and state.startswith("link_account_"):
+            user_id = state.replace("link_account_", "")
+            print(f"🔍 AUTH0 CALLBACK: Account linking request for user ID: {user_id}")
+            
+            # Handle account linking
+            success = auth0_bridge.link_oauth_to_existing_user(user_data, int(user_id))
+            if success:
+                print(f"🔍 AUTH0 CALLBACK: Successfully linked OAuth account")
+                return RedirectResponse("/?message=oauth_linked_successfully")
+            else:
+                print(f"🔍 AUTH0 CALLBACK: Failed to link OAuth account")
+                return RedirectResponse("/?error=oauth_linking_failed")
+        
+        # Regular authentication flow
         # Create JWT token
         jwt_token = auth0_bridge.create_jwt_for_auth0_user(user_data)
         if not jwt_token:
@@ -3944,11 +4027,11 @@ async def handle_mobile_auth0_callback(request: Request):
             print("🔍 MOBILE AUTH CALLBACK: No authorization code provided")
             raise HTTPException(status_code=400, detail="No authorization code provided")
         
-        # Exchange code for token (same logic as web callback)
+        # Exchange code for token using mobile client ID
         base_url = os.getenv('BASE_URL', 'https://app.viewvault.app')
         redirect_uri = f"{base_url}/auth0/callback"  # Use same redirect URI as web
         
-        token_data = auth0_bridge.exchange_code_for_token(code, redirect_uri)
+        token_data = auth0_bridge.exchange_code_for_token_mobile(code, redirect_uri)
         if not token_data:
             print("🔍 MOBILE AUTH CALLBACK: Failed to exchange code for token")
             raise HTTPException(status_code=401, detail="Failed to exchange authorization code")
