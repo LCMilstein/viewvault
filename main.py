@@ -918,11 +918,13 @@ async def import_movie(imdb_id: str, request: Request, current_user: User = Depe
             session.add(movie)
             session.commit()
             session.refresh(movie)
+            logger.info(f"[IMPORT] NEW movie created - ID: {movie.id}, Title: {movie.title}, user_id: {movie.user_id}, imdb_id: {movie.imdb_id}")
         else:
             # Movie already exists, update imported_at timestamp
             existing_movie.imported_at = datetime.now(timezone.utc)
             session.add(existing_movie)
             movie = existing_movie
+            logger.info(f"[IMPORT] EXISTING movie updated - ID: {movie.id}, Title: {movie.title}, user_id: {movie.user_id}")
         
         # Add to specified lists (if any)
         if target_list_ids:
@@ -1990,10 +1992,11 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
     """
     Returns all movies (standalone and grouped), collections, and series (with episodes) in the watchlist.
     """
-    print(f"🔍 WATCHLIST ENDPOINT: Called for user: {current_user.username} (ID: {current_user.id})")
-    print(f"🔍 WATCHLIST ENDPOINT: User auth_provider: {getattr(current_user, 'auth_provider', 'unknown')}")
-    print(f"🔍 WATCHLIST ENDPOINT: User is_active: {current_user.is_active}")
-    print(f"🔍 WATCHLIST ENDPOINT: User auth0_user_id: {getattr(current_user, 'auth0_user_id', 'None')}")
+    logger.info(f"🔍 WATCHLIST ENDPOINT: Called for user: {current_user.username} (ID: {current_user.id})")
+    logger.info(f"🔍 WATCHLIST ENDPOINT: User auth_provider: {getattr(current_user, 'auth_provider', 'unknown')}")
+    logger.info(f"🔍 WATCHLIST ENDPOINT: User is_active: {current_user.is_active}")
+    logger.info(f"🔍 WATCHLIST ENDPOINT: User auth0_user_id: {getattr(current_user, 'auth0_user_id', 'None')}")
+    logger.info(f"🔍 WATCHLIST ENDPOINT: User is_admin: {getattr(current_user, 'is_admin', False)}")
     
     # Additional validation for Auth0 users
     if hasattr(current_user, 'auth_provider') and current_user.auth_provider == 'auth0':
@@ -2030,6 +2033,9 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
                     query = query.where(Movie.id.not_in(movies_in_custom_lists))
                 
                 movies = session.exec(query).all()
+                logger.info(f"🔍 WATCHLIST ENDPOINT: Found {len(movies)} movies for user {current_user.id}")
+                if movies:
+                    logger.info(f"🔍 WATCHLIST ENDPOINT: Sample movie IDs: {[m.id for m in movies[:5]]}")
             except Exception as e:
                 if "no such column: movie.is_new" in str(e):
                     # If is_new column doesn't exist, select without it but with user_id filter

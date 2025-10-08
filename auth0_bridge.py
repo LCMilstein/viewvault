@@ -325,9 +325,18 @@ class Auth0Bridge:
                     username = f"{original_username}_{counter}"
                     counter += 1
                 
-                # Check if this is the first user (make admin)
-                admin_count = len(session.exec(select(User).where(User.is_admin == True)).all())
-                is_first_user = admin_count == 0
+                # Check if this is a self-hosted instance where first user should be admin
+                # For multi-tenant/shared instances, we don't want automatic admin assignment
+                is_self_hosted = os.getenv("SELF_HOSTED_INSTANCE", "false").lower() == "true"
+                is_admin = False
+                
+                if is_self_hosted:
+                    # Only in self-hosted instances: make first user admin
+                    admin_count = len(session.exec(select(User).where(User.is_admin == True)).all())
+                    is_admin = (admin_count == 0)
+                    logger.info(f"🔍 Self-hosted instance: admin_count={admin_count}, will_be_admin={is_admin}")
+                else:
+                    logger.info(f"🔍 Multi-tenant instance: new user will NOT be admin")
                 
                 new_user = User(
                     username=username,
@@ -339,17 +348,17 @@ class Auth0Bridge:
                     oauth_enabled=True,
                     password_enabled=False,
                     email_verified=True,  # Auth0 users are pre-verified
-                    is_admin=is_first_user  # First user becomes admin
+                    is_admin=is_admin  # Only admin if self-hosted AND first user
                 )
                 
                 session.add(new_user)
                 session.commit()
                 session.refresh(new_user)
                 
-                if is_first_user:
-                    logger.info(f"✅ Created first Auth0 user as admin: {email}")
+                if is_admin:
+                    logger.info(f"✅ Created first Auth0 user as admin (self-hosted): {email}")
                 else:
-                    logger.info(f"✅ Created new Auth0 user: {email}")
+                    logger.info(f"✅ Created new Auth0 user (regular): {email}")
                 
                 return new_user
                 
