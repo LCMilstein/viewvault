@@ -2394,6 +2394,11 @@ async function toggleWatched(type, id) {
             const result = await response.json();
             console.log('Toggle response:', result);
             
+            // Show educational tip if user just marked their first item as watched
+            if (result.watched && !localStorage.getItem('hasSeenWatchedTip')) {
+                showWatchedItemEducationTip();
+            }
+            
             // Update checkbox state based on server response
             clickedCheckbox.checked = result.watched;
             
@@ -3512,6 +3517,14 @@ document.addEventListener('DOMContentLoaded', async function() {
         setDefaultFilterState();
     }
     
+    // SAFETY CHECK: Ensure at least Movies OR Series filter is enabled
+    // Otherwise the watchlist will be completely empty!
+    if (!watchlistFilters.movies && !watchlistFilters.series) {
+        console.warn('⚠️ Both Movies and Series filters were disabled! Re-enabling Movies filter.');
+        watchlistFilters.movies = true;
+        updateFilterState(); // Save the fix
+    }
+    
     // Ensure watchlistState is properly initialized
     ensureWatchlistStateInitialized();
     
@@ -3640,11 +3653,11 @@ document.addEventListener('DOMContentLoaded', async function() {
 
 // Function to set default filter state
 function setDefaultFilterState() {
-    // Set default filters to show all items
+    // Set default filters to show all items (both watched and unwatched)
     watchlistFilters = { 
         movies: true, 
         series: true, 
-        unwatched: true,
+        unwatched: false,  // Changed to false - show BOTH watched and unwatched by default
         runtime_under_30: true,
         runtime_30_60: true,
         runtime_60_90: true,
@@ -3663,6 +3676,181 @@ function setDefaultFilterState() {
     
     // Update filter button text to reflect new state
     updateFilterButtonText();
+}
+
+// Show educational tip when user marks their first item as watched
+function showWatchedItemEducationTip() {
+    // Create toast container
+    const toast = document.createElement('div');
+    toast.className = 'education-toast';
+    toast.innerHTML = `
+        <div class="toast-content">
+            <div class="toast-icon">✅</div>
+            <div class="toast-text">
+                <strong>Marked as watched!</strong>
+                <p>Watched items are still in your list. Use the Filter button to show/hide them.</p>
+            </div>
+        </div>
+        <div class="toast-actions">
+            <button class="toast-btn toast-btn-secondary" id="toastDismiss">Got it</button>
+            <button class="toast-btn toast-btn-primary" id="toastShowMe">Show Me</button>
+        </div>
+    `;
+    
+    // Add styles if not already present
+    if (!document.getElementById('educationToastStyle')) {
+        const style = document.createElement('style');
+        style.id = 'educationToastStyle';
+        style.textContent = `
+            .education-toast {
+                position: fixed;
+                bottom: 80px;
+                left: 50%;
+                transform: translateX(-50%);
+                background: rgba(30, 30, 30, 0.98);
+                border: 1px solid rgba(255, 255, 255, 0.2);
+                border-radius: 12px;
+                padding: 16px;
+                max-width: 400px;
+                width: 90%;
+                box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+                z-index: 10000;
+                animation: slideUp 0.3s ease-out;
+            }
+            
+            @keyframes slideUp {
+                from {
+                    opacity: 0;
+                    transform: translateX(-50%) translateY(20px);
+                }
+                to {
+                    opacity: 1;
+                    transform: translateX(-50%) translateY(0);
+                }
+            }
+            
+            .toast-content {
+                display: flex;
+                gap: 12px;
+                margin-bottom: 12px;
+            }
+            
+            .toast-icon {
+                font-size: 24px;
+                flex-shrink: 0;
+            }
+            
+            .toast-text {
+                flex: 1;
+            }
+            
+            .toast-text strong {
+                display: block;
+                color: #fff;
+                font-size: 15px;
+                margin-bottom: 4px;
+            }
+            
+            .toast-text p {
+                color: rgba(255, 255, 255, 0.8);
+                font-size: 13px;
+                margin: 0;
+                line-height: 1.4;
+            }
+            
+            .toast-actions {
+                display: flex;
+                gap: 8px;
+                justify-content: flex-end;
+            }
+            
+            .toast-btn {
+                padding: 8px 16px;
+                border-radius: 8px;
+                border: none;
+                font-size: 14px;
+                font-weight: 500;
+                cursor: pointer;
+                transition: all 0.2s;
+            }
+            
+            .toast-btn-secondary {
+                background: rgba(255, 255, 255, 0.1);
+                color: #fff;
+            }
+            
+            .toast-btn-secondary:hover {
+                background: rgba(255, 255, 255, 0.15);
+            }
+            
+            .toast-btn-primary {
+                background: #007AFF;
+                color: #fff;
+            }
+            
+            .toast-btn-primary:hover {
+                background: #0051D5;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+    
+    document.body.appendChild(toast);
+    
+    // Handle dismiss
+    document.getElementById('toastDismiss').onclick = () => {
+        toast.style.animation = 'slideDown 0.3s ease-out';
+        setTimeout(() => toast.remove(), 300);
+        localStorage.setItem('hasSeenWatchedTip', 'true');
+    };
+    
+    // Handle "Show Me" - open filter menu and highlight the unwatched toggle
+    document.getElementById('toastShowMe').onclick = () => {
+        toast.style.animation = 'slideDown 0.3s ease-out';
+        setTimeout(() => toast.remove(), 300);
+        localStorage.setItem('hasSeenWatchedTip', 'true');
+        
+        // Open the filter menu
+        showFilterOptions();
+        
+        // Highlight the unwatched filter after a brief delay
+        setTimeout(() => {
+            const unwatchedChip = document.querySelector('.filter-chip[data-filter="unwatched"]');
+            if (unwatchedChip) {
+                unwatchedChip.style.animation = 'pulse 1s ease-in-out 3';
+                unwatchedChip.style.boxShadow = '0 0 0 3px rgba(0, 122, 255, 0.5)';
+                
+                // Remove highlight after animation
+                setTimeout(() => {
+                    unwatchedChip.style.animation = '';
+                    unwatchedChip.style.boxShadow = '';
+                }, 3000);
+            }
+        }, 500);
+    };
+    
+    // Add pulse animation if not present
+    if (!document.getElementById('pulseAnimation')) {
+        const style = document.createElement('style');
+        style.id = 'pulseAnimation';
+        style.textContent = `
+            @keyframes pulse {
+                0%, 100% { transform: scale(1); }
+                50% { transform: scale(1.05); }
+            }
+            @keyframes slideDown {
+                from {
+                    opacity: 1;
+                    transform: translateX(-50%) translateY(0);
+                }
+                to {
+                    opacity: 0;
+                    transform: translateX(-50%) translateY(20px);
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
 }
 
 // Add CSS for .dropdown-item if not present

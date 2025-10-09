@@ -300,6 +300,287 @@ For even more native experience, consider using Auth0's iOS SDK:
 - ✅ **Multi-arch support** - Docker images work on all platforms
 - ✅ **Native iOS experience** - In-app authentication flow
 
+## 🎓 **First Time User Experience (FTUE) - NEW**
+
+### Educational Toast for "Watched" Items
+
+**Context**: When users mark items as "watched", they may be confused when items disappear from their view (if the "Unwatched" filter is enabled). The web client now shows an educational toast the first time a user marks something as watched.
+
+#### Web Implementation (Reference)
+```javascript
+// Check if user has seen the tip
+if (!localStorage.getItem('hasSeenWatchedTip')) {
+    // Show educational toast after marking item as watched
+    showWatchedItemEducationTip();
+}
+
+// Toast shows:
+// - "✅ Marked as watched!"
+// - Explanation that items are still in the list
+// - Two action buttons: "Got it" and "Show Me"
+// - "Show Me" opens filter menu and highlights the "Unwatched" toggle
+```
+
+#### React Native Implementation for iOS
+
+**Step 1: Track if user has seen the tip**
+```javascript
+// Use AsyncStorage to track FTUE state
+import AsyncStorage from '@react-native-async-storage/async-storage';
+
+const STORAGE_KEYS = {
+  HAS_SEEN_WATCHED_TIP: 'hasSeenWatchedTip'
+};
+
+// Check if user has seen the tip
+const hasSeenWatchedTip = async () => {
+  try {
+    const value = await AsyncStorage.getItem(STORAGE_KEYS.HAS_SEEN_WATCHED_TIP);
+    return value === 'true';
+  } catch (error) {
+    console.error('Error checking watched tip status:', error);
+    return false;
+  }
+};
+
+// Mark tip as seen
+const markWatchedTipAsSeen = async () => {
+  try {
+    await AsyncStorage.setItem(STORAGE_KEYS.HAS_SEEN_WATCHED_TIP, 'true');
+  } catch (error) {
+    console.error('Error saving watched tip status:', error);
+  }
+};
+```
+
+**Step 2: Show educational toast after toggling watched status**
+```javascript
+// In your toggleWatched function (after successful API call)
+const toggleWatched = async (type, id) => {
+  try {
+    const response = await fetch(`${API_BASE}/watchlist/${type}/${id}/toggle`, {
+      method: 'POST',
+      headers: getAuthHeaders()
+    });
+    
+    if (response.ok) {
+      const result = await response.json();
+      
+      // Show educational tip if user just marked their first item as watched
+      if (result.watched && !(await hasSeenWatchedTip())) {
+        showWatchedItemEducationToast();
+      }
+      
+      // Update UI...
+    }
+  } catch (error) {
+    console.error('Error toggling watched status:', error);
+  }
+};
+```
+
+**Step 3: Create the educational toast component**
+```javascript
+import { View, Text, TouchableOpacity, StyleSheet, Animated } from 'react-native';
+
+const showWatchedItemEducationToast = () => {
+  // Create a custom toast or use a toast library
+  // Toast should display:
+  // 1. Icon: ✅
+  // 2. Title: "Marked as watched!"
+  // 3. Message: "Watched items are still in your list. Use the Filter button to show/hide them."
+  // 4. Two buttons: "Got it" and "Show Me"
+  
+  // Example using a modal or overlay:
+  const ToastContent = () => (
+    <View style={styles.toastContainer}>
+      <View style={styles.toastContent}>
+        <Text style={styles.toastIcon}>✅</Text>
+        <View style={styles.toastText}>
+          <Text style={styles.toastTitle}>Marked as watched!</Text>
+          <Text style={styles.toastMessage}>
+            Watched items are still in your list. Use the Filter button to show/hide them.
+          </Text>
+        </View>
+      </View>
+      <View style={styles.toastActions}>
+        <TouchableOpacity 
+          style={styles.buttonSecondary}
+          onPress={handleDismiss}
+        >
+          <Text style={styles.buttonTextSecondary}>Got it</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.buttonPrimary}
+          onPress={handleShowMe}
+        >
+          <Text style={styles.buttonTextPrimary}>Show Me</Text>
+        </TouchableOpacity>
+      </View>
+    </View>
+  );
+  
+  const handleDismiss = async () => {
+    await markWatchedTipAsSeen();
+    // Hide toast with animation
+  };
+  
+  const handleShowMe = async () => {
+    await markWatchedTipAsSeen();
+    // Hide toast
+    // Navigate to filters screen or open filter modal
+    // Highlight the "Unwatched" toggle (optional: add a pulse animation)
+    navigation.navigate('Filters', { highlightUnwatched: true });
+  };
+};
+
+const styles = StyleSheet.create({
+  toastContainer: {
+    position: 'absolute',
+    bottom: 80,
+    left: 20,
+    right: 20,
+    backgroundColor: 'rgba(30, 30, 30, 0.98)',
+    borderRadius: 12,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.2)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.5,
+    shadowRadius: 16,
+  },
+  toastContent: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 12,
+  },
+  toastIcon: {
+    fontSize: 24,
+  },
+  toastText: {
+    flex: 1,
+  },
+  toastTitle: {
+    color: '#fff',
+    fontSize: 15,
+    fontWeight: 'bold',
+    marginBottom: 4,
+  },
+  toastMessage: {
+    color: 'rgba(255, 255, 255, 0.8)',
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  toastActions: {
+    flexDirection: 'row',
+    gap: 8,
+    justifyContent: 'flex-end',
+  },
+  buttonSecondary: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  buttonPrimary: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#007AFF',
+  },
+  buttonTextSecondary: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+  buttonTextPrimary: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
+  },
+});
+```
+
+**Step 4: Highlight filter when "Show Me" is tapped**
+```javascript
+// In your Filter screen component
+const FilterScreen = ({ route }) => {
+  const { highlightUnwatched } = route.params || {};
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+  
+  useEffect(() => {
+    if (highlightUnwatched) {
+      // Pulse animation for the Unwatched filter toggle
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.05,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 1,
+            duration: 500,
+            useNativeDriver: true,
+          }),
+        ]),
+        { iterations: 3 }
+      ).start();
+    }
+  }, [highlightUnwatched]);
+  
+  return (
+    <View>
+      {/* Other filters... */}
+      
+      <Animated.View 
+        style={{
+          transform: [{ scale: highlightUnwatched ? pulseAnim : 1 }],
+          shadowColor: highlightUnwatched ? '#007AFF' : 'transparent',
+          shadowOpacity: 0.5,
+          shadowRadius: 8,
+        }}
+      >
+        <FilterToggle 
+          label="Unwatched Only" 
+          value={filters.unwatched}
+          onToggle={handleUnwatchedToggle}
+        />
+      </Animated.View>
+    </View>
+  );
+};
+```
+
+### Key Implementation Notes for iOS
+1. **Trigger**: Show toast ONLY the first time a user marks something as watched
+2. **Storage**: Use `AsyncStorage` to persist the `hasSeenWatchedTip` flag
+3. **Timing**: Show immediately after successful API response (when `result.watched === true`)
+4. **Actions**:
+   - **"Got it"**: Dismiss toast, mark as seen, user continues normally
+   - **"Show Me"**: Dismiss toast, mark as seen, navigate to Filters screen with highlight
+5. **Animation**: Use React Native's `Animated` API for smooth transitions
+6. **Styling**: Match the dark theme of the app (see style example above)
+
+### Default Filter State (Also NEW)
+The default filter state has been updated in the web client:
+- **`unwatched: false`** - Show BOTH watched and unwatched items by default
+- This prevents the confusing behavior where new users mark items as watched and everything disappears
+
+iOS should match this default:
+```javascript
+const DEFAULT_FILTERS = {
+  movies: true,
+  series: true,
+  unwatched: false,  // Show ALL items by default
+  runtime_under_30: true,
+  runtime_30_60: true,
+  runtime_60_90: true,
+  runtime_over_90: true
+};
+```
+
 ## 📞 **Support & Resources**
 
 ### Reference Implementation
