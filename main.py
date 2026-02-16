@@ -739,7 +739,7 @@ def search_movies(request: Request, query: str):
     except Exception as e:
         import traceback
         logger.error(f"Movie search failed: {e}", exc_info=True)
-        return {"error": "Movie search failed", "details": str(e)}, 500
+        raise HTTPException(status_code=500, detail=f"Movie search failed: {str(e)}")
 
 @api_router.get("/search/series/")
 @limiter.limit("30/minute")
@@ -789,7 +789,7 @@ def search_series(request: Request, query: str):
     except Exception as e:
         import traceback
         logger.error(f"Series search failed: {e}", exc_info=True)
-        return {"error": "Series search failed", "details": str(e)}, 500
+        raise HTTPException(status_code=500, detail=f"Series search failed: {str(e)}")
 
 # --- TVMaze fallback helper ---
 def search_series_tvmaze(query: str):
@@ -874,8 +874,8 @@ async def import_movie(imdb_id: str, request: Request, current_user: User = Depe
     # Check if movie already exists for this user
     with Session(engine) as session:
         # Check if movie exists globally for this user
-        existing_movie = session.exec(select(Movie).where(Movie.imdb_id == imdb_id, Movie.user_id == current_user.id)).first()
-        
+        existing_movie = session.exec(select(Movie).where(Movie.imdb_id == imdb_id, Movie.user_id == current_user.id, Movie.deleted == False)).first()
+
         # If movie exists, check if it's already in the target lists
         if existing_movie and target_list_ids:
             for list_id in target_list_ids:
@@ -1014,7 +1014,7 @@ async def import_movie(imdb_id: str, request: Request, current_user: User = Depe
                             
                             # Check if sequel already exists
                             existing_sequel = session.exec(
-                                select(Movie).where(Movie.imdb_id == sequel_imdb_id, Movie.user_id == current_user.id)
+                                select(Movie).where(Movie.imdb_id == sequel_imdb_id, Movie.user_id == current_user.id, Movie.deleted == False)
                             ).first()
                             if existing_sequel:
                                 logger.info(f"Skipping {sequel.get('title')} - Already exists in DB")
@@ -1119,7 +1119,7 @@ async def import_movie_with_sequels(imdb_id: str, request: Request, current_user
                 logger.info(f"IMPORT: Skipping {movie_data.get('title')} - No IMDB ID in TMDB details or fallback.")
                 skipped_movies.append({"title": movie_data.get('title'), "reason": "No IMDB ID in TMDB details or fallback"})
                 continue
-            existing = session.exec(select(Movie).where(Movie.imdb_id == imdb_id, Movie.user_id == current_user.id)).first()
+            existing = session.exec(select(Movie).where(Movie.imdb_id == imdb_id, Movie.user_id == current_user.id, Movie.deleted == False)).first()
             if existing:
                 logger.debug(f"IMPORT: Skipping {movie_data.get('title')} - Already exists in DB")
                 skipped_movies.append({"title": movie_data.get('title'), "reason": "Already exists"})
@@ -1220,7 +1220,7 @@ async def fetch_all_sequels(current_user: User = Depends(get_current_admin_user)
     errors = []
     processed_ids = set()
     with Session(engine) as session:
-        movies = session.exec(select(Movie).where(Movie.user_id == current_user.id)).all()
+        movies = session.exec(select(Movie).where(Movie.user_id == current_user.id, Movie.deleted == False)).all()
         collections = {}
         for m in movies:
             if m.collection_name:
@@ -1287,8 +1287,8 @@ async def import_series(imdb_id: str, request: Request, current_user: User = Dep
     
     with Session(engine) as session:
         # Check if series already exists for this user
-        existing_series = session.exec(select(Series).where(Series.imdb_id == imdb_id, Series.user_id == current_user.id)).first()
-        
+        existing_series = session.exec(select(Series).where(Series.imdb_id == imdb_id, Series.user_id == current_user.id, Series.deleted == False)).first()
+
         # If series exists, check if it's already in the target lists
         if existing_series and target_list_ids:
             for list_id in target_list_ids:
@@ -1605,7 +1605,7 @@ def add_movie(movie: MovieCreate):
 @api_router.get("/movies/")
 def get_movies():
     with Session(engine) as session:
-        movies = session.exec(select(Movie)).all()
+        movies = session.exec(select(Movie).where(Movie.deleted == False)).all()
         result = []
         for m in movies:
             poster_url = None
@@ -1660,7 +1660,7 @@ def get_movies():
 def get_movie(movie_id: int):
     with Session(engine) as session:
         movie = session.get(Movie, movie_id)
-        if not movie:
+        if not movie or movie.deleted:
             raise HTTPException(status_code=404, detail="Movie not found")
         return {
             "id": movie.id,
@@ -1683,9 +1683,9 @@ def get_movie(movie_id: int):
 def update_movie(movie_id: int, movie_update: MovieCreate):
     with Session(engine) as session:
         movie = session.get(Movie, movie_id)
-        if not movie:
+        if not movie or movie.deleted:
             raise HTTPException(status_code=404, detail="Movie not found")
-        
+
         for field, value in movie_update.model_dump().items():
             setattr(movie, field, value)
         
@@ -1724,9 +1724,9 @@ def delete_movie(movie_id: int):
 def toggle_movie_watched(movie_id: int):
     with Session(engine) as session:
         movie = session.get(Movie, movie_id)
-        if not movie:
+        if not movie or movie.deleted:
             raise HTTPException(status_code=404, detail="Movie not found")
-        
+
         movie.watched = not movie.watched
         session.add(movie)
         session.commit()
@@ -1764,7 +1764,7 @@ def add_series(series: SeriesCreate):
 @api_router.get("/series/")
 def get_series():
     with Session(engine) as session:
-        series = session.exec(select(Series)).all()
+        series = session.exec(select(Series).where(Series.deleted == False)).all()
         result = []
         for s in series:
             poster_url = None
@@ -1813,7 +1813,7 @@ def get_series():
 def get_series_by_id(series_id: int):
     with Session(engine) as session:
         series = session.get(Series, series_id)
-        if not series:
+        if not series or series.deleted:
             raise HTTPException(status_code=404, detail="Series not found")
         return series
 
@@ -1821,9 +1821,9 @@ def get_series_by_id(series_id: int):
 def update_series(series_id: int, series_update: SeriesCreate):
     with Session(engine) as session:
         series = session.get(Series, series_id)
-        if not series:
+        if not series or series.deleted:
             raise HTTPException(status_code=404, detail="Series not found")
-        
+
         for field, value in series_update.model_dump().items():
             setattr(series, field, value)
         
@@ -1857,9 +1857,9 @@ def add_episode(episode: EpisodeCreate):
 def get_episodes(series_id: int = None):
     with Session(engine) as session:
         if series_id:
-            episodes = session.exec(select(Episode).where(Episode.series_id == series_id)).all()
+            episodes = session.exec(select(Episode).where(Episode.series_id == series_id, Episode.deleted == False)).all()
         else:
-            episodes = session.exec(select(Episode)).all()
+            episodes = session.exec(select(Episode).where(Episode.deleted == False)).all()
         # Explicitly convert to dicts for JSON serialization
         return [
             {
@@ -1879,7 +1879,7 @@ def get_episodes(series_id: int = None):
 def get_episode(episode_id: int):
     with Session(engine) as session:
         episode = session.get(Episode, episode_id)
-        if not episode:
+        if not episode or episode.deleted:
             raise HTTPException(status_code=404, detail="Episode not found")
         return episode
 
@@ -1887,9 +1887,9 @@ def get_episode(episode_id: int):
 def update_episode(episode_id: int, episode_update: EpisodeCreate):
     with Session(engine) as session:
         episode = session.get(Episode, episode_id)
-        if not episode:
+        if not episode or episode.deleted:
             raise HTTPException(status_code=404, detail="Episode not found")
-        
+
         for field, value in episode_update.model_dump().items():
             setattr(episode, field, value)
         
@@ -1913,9 +1913,9 @@ def delete_episode(episode_id: int):
 def toggle_episode_watched(episode_id: int):
     with Session(engine) as session:
         episode = session.get(Episode, episode_id)
-        if not episode:
+        if not episode or episode.deleted:
             raise HTTPException(status_code=404, detail="Episode not found")
-        
+
         episode.watched = not episode.watched
         session.add(episode)
         session.commit()
@@ -1927,12 +1927,12 @@ def get_episode_details(episode_id: int):
     """Get enhanced episode details from TMDB"""
     with Session(engine) as session:
         episode = session.get(Episode, episode_id)
-        if not episode:
+        if not episode or episode.deleted:
             raise HTTPException(status_code=404, detail="Episode not found")
-        
+
         # Get series info
         series = session.get(Series, episode.series_id)
-        if not series:
+        if not series or series.deleted:
             raise HTTPException(status_code=404, detail="Series not found")
         
         # Get enhanced data from TMDB
@@ -1975,9 +1975,9 @@ def get_episode_details(episode_id: int):
 @api_router.get("/stats/")
 def get_stats(current_user: User = Depends(get_current_user)):
     with Session(engine) as session:
-        total_movies = session.exec(select(Movie)).all()
-        total_series = session.exec(select(Series)).all()
-        total_episodes = session.exec(select(Episode)).all()
+        total_movies = session.exec(select(Movie).where(Movie.deleted == False, Movie.user_id == current_user.id)).all()
+        total_series = session.exec(select(Series).where(Series.deleted == False, Series.user_id == current_user.id)).all()
+        total_episodes = session.exec(select(Episode).where(Episode.deleted == False)).all()
         
         watched_movies = [m for m in total_movies if m.watched]
         watched_episodes = [e for e in total_episodes if e.watched]
@@ -2196,7 +2196,7 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
                 try:
                     poster_url = s.poster_url or "/static/no-image.png"
                     # Get episodes for this series
-                    episodes = session.exec(select(Episode).where(Episode.series_id == s.id)).all()
+                    episodes = session.exec(select(Episode).where(Episode.series_id == s.id, Episode.deleted == False)).all()
                     episodes_data = [
                         {
                             "id": ep.id,
@@ -2283,10 +2283,10 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
 def toggle_movie_watched(movie_id: int, current_user: User = Depends(get_current_user)):
     """Toggle watched status for a movie"""
     with Session(engine) as session:
-        movie = session.exec(select(Movie).where(Movie.id == movie_id, Movie.user_id == current_user.id)).first()
+        movie = session.exec(select(Movie).where(Movie.id == movie_id, Movie.user_id == current_user.id, Movie.deleted == False)).first()
         if not movie:
             raise HTTPException(status_code=404, detail="Movie not found")
-        
+
         movie.watched = not movie.watched
         session.commit()
         session.refresh(movie)
@@ -2296,13 +2296,13 @@ def toggle_movie_watched(movie_id: int, current_user: User = Depends(get_current
 def toggle_series_watched(series_id: int, current_user: User = Depends(get_current_user)):
     """Toggle watched status for a series (marks all episodes as watched/unwatched)"""
     with Session(engine) as session:
-        series = session.exec(select(Series).where(Series.id == series_id, Series.user_id == current_user.id)).first()
+        series = session.exec(select(Series).where(Series.id == series_id, Series.user_id == current_user.id, Series.deleted == False)).first()
         if not series:
             raise HTTPException(status_code=404, detail="Series not found")
-        
+
         # Get all episodes for this series
-        episodes = session.exec(select(Episode).where(Episode.series_id == series_id)).all()
-        
+        episodes = session.exec(select(Episode).where(Episode.series_id == series_id, Episode.deleted == False)).all()
+
         # Toggle all episodes to the opposite of the first episode's status
         # If no episodes or all unwatched, mark all as watched
         # If any watched, mark all as unwatched
@@ -2319,8 +2319,8 @@ def toggle_collection_watched(collection_id: str, current_user: User = Depends(g
     """Toggle watched status for all movies in a collection"""
     with Session(engine) as session:
         # Get all movies in this collection for this user
-        movies = session.exec(select(Movie).where(Movie.collection_id == collection_id, Movie.user_id == current_user.id)).all()
-        
+        movies = session.exec(select(Movie).where(Movie.collection_id == collection_id, Movie.user_id == current_user.id, Movie.deleted == False)).all()
+
         if not movies:
             raise HTTPException(status_code=404, detail="Collection not found")
         
@@ -2340,15 +2340,16 @@ def toggle_episode_watched(series_id: int, season: int, episode: int, current_us
     """Toggle watched status for a specific episode"""
     with Session(engine) as session:
         # First verify the series belongs to this user
-        series = session.exec(select(Series).where(Series.id == series_id, Series.user_id == current_user.id)).first()
+        series = session.exec(select(Series).where(Series.id == series_id, Series.user_id == current_user.id, Series.deleted == False)).first()
         if not series:
             raise HTTPException(status_code=404, detail="Series not found")
-        
+
         episode_obj = session.exec(
             select(Episode).where(
                 Episode.series_id == series_id,
                 Episode.season == season,
-                Episode.episode == episode
+                Episode.episode == episode,
+                Episode.deleted == False
             )
         ).first()
         
@@ -2364,10 +2365,10 @@ def toggle_episode_watched(series_id: int, season: int, episode: int, current_us
 def remove_movie_from_watchlist(movie_id: int, current_user: User = Depends(get_current_user)):
     """Remove a movie from the watchlist"""
     with Session(engine) as session:
-        movie = session.exec(select(Movie).where(Movie.id == movie_id, Movie.user_id == current_user.id)).first()
+        movie = session.exec(select(Movie).where(Movie.id == movie_id, Movie.user_id == current_user.id, Movie.deleted == False)).first()
         if not movie:
             raise HTTPException(status_code=404, detail="Movie not found")
-        
+
         session.delete(movie)
         session.commit()
         return {"message": "Movie removed from watchlist"}
@@ -2376,10 +2377,10 @@ def remove_movie_from_watchlist(movie_id: int, current_user: User = Depends(get_
 def clear_movie_newly_imported(movie_id: int, current_user: User = Depends(get_current_user)):
     """Clear the newly imported status for a movie"""
     with Session(engine) as session:
-        movie = session.exec(select(Movie).where(Movie.id == movie_id, Movie.user_id == current_user.id)).first()
+        movie = session.exec(select(Movie).where(Movie.id == movie_id, Movie.user_id == current_user.id, Movie.deleted == False)).first()
         if not movie:
             raise HTTPException(status_code=404, detail="Movie not found")
-        
+
         movie.imported_at = None
         session.add(movie)
         session.commit()
@@ -2389,10 +2390,10 @@ def clear_movie_newly_imported(movie_id: int, current_user: User = Depends(get_c
 def clear_series_newly_imported(series_id: int, current_user: User = Depends(get_current_user)):
     """Clear the newly imported status for a series"""
     with Session(engine) as session:
-        series = session.exec(select(Series).where(Series.id == series_id, Series.user_id == current_user.id)).first()
+        series = session.exec(select(Series).where(Series.id == series_id, Series.user_id == current_user.id, Series.deleted == False)).first()
         if not series:
             raise HTTPException(status_code=404, detail="Series not found")
-        
+
         series.imported_at = None
         session.add(series)
         session.commit()
@@ -2402,15 +2403,15 @@ def clear_series_newly_imported(series_id: int, current_user: User = Depends(get
 def remove_series_from_watchlist(series_id: int, current_user: User = Depends(get_current_user)):
     """Remove a series and all its episodes from the watchlist"""
     with Session(engine) as session:
-        series = session.exec(select(Series).where(Series.id == series_id, Series.user_id == current_user.id)).first()
+        series = session.exec(select(Series).where(Series.id == series_id, Series.user_id == current_user.id, Series.deleted == False)).first()
         if not series:
             raise HTTPException(status_code=404, detail="Series not found")
-        
+
         # Delete all episodes first
-        episodes = session.exec(select(Episode).where(Episode.series_id == series_id)).all()
+        episodes = session.exec(select(Episode).where(Episode.series_id == series_id, Episode.deleted == False)).all()
         for episode in episodes:
             session.delete(episode)
-        
+
         # Delete the series
         session.delete(series)
         session.commit()
@@ -2444,12 +2445,12 @@ def mark_as_interacted(item_type: str, item_id: int, current_user: User = Depend
     """Mark an item as interacted (removes 'new' status)"""
     with Session(engine) as session:
         if item_type == "movie":
-            item = session.exec(select(Movie).where(Movie.id == item_id, Movie.user_id == current_user.id)).first()
+            item = session.exec(select(Movie).where(Movie.id == item_id, Movie.user_id == current_user.id, Movie.deleted == False)).first()
         elif item_type == "series":
-            item = session.exec(select(Series).where(Series.id == item_id, Series.user_id == current_user.id)).first()
+            item = session.exec(select(Series).where(Series.id == item_id, Series.user_id == current_user.id, Series.deleted == False)).first()
         elif item_type == "collection":
             # For collections, mark all movies in the collection as interacted
-            movies = session.exec(select(Movie).where(Movie.collection_id == item_id, Movie.user_id == current_user.id)).all()
+            movies = session.exec(select(Movie).where(Movie.collection_id == item_id, Movie.user_id == current_user.id, Movie.deleted == False)).all()
             for movie in movies:
                 movie.is_new = False
             session.commit()
@@ -2473,7 +2474,7 @@ def get_unwatched_watchlist(sort_by: str = Query("added", enum=["added", "watche
     """
     with Session(engine) as session:
         # Unwatched movies for this user
-        movies = session.exec(select(Movie).where(Movie.watched == False, Movie.user_id == current_user.id)).all()
+        movies = session.exec(select(Movie).where(Movie.watched == False, Movie.user_id == current_user.id, Movie.deleted == False)).all()
         # Sorting
         if sort_by == "release_date":
             movies.sort(key=lambda m: (m.release_date or ""))
@@ -2482,13 +2483,13 @@ def get_unwatched_watchlist(sort_by: str = Query("added", enum=["added", "watche
         else:  # added (by added_at timestamp)
             movies.sort(key=lambda m: (m.added_at or ""))
         # Unwatched episodes grouped by series for this user
-        user_series_ids = [s.id for s in session.exec(select(Series).where(Series.user_id == current_user.id)).all()]
-        episodes = session.exec(select(Episode).where(Episode.watched == False, Episode.series_id.in_(user_series_ids))).all()
+        user_series_ids = [s.id for s in session.exec(select(Series).where(Series.user_id == current_user.id, Series.deleted == False)).all()]
+        episodes = session.exec(select(Episode).where(Episode.watched == False, Episode.series_id.in_(user_series_ids), Episode.deleted == False)).all()
         series_map = {}
         for ep in episodes:
             if ep.series_id not in series_map:
                 s = session.get(Series, ep.series_id)
-                if not s:
+                if not s or s.deleted:
                     continue
                 series_map[ep.series_id] = {
                     "id": s.id,
@@ -2731,9 +2732,9 @@ async def import_by_url(request: Request):
     try:
         data = await request.json()
     except Exception:
-        return {"error": "Invalid JSON in request body."}, 400
+        raise HTTPException(status_code=400, detail="Invalid JSON in request body.")
     if not data or 'url' not in data:
-        return {"error": "Missing 'url' in request body."}, 400
+        raise HTTPException(status_code=400, detail="Missing 'url' in request body.")
     url = data['url'].strip()
     if url.startswith('@'):
         url = url[1:].strip()
@@ -2743,7 +2744,7 @@ async def import_by_url(request: Request):
         # Try TVMaze URL
         imdb_id = get_imdb_id_from_tvmaze_url(url)
     if not imdb_id:
-        return {"error": "Could not extract IMDB ID from URL."}, 400
+        raise HTTPException(status_code=400, detail="Could not extract IMDB ID from URL.")
     logger.debug(f"Extracted IMDB ID: {imdb_id}")
     tmdb_result = find_api.find(imdb_id, external_source='imdb_id')
     logger.debug(f"TMDB find result for {imdb_id}: movie_results={len(tmdb_result.get('movie_results', []))}, tv_results={len(tmdb_result.get('tv_results', []))}")
@@ -2754,7 +2755,7 @@ async def import_by_url(request: Request):
         # Import as series
         return import_series(imdb_id)
     else:
-        return {"error": "IMDB ID not found as movie or series in TMDB."}, 404
+        raise HTTPException(status_code=404, detail="IMDB ID not found as movie or series in TMDB.")
 
 def extract_imdb_id_from_url(url: str):
     # Remove any leading/trailing whitespace and leading '@'
@@ -2794,14 +2795,14 @@ def share_import(request: Request):
     """Endpoint for mobile/web sharing: accepts a URL, imports full series or movie+sequels automatically."""
     data = request.json() if hasattr(request, 'json') else None
     if not data or 'url' not in data:
-        return {"error": "Missing 'url' in request body."}, 400
+        raise HTTPException(status_code=400, detail="Missing 'url' in request body.")
     url = data['url']
     logger.debug(f"Share import by URL: {url}")
     imdb_id = extract_imdb_id_from_url(url)
     if not imdb_id:
         imdb_id = get_imdb_id_from_tvmaze_url(url)
     if not imdb_id:
-        return {"error": "Could not extract IMDB ID from URL."}, 400
+        raise HTTPException(status_code=400, detail="Could not extract IMDB ID from URL.")
     logger.debug(f"Extracted IMDB ID: {imdb_id}")
     from tmdb_service import find_api
     tmdb_result = find_api.find(imdb_id, external_source='imdb_id')
@@ -2812,16 +2813,16 @@ def share_import(request: Request):
             result = import_movie_with_sequels(imdb_id)
             return {"success": True, "type": "movie", "imdb_id": imdb_id, "result": result}
         except Exception as e:
-            return {"error": f"Failed to import movie with sequels: {e}"}, 500
+            raise HTTPException(status_code=500, detail=f"Failed to import movie with sequels: {e}")
     elif tmdb_result.get('tv_results'):
         # Import full series
         try:
             result = import_full_series(imdb_id)
             return {"success": True, "type": "series", "imdb_id": imdb_id, "result": result}
         except Exception as e:
-            return {"error": f"Failed to import full series: {e}"}, 500
+            raise HTTPException(status_code=500, detail=f"Failed to import full series: {e}")
     else:
-        return {"error": "IMDB ID not found as movie or series in TMDB."}, 404
+        raise HTTPException(status_code=404, detail="IMDB ID not found as movie or series in TMDB.")
 
 @api_router.post("/import/url")
 @api_router.post("/import/url/")
@@ -2844,7 +2845,7 @@ async def get_import_progress(current_user: User = Depends(get_current_user)):
         }
     except Exception as e:
         logger.error(f"Error getting progress: {e}")
-        return {"error": f"Failed to get progress: {str(e)}"}, 500
+        raise HTTPException(status_code=500, detail=f"Failed to get progress: {str(e)}")
 
 @api_router.get("/import/jellyfin/pre-scan/{library_name}")
 async def pre_scan_jellyfin_library(library_name: str, current_user: User = Depends(get_current_user)):
@@ -2854,57 +2855,59 @@ async def pre_scan_jellyfin_library(library_name: str, current_user: User = Depe
         jellyfin_service = create_jellyfin_service()
         
         if not jellyfin_service.test_connection():
-            return {"error": "Failed to connect to Jellyfin server"}, 500
-        
+            raise HTTPException(status_code=502, detail="Failed to connect to Jellyfin server")
+
         # Get available libraries first
         try:
             libraries = jellyfin_service.get_libraries()
             logger.info(f"Libraries retrieved: {libraries}")
         except Exception as e:
             logger.error(f"Failed to get libraries: {e}")
-            return {"error": f"Failed to get Jellyfin libraries: {str(e)}"}, 500
-            
+            raise HTTPException(status_code=500, detail=f"Failed to get Jellyfin libraries: {str(e)}")
+
         if not libraries:
             logger.warning("No movie libraries found in Jellyfin")
-            return {"error": "No movie libraries found in Jellyfin"}, 400
-        
+            raise HTTPException(status_code=400, detail="No movie libraries found in Jellyfin")
+
         # Find the specific library
         target_library = None
         for lib in libraries:
             if lib.get('name') == library_name:
                 target_library = lib
                 break
-        
+
         if not target_library:
             available_libraries = [lib.get('name', 'Unknown') for lib in libraries]
             logger.warning(f"Library '{library_name}' not found. Available libraries: {available_libraries}")
-            return {"error": f"Library '{library_name}' not found. Available libraries: {available_libraries}"}, 400
-        
+            raise HTTPException(status_code=404, detail=f"Library '{library_name}' not found. Available libraries: {available_libraries}")
+
         # Get movies from the specific library
         try:
             jellyfin_movies = jellyfin_service.get_movies(library_ids=[target_library['id']])
             logger.info(f"Movies retrieved: {len(jellyfin_movies) if jellyfin_movies else 0} movies")
         except Exception as e:
             logger.error(f"Failed to get movies: {e}")
-            return {"error": f"Failed to get movies from Jellyfin: {str(e)}"}, 500
-        
+            raise HTTPException(status_code=500, detail=f"Failed to get movies from Jellyfin: {str(e)}")
+
         if not jellyfin_movies:
-            return {"error": f"No movies found in library '{library_name}'"}, 404
-        
+            raise HTTPException(status_code=404, detail=f"No movies found in library '{library_name}'")
+
         # Count total work
         total_movies = len(jellyfin_movies)
         estimated_collections = total_movies // 10  # Rough estimate of collections
-        
+
         return {
             "total_movies": total_movies,
             "estimated_collections": estimated_collections,
             "total_work": total_movies + estimated_collections,
             "library_name": library_name
         }
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Pre-scan failed: {e}")
-        return {"error": f"Pre-scan failed: {str(e)}"}, 500
+        raise HTTPException(status_code=500, detail=f"Pre-scan failed: {str(e)}")
 
 @api_router.post("/import/jellyfin/")
 @limiter.limit("100/hour")
@@ -2933,13 +2936,13 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
             logger.info(f"Jellyfin service created successfully: {type(jellyfin_service)}")
         except Exception as e:
             logger.error(f"Failed to create Jellyfin service: {e}")
-            return {"error": f"Failed to create Jellyfin service: {str(e)}"}, 500
-        
+            raise HTTPException(status_code=500, detail=f"Failed to create Jellyfin service: {str(e)}")
+
         logger.info("Testing Jellyfin connection...")
         if not jellyfin_service.test_connection():
             logger.error("Failed to connect to Jellyfin server")
-            return {"error": "Failed to connect to Jellyfin server"}, 500
-        
+            raise HTTPException(status_code=502, detail="Failed to connect to Jellyfin server")
+
         # Get available libraries first
         logger.info("Getting Jellyfin libraries...")
         try:
@@ -2947,28 +2950,28 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
             logger.info(f"Libraries retrieved: {libraries}")
         except Exception as e:
             logger.error(f"Failed to get libraries: {e}")
-            return {"error": f"Failed to get Jellyfin libraries: {str(e)}"}, 500
-            
+            raise HTTPException(status_code=500, detail=f"Failed to get Jellyfin libraries: {str(e)}")
+
         if not libraries:
             logger.warning("No movie libraries found in Jellyfin")
-            return {"error": "No movie libraries found in Jellyfin"}, 400
-        
+            raise HTTPException(status_code=400, detail="No movie libraries found in Jellyfin")
+
         logger.info(f"Found {len(libraries)} movie libraries: {[lib['name'] for lib in libraries]}")
-        
+
         # Find the specific library
         target_library = None
         for lib in libraries:
             if lib.get('name') == library_name:
                 target_library = lib
                 break
-        
+
         if not target_library:
             available_libraries = [lib.get('name', 'Unknown') for lib in libraries]
             logger.warning(f"Library '{library_name}' not found. Available libraries: {available_libraries}")
-            return {"error": f"Library '{library_name}' not found. Available libraries: {available_libraries}"}, 400
-        
+            raise HTTPException(status_code=404, detail=f"Library '{library_name}' not found. Available libraries: {available_libraries}")
+
         logger.info(f"Using library: {target_library}")
-        
+
         # Get movies from the specific library
         logger.info(f"Getting movies from library: {library_name}")
         try:
@@ -2976,11 +2979,11 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
             logger.info(f"Movies retrieved: {len(jellyfin_movies) if jellyfin_movies else 0} movies")
         except Exception as e:
             logger.error(f"Failed to get movies: {e}")
-            return {"error": f"Failed to get movies from Jellyfin: {str(e)}"}, 500
-        
+            raise HTTPException(status_code=500, detail=f"Failed to get movies from Jellyfin: {str(e)}")
+
         if not jellyfin_movies:
             logger.warning("No movies found in Jellyfin movie libraries")
-            return {"message": "No movies found in Jellyfin movie libraries"}, 200
+            return {"message": "No movies found in Jellyfin movie libraries"}
         
         logger.info(f"Retrieved {len(jellyfin_movies)} movies from Jellyfin")
         
@@ -3034,7 +3037,7 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
             if valid_movies:
                 imdb_ids = [movie.get('imdb_id') for movie in valid_movies]
                 existing_movies = session.exec(
-                    select(Movie).where(Movie.imdb_id.in_(imdb_ids), Movie.user_id == current_user.id)
+                    select(Movie).where(Movie.imdb_id.in_(imdb_ids), Movie.user_id == current_user.id, Movie.deleted == False)
                 ).all()
                 existing_imdb_ids = {movie.imdb_id for movie in existing_movies}
                 logger.info(f"Found {len(existing_imdb_ids)} existing movies in database for user {current_user.id}")
@@ -3057,9 +3060,9 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                         if imdb_id in existing_imdb_ids:
                             # Update existing movie with quality info
                             existing_movie = session.exec(
-                                select(Movie).where(Movie.imdb_id == imdb_id, Movie.user_id == current_user.id)
+                                select(Movie).where(Movie.imdb_id == imdb_id, Movie.user_id == current_user.id, Movie.deleted == False)
                             ).first()
-                            
+
                             if existing_movie:
                                 old_quality = existing_movie.quality
                                 new_quality = jellyfin_movie.get('quality')
@@ -3286,7 +3289,7 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                 except Exception as e:
                     logger.error(f"Error committing batch: {e}")
                     session.rollback()
-                    return {"error": f"Database error: {str(e)}"}, 500
+                    raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
         
 
         
@@ -3335,9 +3338,9 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
                             if sequel.get('imdb_id'):  # Skip movies without IMDB IDs
                                 # Check if sequel already exists
                                 existing_sequel = session.exec(
-                                    select(Movie).where(Movie.imdb_id == sequel.get('imdb_id'), Movie.user_id == current_user.id)
+                                    select(Movie).where(Movie.imdb_id == sequel.get('imdb_id'), Movie.user_id == current_user.id, Movie.deleted == False)
                                 ).first()
-                                
+
                                 if not existing_sequel:
                                     logger.info(f"Importing sequel: {sequel.get('title', 'Unknown')}")
                                     
@@ -3498,11 +3501,13 @@ async def import_from_jellyfin(request: Request, current_user: User = Depends(ge
             "errors": errors[:10] if errors else []  # Limit error messages
         }
         
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Jellyfin import failed: {e}")
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
-        return {"error": f"Jellyfin import failed: {str(e)}", "traceback": traceback.format_exc()}, 500
+        raise HTTPException(status_code=500, detail=f"Jellyfin import failed: {str(e)}")
 
 @api_router.get("/import/jellyfin/libraries")
 def get_jellyfin_libraries(current_user: User = Depends(get_current_user)):
@@ -3512,17 +3517,19 @@ def get_jellyfin_libraries(current_user: User = Depends(get_current_user)):
         jellyfin_service = create_jellyfin_service()
         
         if not jellyfin_service.test_connection():
-            return {"error": "Failed to connect to Jellyfin server"}, 500
-        
+            raise HTTPException(status_code=502, detail="Failed to connect to Jellyfin server")
+
         libraries = jellyfin_service.get_libraries()
         return {
             "libraries": libraries,
             "count": len(libraries),
             "service_type": str(type(jellyfin_service))
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to get Jellyfin libraries: {e}")
-        return {"error": f"Failed to get Jellyfin libraries: {str(e)}"}, 500
+        raise HTTPException(status_code=500, detail=f"Failed to get Jellyfin libraries: {str(e)}")
 
 @api_router.get("/import/jellyfin/libraries-debug")
 def get_jellyfin_libraries_debug():
@@ -3532,17 +3539,19 @@ def get_jellyfin_libraries_debug():
         jellyfin_service = create_jellyfin_service()
         
         if not jellyfin_service.test_connection():
-            return {"error": "Failed to connect to Jellyfin server"}, 500
-        
+            raise HTTPException(status_code=502, detail="Failed to connect to Jellyfin server")
+
         libraries = jellyfin_service.get_libraries()
         return {
             "libraries": libraries,
             "count": len(libraries),
             "service_type": str(type(jellyfin_service))
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to get Jellyfin libraries: {e}")
-        return {"error": f"Failed to get Jellyfin libraries: {str(e)}"}, 500
+        raise HTTPException(status_code=500, detail=f"Failed to get Jellyfin libraries: {str(e)}")
 
 @api_router.get("/import/jellyfin/debug")
 def debug_jellyfin():
@@ -3639,7 +3648,7 @@ def test_jellyfin_libraries():
             'total_libraries_found': len([r for r in results.values() if 'count' in r])
         }
     except Exception as e:
-        return {'error': str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/import/jellyfin/debug-movie-data")
 def debug_movie_data():
@@ -3669,7 +3678,7 @@ def debug_movie_data():
         }
     except Exception as e:
         logger.error(f"Debug movie data failed: {e}")
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/import/jellyfin/debug-provider-ids")
 def debug_provider_ids():
@@ -3680,7 +3689,7 @@ def debug_provider_ids():
         # Get libraries first
         libraries = jellyfin_service.get_libraries()
         if not libraries:
-            return {"error": "No libraries found"}
+            raise HTTPException(status_code=404, detail="No libraries found")
         
         # Get movies from the first library
         library_id = libraries[0]['id']
@@ -3715,11 +3724,13 @@ def debug_provider_ids():
                 "library_used": libraries[0]['name']
             }
         else:
-            return {"error": f"Failed to get items: {response.status_code}"}
-            
+            raise HTTPException(status_code=502, detail=f"Failed to get items from Jellyfin: {response.status_code}")
+
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Debug provider IDs failed: {e}")
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
 # Release checking and notification endpoints
 @api_router.post("/admin/check-releases")
@@ -3736,7 +3747,7 @@ def trigger_release_check(request: Request, current_user: User = Depends(get_cur
             "results": results
         }
     except Exception as e:
-        return {"error": f"Release check failed: {str(e)}"}, 500
+        raise HTTPException(status_code=500, detail=f"Release check failed: {str(e)}")
 
 @api_router.get("/notifications/new-releases")
 def get_new_releases():
@@ -3745,19 +3756,19 @@ def get_new_releases():
         with Session(engine) as session:
             # Get new movies (SQLite stores booleans as integers)
             new_movies = session.exec(
-                select(Movie).where(Movie.is_new == 1)
+                select(Movie).where(Movie.is_new == 1, Movie.deleted == False)
             ).all()
-            
+
             # Get series with new episodes (SQLite stores booleans as integers)
             new_series = session.exec(
-                select(Series).where(Series.is_new == 1)
+                select(Series).where(Series.is_new == 1, Series.deleted == False)
             ).all()
-            
+
             # Count new episodes
             new_episode_count = 0
             for series in new_series:
                 episodes = session.exec(
-                    select(Episode).where(Episode.series_id == series.id)
+                    select(Episode).where(Episode.series_id == series.id, Episode.deleted == False)
                 ).all()
                 new_episode_count += len(episodes)
             
@@ -3768,7 +3779,7 @@ def get_new_releases():
                 "total_new_items": len(new_movies) + new_episode_count
             }
     except Exception as e:
-        return {"error": f"Failed to get new releases: {str(e)}"}, 500
+        raise HTTPException(status_code=500, detail=f"Failed to get new releases: {str(e)}")
 
 @api_router.post("/notifications/mark-seen")
 def mark_notifications_seen():
@@ -3788,7 +3799,7 @@ def mark_notifications_seen():
             session.commit()
             return {"success": True, "message": "All notifications marked as seen"}
     except Exception as e:
-        return {"error": f"Failed to mark notifications as seen: {str(e)}"}, 500
+        raise HTTPException(status_code=500, detail=f"Failed to mark notifications as seen: {str(e)}")
 
 @api_router.get("/notifications/details")
 def get_notification_details(current_user: User = Depends(get_current_user)):
@@ -3834,7 +3845,7 @@ def get_notification_details(current_user: User = Depends(get_current_user)):
             series_details = []
             for series in new_series:
                 episodes = session.exec(
-                    select(Episode).where(Episode.series_id == series.id)
+                    select(Episode).where(Episode.series_id == series.id, Episode.deleted == False)
                 ).all()
                 series_details.append({
                     "series": {
@@ -3887,7 +3898,7 @@ def get_notification_details(current_user: User = Depends(get_current_user)):
                 ]
             }
     except Exception as e:
-        return {"error": f"Failed to get notification details: {str(e)}"}, 500
+        raise HTTPException(status_code=500, detail=f"Failed to get notification details: {str(e)}")
 
 # Serve the frontend HTML at root and /login
 @app.get("/login")
@@ -4133,7 +4144,7 @@ def debug_movies():
                 "movies": movie_data
             }
     except Exception as e:
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/debug/users")
 def debug_users():
@@ -4155,7 +4166,7 @@ def debug_users():
                 "users": user_data
             }
     except Exception as e:
-        return {"error": str(e)}
+        raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/version")
 def get_version():
@@ -4189,7 +4200,7 @@ async def trigger_automated_import(current_user: User = Depends(get_current_admi
         }
     except Exception as e:
         logger.error(f"Failed to trigger automated import: {e}")
-        return {"error": f"Failed to trigger automated import: {str(e)}"}, 500
+        raise HTTPException(status_code=500, detail=f"Failed to trigger automated import: {str(e)}")
 
 @api_router.get("/admin/library-import-history")
 async def get_library_import_history(current_user: User = Depends(get_current_admin_user)):
@@ -4220,7 +4231,7 @@ async def get_library_import_history(current_user: User = Depends(get_current_ad
             }
     except Exception as e:
         logger.error(f"Failed to get library import history: {e}")
-        return {"error": f"Failed to get library import history: {str(e)}"}, 500
+        raise HTTPException(status_code=500, detail=f"Failed to get library import history: {str(e)}")
 
 @api_router.get("/library-import-history")
 async def get_user_library_import_history(current_user: User = Depends(get_current_user)):
@@ -4251,7 +4262,7 @@ async def get_user_library_import_history(current_user: User = Depends(get_curre
             }
     except Exception as e:
         logger.error(f"Failed to get user library import history: {e}")
-        return {"error": f"Failed to get library import history: {str(e)}"}, 500
+        raise HTTPException(status_code=500, detail=f"Failed to get library import history: {str(e)}")
 
 @api_router.post("/library-import-history/{history_id}/toggle-automation")
 async def toggle_library_automation(history_id: int, current_user: User = Depends(get_current_user)):
@@ -4268,22 +4279,24 @@ async def toggle_library_automation(history_id: int, current_user: User = Depend
             ).first()
             
             if not history:
-                return {"error": "Library import history not found"}, 404
-            
+                raise HTTPException(status_code=404, detail="Library import history not found")
+
             # Toggle the automation flag
             history.is_automated = not history.is_automated
             history.updated_at = datetime.now(timezone.utc)
             session.add(history)
             session.commit()
-            
+
             return {
                 "success": True,
                 "message": f"Automated imports {'enabled' if history.is_automated else 'disabled'} for {history.library_name}",
                 "is_automated": history.is_automated
             }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to toggle library automation: {e}")
-        return {"error": f"Failed to toggle library automation: {str(e)}"}, 500
+        raise HTTPException(status_code=500, detail=f"Failed to toggle library automation: {str(e)}")
 
 @api_router.get("/admin/progress-performance")
 async def get_progress_performance(current_user: User = Depends(get_current_admin_user)):
@@ -4297,7 +4310,7 @@ async def get_progress_performance(current_user: User = Depends(get_current_admi
         }
     except Exception as e:
         logger.error(f"Failed to get progress performance: {e}")
-        return {"error": f"Failed to get progress performance: {str(e)}"}, 500
+        raise HTTPException(status_code=500, detail=f"Failed to get progress performance: {str(e)}")
 
 # ============================================================================
 # LIST MANAGEMENT API ENDPOINTS
@@ -4418,7 +4431,7 @@ def get_user_lists(current_user: User = Depends(get_current_user)):
             
             for series in series_list:
                 episodes = session.exec(
-                    select(Episode).where(Episode.series_id == series.id)
+                    select(Episode).where(Episode.series_id == series.id, Episode.deleted == False)
                 ).all()
                 if episodes:
                     # Series is unwatched if any episode is unwatched
