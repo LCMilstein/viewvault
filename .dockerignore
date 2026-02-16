@@ -1,0 +1,48 @@
+# Secrets — never ship these
+secrets.env
+*.env
+.env
+
+# Python bytecode / virtualenvs
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+
+# Test / coverage artifacts
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.log
+.pytest_cache/
+.hypothesis/
+tests/
+
+# Git / IDE / OS
+.git/
+.gitignore
+.mypy_cache/
+.DS_Store
+.kiro/
+.claude/
+
+# Documentation — not needed at runtime
+*.md
+LICENSE
+
+# Backup / temp files
+db_backup_*/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Database files — mounted as volume, not baked into image
+db/
+*.db

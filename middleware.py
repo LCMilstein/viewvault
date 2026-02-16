@@ -8,6 +8,7 @@ Usage:
     from middleware import RequestLoggingMiddleware
     app.add_middleware(RequestLoggingMiddleware)
 """
+from __future__ import annotations
 
 import time
 import logging
