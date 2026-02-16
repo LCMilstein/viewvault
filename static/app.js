@@ -747,6 +747,242 @@ window.watchlistFilters = {
     runtime_over_90: true
 };
 
+// Undo functionality for move operations
+let undoMoveData = null;
+let undoTimeout = null;
+
+// Error recovery and retry functionality
+const operationCache = {
+    lastOperation: null,
+    retryCount: 0,
+    maxRetries: 3
+};
+
+// Log copy/move operations for debugging
+function logOperation(operationType, details, result = null, error = null) {
+    const timestamp = new Date().toISOString();
+    const logEntry = {
+        timestamp,
+        operation: operationType,
+        details,
+        result,
+        error: error ? error.message : null
+    };
+    console.log(`[${timestamp}] ${operationType}:`, logEntry);
+    return logEntry;
+}
+
+// Determine error type for better user messaging
+function categorizeError(error, response = null) {
+    // Network errors
+    if (error instanceof TypeError && error.message.includes('fetch')) {
+        return {
+            type: 'network',
+            message: 'Network error. Please check your connection and try again.',
+            recoverable: true
+        };
+    }
+    
+    // HTTP status-based errors
+    if (response) {
+        if (response.status === 403) {
+            return {
+                type: 'permission',
+                message: 'You don\'t have permission to perform this action.',
+                recoverable: false
+            };
+        }
+        if (response.status === 404) {
+            return {
+                type: 'data',
+                message: 'The requested item or list was not found.',
+                recoverable: false
+            };
+        }
+        if (response.status === 409) {
+            return {
+                type: 'data',
+                message: 'This item already exists in the target list.',
+                recoverable: false
+            };
+        }
+        if (response.status >= 500) {
+            return {
+                type: 'server',
+                message: 'Server error. Please try again in a moment.',
+                recoverable: true
+            };
+        }
+    }
+    
+    // Default error
+    return {
+        type: 'unknown',
+        message: error.message || 'An unexpected error occurred.',
+        recoverable: true
+    };
+}
+
+// Retry operation with exponential backoff
+async function retryOperation(operationDetails) {
+    const { type, params } = operationDetails;
+    
+    // Increment retry count
+    operationCache.retryCount++;
+    
+    // Calculate backoff delay (exponential: 1s, 2s, 4s)
+    const backoffDelay = Math.min(1000 * Math.pow(2, operationCache.retryCount - 1), 4000);
+    
+    console.log(`Retrying operation (attempt ${operationCache.retryCount}/${operationCache.maxRetries}) after ${backoffDelay}ms delay...`);
+    
+    // Wait for backoff delay
+    await new Promise(resolve => setTimeout(resolve, backoffDelay));
+    
+    // Execute the appropriate operation based on type
+    try {
+        switch (type) {
+            case 'copy':
+                await executeCopyOperation(
+                    params.itemId,
+                    params.itemType,
+                    params.sourceListId,
+                    params.targetListId,
+                    params.skipDuplicateCheck
+                );
+                break;
+            case 'move':
+                await executeMoveOperation(
+                    params.itemId,
+                    params.itemType,
+                    params.sourceListId,
+                    params.targetListId,
+                    params.skipDuplicateCheck
+                );
+                break;
+            case 'bulkCopy':
+                await executeBulkCopyOperation(params.targetListId);
+                break;
+            case 'bulkMove':
+                await executeBulkMoveOperation(params.targetListId);
+                break;
+            default:
+                throw new Error('Unknown operation type');
+        }
+        
+        // Reset retry count on success
+        operationCache.retryCount = 0;
+        operationCache.lastOperation = null;
+        
+    } catch (error) {
+        console.error('Retry failed:', error);
+        throw error;
+    }
+}
+
+// Enhanced error display with retry button
+function showErrorWithRetry(message, operationDetails = null, errorType = 'unknown') {
+    // Create or update error message
+    let errorDiv = document.querySelector('.error-message');
+    if (!errorDiv) {
+        errorDiv = document.createElement('div');
+        errorDiv.className = 'error error-message';
+        errorDiv.style.position = 'fixed';
+        errorDiv.style.top = '20px';
+        errorDiv.style.right = '20px';
+        errorDiv.style.zIndex = '10000';
+        errorDiv.style.maxWidth = '400px';
+        document.body.appendChild(errorDiv);
+    }
+    
+    // Clear any existing content
+    errorDiv.innerHTML = '';
+    
+    // Create message container
+    const messageContainer = document.createElement('div');
+    messageContainer.style.display = 'flex';
+    messageContainer.style.flexDirection = 'column';
+    messageContainer.style.gap = '8px';
+    
+    // Add error type indicator
+    const errorTypeIndicator = document.createElement('div');
+    errorTypeIndicator.style.fontSize = '12px';
+    errorTypeIndicator.style.opacity = '0.8';
+    errorTypeIndicator.style.fontWeight = 'bold';
+    errorTypeIndicator.textContent = errorType === 'network' ? '🌐 Network Error' :
+                                      errorType === 'permission' ? '🔒 Permission Error' :
+                                      errorType === 'data' ? '📋 Data Error' :
+                                      errorType === 'server' ? '🖥️ Server Error' :
+                                      '⚠️ Error';
+    messageContainer.appendChild(errorTypeIndicator);
+    
+    // Add message text
+    const messageText = document.createElement('div');
+    messageText.textContent = message;
+    messageContainer.appendChild(messageText);
+    
+    // Add retry button if operation is recoverable and we haven't exceeded max retries
+    if (operationDetails && operationCache.retryCount < operationCache.maxRetries) {
+        const buttonContainer = document.createElement('div');
+        buttonContainer.style.display = 'flex';
+        buttonContainer.style.gap = '8px';
+        buttonContainer.style.marginTop = '8px';
+        
+        const retryButton = document.createElement('button');
+        retryButton.textContent = operationCache.retryCount > 0 ? 
+            `Retry (${operationCache.retryCount}/${operationCache.maxRetries})` : 
+            'Retry';
+        retryButton.className = 'btn btn-secondary';
+        retryButton.style.padding = '4px 12px';
+        retryButton.style.fontSize = '13px';
+        retryButton.style.minWidth = 'auto';
+        retryButton.style.whiteSpace = 'nowrap';
+        retryButton.onclick = async () => {
+            errorDiv.style.display = 'none';
+            try {
+                await retryOperation(operationDetails);
+            } catch (retryError) {
+                const errorInfo = categorizeError(retryError);
+                if (operationCache.retryCount >= operationCache.maxRetries) {
+                    showError(`Failed after ${operationCache.maxRetries} attempts. ${errorInfo.message}`);
+                    operationCache.retryCount = 0;
+                    operationCache.lastOperation = null;
+                } else if (errorInfo.recoverable) {
+                    showErrorWithRetry(errorInfo.message, operationDetails, errorInfo.type);
+                } else {
+                    showError(errorInfo.message);
+                    operationCache.retryCount = 0;
+                    operationCache.lastOperation = null;
+                }
+            }
+        };
+        buttonContainer.appendChild(retryButton);
+        
+        const dismissButton = document.createElement('button');
+        dismissButton.textContent = 'Dismiss';
+        dismissButton.className = 'btn btn-secondary';
+        dismissButton.style.padding = '4px 12px';
+        dismissButton.style.fontSize = '13px';
+        dismissButton.style.minWidth = 'auto';
+        dismissButton.style.whiteSpace = 'nowrap';
+        dismissButton.onclick = () => {
+            errorDiv.style.display = 'none';
+            operationCache.retryCount = 0;
+            operationCache.lastOperation = null;
+        };
+        buttonContainer.appendChild(dismissButton);
+        
+        messageContainer.appendChild(buttonContainer);
+    }
+    
+    errorDiv.appendChild(messageContainer);
+    errorDiv.style.display = 'block';
+    
+    // Auto-hide after 10 seconds (longer for errors with retry)
+    setTimeout(() => {
+        errorDiv.style.display = 'none';
+    }, 10000);
+}
+
 // Individual item notification system
 let newItems = {
     movies: [],
@@ -1336,6 +1572,27 @@ function renderWatchlist(data) {
                 };
             });
             
+            // Add event listeners for item menu buttons
+            document.querySelectorAll('.item-menu-btn').forEach(btn => {
+                btn.onclick = function(e) {
+                    const itemId = btn.getAttribute('data-item-id');
+                    const itemType = btn.getAttribute('data-item-type');
+                    const listId = 1; // Default to main watchlist for now
+                    openItemMenu(itemId, itemType, listId, e);
+                };
+            });
+            
+            // Setup long-press gesture for mobile on watchlist rows
+            document.querySelectorAll('.watchlist-row').forEach(row => {
+                const menuBtn = row.querySelector('.item-menu-btn');
+                if (menuBtn) {
+                    const itemId = menuBtn.getAttribute('data-item-id');
+                    const itemType = menuBtn.getAttribute('data-item-type');
+                    const listId = 1; // Default to main watchlist for now
+                    setupLongPressGesture(row, itemId, itemType, listId);
+                }
+            });
+            
                 }, 0);
     }
     
@@ -1600,6 +1857,27 @@ function renderWatchlist(data) {
             };
         });
         
+        // Add event listeners for item menu buttons
+        document.querySelectorAll('.item-menu-btn').forEach(btn => {
+            btn.onclick = function(e) {
+                const itemId = btn.getAttribute('data-item-id');
+                const itemType = btn.getAttribute('data-item-type');
+                const listId = 1; // Default to main watchlist for now
+                openItemMenu(itemId, itemType, listId, e);
+            };
+        });
+        
+        // Setup long-press gesture for mobile on watchlist rows
+        document.querySelectorAll('.watchlist-row').forEach(row => {
+            const menuBtn = row.querySelector('.item-menu-btn');
+            if (menuBtn) {
+                const itemId = menuBtn.getAttribute('data-item-id');
+                const itemType = menuBtn.getAttribute('data-item-type');
+                const listId = 1; // Default to main watchlist for now
+                setupLongPressGesture(row, itemId, itemType, listId);
+            }
+        });
+        
         // Add event listeners for clickable areas (poster, title, meta)
         document.querySelectorAll('.clickable-area').forEach(area => {
             // Skip if element already has an onclick handler (like episodes)
@@ -1742,14 +2020,12 @@ function renderUnifiedCollection(collection) {
                 </span>`;
         }
         return `
-        <div class="watchlist-row ${isNewMovie ? 'new-item' : ''}">
+        <div class="watchlist-row ${isNewMovie ? 'new-item' : ''}" data-item-id="${movie.id}" data-item-type="movie">
             <input type="checkbox" class="checkbox" data-type="movie" data-id="${movie.id}" ${movie.watched ? 'checked' : ''}>
             <img src="${movie.poster_url || '/static/no-image.png'}" alt="Poster" class="watchlist-thumb" onerror="this.onerror=null;this.src='/static/no-image.png';">
                                     <div class="title">${movie.title}${newBadgeMovie}${newlyImportedBadge}</div>
             <div class="meta">${qualityBadge}Movie${movie.release_date ? ' • ' + new Date(movie.release_date).getFullYear() : ''} • Part of ${collection.title}</div>
-            <span title="Remove" class="remove-btn" data-type="movie" data-id="${movie.id}" style="margin-left:auto;display:inline-block;">
-                <svg class="remove-icon" viewBox="0 0 24 24"><path d="M3 6h18M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="11" x2="10" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="11" x2="14" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-            </span>
+            <button class="item-menu-btn" aria-label="More options for ${movie.title}" aria-haspopup="menu" aria-expanded="false" data-item-id="${movie.id}" data-item-type="movie" style="margin-left:auto;">⋮</button>
         </div>`;
     }
     const isExpanded = watchlistState.expandedCollections[collection.id] || false;
@@ -1773,17 +2049,15 @@ function renderUnifiedCollection(collection) {
         checkboxClass = 'checkbox mixed-state';
     }
     
-    let html = `<div class="watchlist-row collection-row ${isNew ? 'new-item' : ''}" data-collection-id="${collection.id}">
+    let html = `<div class="watchlist-row collection-row ${isNew ? 'new-item' : ''}" data-collection-id="${collection.id}" data-item-id="${collection.id}" data-item-type="collection">
         <input type="checkbox" class="${checkboxClass}" data-type="collection" data-id="${collection.id}" ${checkboxState}>
         <div class="clickable-area" data-type="collection" data-id="${collection.id}" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
             <img src="${collection.poster_url || '/static/no-image.png'}" alt="Poster" class="watchlist-thumb" onerror="this.onerror=null;this.src='/static/no-image.png';">
             <div class="title">${collection.title}${newBadge}${newlyImportedBadge}</div>
             <div class="meta">Collection (${collection.items.length} movies; ${unwatchedCount} unwatched)</div>
         </div>
-        <button class="expand-arrow" onclick="toggleCollection('${collection.id}')" style="margin-left: 8px;">${isExpanded ? '▼' : '▶'}</button>
-        <span title="Remove" class="remove-btn" data-type="collection" data-id="${collection.id}" style="margin-left: 10px; display: inline-block;">
-            <svg class="remove-icon" viewBox="0 0 24 24"><path d="M3 6h18M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="11" x2="10" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="11" x2="14" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        </span>
+        <button class="expand-arrow" aria-label="${isExpanded ? 'Collapse' : 'Expand'} ${collection.title} collection" onclick="toggleCollection('${collection.id}')" style="margin-left: 8px;">${isExpanded ? '▼' : '▶'}</button>
+        <button class="item-menu-btn" aria-label="More options for ${collection.title} collection" aria-haspopup="menu" aria-expanded="false" data-item-id="${collection.id}" data-item-type="collection" style="margin-left: 10px;">⋮</button>
     </div>`;
     // Always render collection items container, but hide it if not expanded
     if (collection.items && collection.items.length > 0) {
@@ -1815,16 +2089,14 @@ function renderUnifiedCollection(collection) {
                     </span>`;
             }
             
-            html += `<div class="watchlist-row ${isNew ? 'new-item' : ''}">
+            html += `<div class="watchlist-row ${isNew ? 'new-item' : ''}" data-item-id="${movie.id}" data-item-type="movie">
                 <input type="checkbox" class="checkbox" data-type="movie" data-id="${movie.id}" ${movie.watched ? 'checked' : ''}>
                 <div class="clickable-area" data-type="movie" data-id="${movie.id}" style="display: flex; align-items: center; flex: 1; cursor: pointer; padding: 4px; border-radius: 4px; transition: background-color 0.2s;" onmouseover="this.style.backgroundColor='rgba(255,255,255,0.1)'" onmouseout="this.style.backgroundColor='transparent'">
                     <img src="${movie.poster_url || '/static/no-image.png'}" alt="Poster" class="watchlist-thumb" onerror="this.onerror=null;this.src='/static/no-image.png';">
                     <div class="title">${movie.title}${newBadge}${newlyImportedBadge}</div>
                     <div class="meta">${qualityBadge}Movie${movie.release_date ? ' • ' + new Date(movie.release_date).getFullYear() : ''}</div>
                 </div>
-                <span title="Remove" class="remove-btn" data-type="movie" data-id="${movie.id}" style="margin-left:auto;display:inline-block;">
-                    <svg class="remove-icon" viewBox="0 0 24 24"><path d="M3 6h18M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="11" x2="10" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="11" x2="14" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                </span>
+                <button class="item-menu-btn" aria-label="More options for ${movie.title}" aria-haspopup="menu" aria-expanded="false" data-item-id="${movie.id}" data-item-type="movie" style="margin-left:auto;">⋮</button>
             </div>`;
         }
         html += '</div>';
@@ -1936,10 +2208,8 @@ function renderUnifiedSeries(series) {
             <div class="title">${series.title}${newBadge}${newlyImportedBadge}</div>
             <div class="meta">TV Series (${episodeCount} episodes; ${unwatchedCount} unwatched)</div>
         </div>
-        <button class="expand-arrow" onclick="toggleSeries('${series.id}')" style="margin-left: 8px;">${isExpanded ? '▼' : '▶'}</button>
-        <span title="Remove" class="remove-btn" data-type="series" data-id="${series.id}" style="margin-left: 10px; display: inline-block;">
-            <svg class="remove-icon" viewBox="0 0 24 24"><path d="M3 6h18M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="11" x2="10" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="11" x2="14" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        </span>
+        <button class="expand-arrow" aria-label="${isExpanded ? 'Collapse' : 'Expand'} ${series.title} series" onclick="toggleSeries('${series.id}')" style="margin-left: 8px;">${isExpanded ? '▼' : '▶'}</button>
+        <button class="item-menu-btn" aria-label="More options for ${series.title} series" aria-haspopup="menu" aria-expanded="false" data-item-id="${series.id}" data-item-type="series" style="margin-left: 10px;">⋮</button>
     </div>`;
     
     // Always render seasons container, but hide it if not expanded
@@ -2003,9 +2273,7 @@ function renderUnifiedMovie(movie) {
             <div class="title">${movie.title}${newBadge}${newlyImportedBadge}</div>
             <div class="meta">${qualityBadge}Movie${movie.release_date ? ' • ' + new Date(movie.release_date).getFullYear() : ''}</div>
         </div>
-        <span title="Remove" class="remove-btn" data-type="movie" data-id="${movie.id}" style="margin-left: 8px; display: inline-block;">
-            <svg class="remove-icon" viewBox="0 0 24 24"><path d="M3 6h18M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2m2 0v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6h14z" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"/><line x1="10" y1="11" x2="10" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/><line x1="14" y1="11" x2="14" y2="17" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-        </span>
+        <button class="item-menu-btn" aria-label="More options for ${movie.title}" aria-haspopup="menu" aria-expanded="false" data-item-id="${movie.id}" data-item-type="movie" style="margin-left: 8px;">⋮</button>
     </div>`;
 }
 
@@ -2616,6 +2884,1029 @@ async function removeFromWatchlist(type, id) {
     } catch (e) {
         console.log(`[DEBUG] Exception: ${e.message || e}`);
         showError('Failed to remove item: ' + (e.message || e));
+    }
+}
+
+// Item Menu Component Functions
+let currentOpenMenu = null;
+
+function openItemMenu(itemId, itemType, listId, event) {
+    event.stopPropagation();
+    
+    // Close any existing menu
+    closeItemMenu();
+    
+    // Get the button that was clicked
+    const button = event.currentTarget;
+    const row = button.closest('.watchlist-row');
+    
+    // Create menu dropdown
+    const menu = document.createElement('div');
+    menu.className = 'item-menu-dropdown show';
+    menu.id = 'itemMenuDropdown';
+    menu.setAttribute('role', 'menu');
+    menu.setAttribute('aria-label', 'Item actions menu');
+    
+    // Add menu options
+    menu.innerHTML = `
+        <div class="item-menu-option" data-action="copy" role="menuitem" tabindex="0" aria-label="Copy item to another list">
+            <span aria-hidden="true">📋</span>
+            Copy to List
+        </div>
+        <div class="item-menu-option" data-action="move" role="menuitem" tabindex="0" aria-label="Move item to another list">
+            <span aria-hidden="true">➡️</span>
+            Move to List
+        </div>
+        <div class="item-menu-option danger" data-action="remove" role="menuitem" tabindex="0" aria-label="Remove item from this list">
+            <span aria-hidden="true">🗑️</span>
+            Remove from List
+        </div>
+    `;
+    
+    // Position menu relative to the button
+    row.style.position = 'relative';
+    row.appendChild(menu);
+    
+    // Get all menu options for keyboard navigation
+    const menuOptions = menu.querySelectorAll('.item-menu-option');
+    let currentFocusIndex = 0;
+    
+    // Add click handlers to menu options
+    menuOptions.forEach((option, index) => {
+        option.addEventListener('click', (e) => {
+            e.stopPropagation();
+            const action = option.getAttribute('data-action');
+            handleMenuAction(action, itemId, itemType, listId, button);
+            closeItemMenu();
+        });
+        
+        // Keyboard support
+        option.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                e.stopPropagation();
+                const action = option.getAttribute('data-action');
+                handleMenuAction(action, itemId, itemType, listId, button);
+                closeItemMenu();
+            } else if (e.key === 'Escape') {
+                e.preventDefault();
+                closeItemMenu();
+                button.focus(); // Return focus to menu button
+            } else if (e.key === 'ArrowDown') {
+                e.preventDefault();
+                currentFocusIndex = (index + 1) % menuOptions.length;
+                menuOptions[currentFocusIndex].focus();
+            } else if (e.key === 'ArrowUp') {
+                e.preventDefault();
+                currentFocusIndex = (index - 1 + menuOptions.length) % menuOptions.length;
+                menuOptions[currentFocusIndex].focus();
+            } else if (e.key === 'Tab') {
+                // Allow Tab to cycle through menu items
+                if (e.shiftKey) {
+                    if (index === 0) {
+                        e.preventDefault();
+                        menuOptions[menuOptions.length - 1].focus();
+                    }
+                } else {
+                    if (index === menuOptions.length - 1) {
+                        e.preventDefault();
+                        menuOptions[0].focus();
+                    }
+                }
+            }
+        });
+    });
+    
+    // Store reference to current menu
+    currentOpenMenu = menu;
+    
+    // Focus first menu item
+    if (menuOptions.length > 0) {
+        menuOptions[0].focus();
+    }
+    
+    // Update button aria-expanded state
+    button.setAttribute('aria-expanded', 'true');
+    
+    // Add click-outside-to-close listener
+    setTimeout(() => {
+        document.addEventListener('click', closeItemMenuOnClickOutside);
+        document.addEventListener('keydown', closeItemMenuOnEscape);
+    }, 0);
+}
+
+function closeItemMenu() {
+    if (currentOpenMenu) {
+        // Find the menu button and update aria-expanded
+        const menuButton = document.querySelector('.item-menu-btn[aria-expanded="true"]');
+        if (menuButton) {
+            menuButton.setAttribute('aria-expanded', 'false');
+        }
+        
+        currentOpenMenu.remove();
+        currentOpenMenu = null;
+    }
+    document.removeEventListener('click', closeItemMenuOnClickOutside);
+    document.removeEventListener('keydown', closeItemMenuOnEscape);
+}
+
+function closeItemMenuOnClickOutside(event) {
+    if (currentOpenMenu && !currentOpenMenu.contains(event.target)) {
+        closeItemMenu();
+    }
+}
+
+function closeItemMenuOnEscape(event) {
+    if (event.key === 'Escape' && currentOpenMenu) {
+        const menuButton = document.querySelector('.item-menu-btn[aria-expanded="true"]');
+        closeItemMenu();
+        if (menuButton) {
+            menuButton.focus(); // Return focus to menu button
+        }
+    }
+}
+
+// Long-press gesture support for mobile devices
+let longPressTimer = null;
+let longPressTarget = null;
+
+function setupLongPressGesture(row, itemId, itemType, listId) {
+    // Only enable on touch devices
+    if (!('ontouchstart' in window)) {
+        return;
+    }
+
+    let touchStartX = 0;
+    let touchStartY = 0;
+    const moveThreshold = 10; // pixels
+
+    row.addEventListener('touchstart', function(e) {
+        // Don't trigger on buttons or interactive elements
+        if (e.target.closest('button, input, a, .item-menu-btn')) {
+            return;
+        }
+
+        touchStartX = e.touches[0].clientX;
+        touchStartY = e.touches[0].clientY;
+        longPressTarget = row;
+        
+        longPressTimer = setTimeout(() => {
+            // Trigger haptic feedback if available
+            if (navigator.vibrate) {
+                navigator.vibrate(50);
+            }
+            
+            // Add visual feedback
+            row.classList.add('long-press-active');
+            setTimeout(() => {
+                row.classList.remove('long-press-active');
+            }, 500);
+            
+            // Create a synthetic event for openItemMenu
+            const syntheticEvent = {
+                stopPropagation: () => {},
+                currentTarget: row.querySelector('.item-menu-btn') || row
+            };
+            
+            openItemMenu(itemId, itemType, listId, syntheticEvent);
+            longPressTimer = null;
+        }, 500); // 500ms long press
+    }, { passive: true });
+
+    row.addEventListener('touchmove', function(e) {
+        if (longPressTimer) {
+            const touchX = e.touches[0].clientX;
+            const touchY = e.touches[0].clientY;
+            const deltaX = Math.abs(touchX - touchStartX);
+            const deltaY = Math.abs(touchY - touchStartY);
+
+            // Cancel long press if finger moves too much
+            if (deltaX > moveThreshold || deltaY > moveThreshold) {
+                clearTimeout(longPressTimer);
+                longPressTimer = null;
+                longPressTarget = null;
+            }
+        }
+    }, { passive: true });
+
+    row.addEventListener('touchend', function(e) {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+        longPressTarget = null;
+    }, { passive: true });
+
+    row.addEventListener('touchcancel', function(e) {
+        if (longPressTimer) {
+            clearTimeout(longPressTimer);
+            longPressTimer = null;
+        }
+        longPressTarget = null;
+    }, { passive: true });
+}
+
+function handleMenuAction(action, itemId, itemType, listId, menuButton = null) {
+    console.log('Menu action:', action, 'for item:', itemId, 'type:', itemType, 'list:', listId);
+    
+    // Show loading state on menu button if provided
+    if (menuButton) {
+        const originalContent = menuButton.innerHTML;
+        menuButton.innerHTML = '<div class="spinner" style="width: 16px; height: 16px; border-width: 2px;" aria-label="Loading"></div>';
+        menuButton.disabled = true;
+        menuButton.setAttribute('aria-busy', 'true');
+        
+        // Store original content for restoration
+        menuButton.dataset.originalContent = originalContent;
+    }
+    
+    switch (action) {
+        case 'copy':
+            showListSelector('copy', itemId, itemType, listId);
+            break;
+        case 'move':
+            showListSelector('move', itemId, itemType, listId);
+            break;
+        case 'remove':
+            // Use existing remove functionality
+            removeFromWatchlist(itemType, itemId);
+            break;
+    }
+    
+    // Restore menu button state after a short delay (modal will be shown)
+    if (menuButton) {
+        setTimeout(() => {
+            if (menuButton.dataset.originalContent) {
+                menuButton.innerHTML = menuButton.dataset.originalContent;
+                menuButton.disabled = false;
+                menuButton.removeAttribute('aria-busy');
+            }
+        }, 500);
+    }
+}
+
+// PERFORMANCE: Debounce utility to prevent rapid duplicate operations
+let operationDebounceTimer = null;
+const OPERATION_DEBOUNCE_DELAY = 300; // 300ms debounce
+
+function debounceOperation(fn, ...args) {
+    if (operationDebounceTimer) {
+        console.log('Operation debounced - preventing duplicate call');
+        return false;
+    }
+    
+    operationDebounceTimer = setTimeout(() => {
+        operationDebounceTimer = null;
+    }, OPERATION_DEBOUNCE_DELAY);
+    
+    fn(...args);
+    return true;
+}
+
+// List Selector Modal Functions
+async function showListSelector(operation, itemId, itemType, sourceListId, isBulk = false) {
+    const modal = document.getElementById('listSelectorModal');
+    const title = document.getElementById('listSelectorTitle');
+    const subtitle = document.getElementById('listSelectorSubtitle');
+    const content = document.getElementById('listSelectorContent');
+    
+    // Set ARIA attributes for modal
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    
+    // Update modal title based on operation and bulk mode
+    if (isBulk) {
+        const itemCount = bulkSelectionState.selectedItems.length;
+        if (operation === 'copy') {
+            title.textContent = '📋 Copy Items to List';
+            subtitle.textContent = `Choose where to copy ${itemCount} selected item${itemCount !== 1 ? 's' : ''}`;
+            modal.setAttribute('aria-label', `Copy ${itemCount} items to list`);
+        } else if (operation === 'move') {
+            title.textContent = '➡️ Move Items to List';
+            subtitle.textContent = `Choose where to move ${itemCount} selected item${itemCount !== 1 ? 's' : ''}`;
+            modal.setAttribute('aria-label', `Move ${itemCount} items to list`);
+        }
+    } else {
+        if (operation === 'copy') {
+            title.textContent = '📋 Copy to List';
+            subtitle.textContent = 'Choose where to copy this item';
+            modal.setAttribute('aria-label', 'Copy item to list');
+        } else if (operation === 'move') {
+            title.textContent = '➡️ Move to List';
+            subtitle.textContent = 'Choose where to move this item';
+            modal.setAttribute('aria-label', 'Move item to list');
+        }
+    }
+    
+    // Show modal with loading state
+    modal.style.display = 'flex';
+    content.innerHTML = `
+        <div class="list-selector-loading" role="status" aria-live="polite">
+            <div class="spinner" aria-hidden="true"></div>
+            <p>Loading lists...</p>
+        </div>
+    `;
+    
+    // Add click-outside-to-close functionality
+    modal.onclick = function(e) {
+        if (e.target === modal) {
+            closeListSelector();
+        }
+    };
+    
+    // Add keyboard event listener for Escape key
+    const handleEscape = (e) => {
+        if (e.key === 'Escape') {
+            closeListSelector();
+        }
+    };
+    modal.addEventListener('keydown', handleEscape);
+    modal.dataset.escapeHandler = 'attached';
+    
+    // Focus trap - keep focus within modal
+    const focusableElements = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+    
+    try {
+        // PERFORMANCE: Fetch available target lists with pagination support
+        const response = await fetch(`${API_BASE}/lists/${sourceListId}/available-targets?page=1&page_size=50`, {
+            headers: getAuthHeaders()
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch available lists');
+        }
+        
+        const data = await response.json();
+        const lists = data.lists || [];
+        const pagination = data.pagination || {};
+        
+        // PERFORMANCE: Render list options with lazy loading for large lists
+        renderListOptions(lists, operation, itemId, itemType, sourceListId, isBulk, pagination);
+        
+        // Focus first list option after rendering
+        setTimeout(() => {
+            const firstOption = modal.querySelector('.list-option');
+            if (firstOption) {
+                firstOption.focus();
+            }
+        }, 100);
+        
+    } catch (error) {
+        console.error('Error fetching lists:', error);
+        content.innerHTML = `
+            <div class="list-selector-loading" role="alert" aria-live="assertive">
+                <p style="color: #ff6b6b;">Failed to load lists. Please try again.</p>
+            </div>
+        `;
+    }
+}
+
+function renderListOptions(lists, operation, itemId, itemType, sourceListId, isBulk = false, pagination = {}) {
+    const content = document.getElementById('listSelectorContent');
+    
+    if (lists.length === 0) {
+        content.innerHTML = `
+            <div class="list-selector-loading">
+                <p>No other lists available.</p>
+            </div>
+            <div class="create-new-option">
+                <button class="btn-create-list" onclick="createNewListAndCopy('${operation}', ${itemId}, '${itemType}', ${sourceListId}, ${isBulk})">
+                    + Create New List
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    let html = '<div class="list-options">';
+    
+    // PERFORMANCE: Lazy render - only render visible items initially
+    const INITIAL_RENDER_COUNT = 20;
+    const visibleLists = lists.slice(0, INITIAL_RENDER_COUNT);
+    const remainingLists = lists.slice(INITIAL_RENDER_COUNT);
+    
+    visibleLists.forEach(list => {
+        html += renderListOption(list, operation, itemId, itemType, sourceListId, isBulk);
+    });
+    
+    html += '</div>';
+    
+    // Add pagination info if there are more pages
+    if (pagination.has_more) {
+        html += `
+            <div class="list-selector-pagination">
+                <p>Showing ${lists.length} of ${pagination.total_lists} lists</p>
+                <button class="btn-load-more" onclick="loadMoreLists(${pagination.page + 1}, '${operation}', ${itemId}, '${itemType}', ${sourceListId}, ${isBulk})">
+                    Load More Lists
+                </button>
+            </div>
+        `;
+    }
+    
+    // Add "Create New List" option
+    html += `
+        <div class="create-new-option">
+            <button class="btn-create-list" onclick="createNewListAndCopy('${operation}', ${itemId}, '${itemType}', ${sourceListId}, ${isBulk})">
+                + Create New List
+            </button>
+        </div>
+    `;
+    
+    content.innerHTML = html;
+    
+    // PERFORMANCE: Lazy load remaining items after initial render
+    if (remainingLists.length > 0) {
+        requestAnimationFrame(() => {
+            const listOptionsContainer = content.querySelector('.list-options');
+            if (listOptionsContainer) {
+                remainingLists.forEach(list => {
+                    const listElement = document.createElement('div');
+                    listElement.innerHTML = renderListOption(list, operation, itemId, itemType, sourceListId, isBulk);
+                    listOptionsContainer.appendChild(listElement.firstElementChild);
+                });
+            }
+        });
+    }
+}
+
+// PERFORMANCE: Helper function to render a single list option
+function renderListOption(list, operation, itemId, itemType, sourceListId, isBulk) {
+    const icon = list.icon || '📋';
+    const name = list.name || 'Unnamed List';
+    const count = list.item_count || 0;
+    const color = list.color || '#00d4aa';
+    const actionText = operation === 'copy' ? 'Copy to' : 'Move to';
+    
+    return `
+        <div class="list-option" 
+             role="button" 
+             tabindex="0"
+             aria-label="${actionText} ${name} list with ${count} item${count !== 1 ? 's' : ''}"
+             data-list-id="${list.id}"
+             data-operation="${operation}"
+             data-item-id="${itemId}"
+             data-item-type="${itemType}"
+             data-source-list-id="${sourceListId}"
+             data-is-bulk="${isBulk}"
+             onclick="debounceOperation(selectTargetList, ${list.id}, '${operation}', ${itemId}, '${itemType}', ${sourceListId}, ${isBulk})" 
+             onkeydown="handleListOptionKeydown(event, ${list.id}, '${operation}', ${itemId}, '${itemType}', ${sourceListId}, ${isBulk})"
+             style="border-left: 3px solid ${color};">
+            <div class="list-option-icon" aria-hidden="true">${icon}</div>
+            <div class="list-option-info">
+                <p class="list-option-name">${name}</p>
+                <p class="list-option-count" aria-label="${count} items">${count} item${count !== 1 ? 's' : ''}</p>
+            </div>
+        </div>
+    `;
+}
+
+// Handle keyboard navigation for list options
+function handleListOptionKeydown(event, listId, operation, itemId, itemType, sourceListId, isBulk) {
+    const currentOption = event.currentTarget;
+    const allOptions = Array.from(document.querySelectorAll('.list-option'));
+    const currentIndex = allOptions.indexOf(currentOption);
+    
+    if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        debounceOperation(selectTargetList, listId, operation, itemId, itemType, sourceListId, isBulk);
+    } else if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        const nextIndex = (currentIndex + 1) % allOptions.length;
+        allOptions[nextIndex].focus();
+    } else if (event.key === 'ArrowUp') {
+        event.preventDefault();
+        const prevIndex = (currentIndex - 1 + allOptions.length) % allOptions.length;
+        allOptions[prevIndex].focus();
+    } else if (event.key === 'Escape') {
+        event.preventDefault();
+        closeListSelector();
+    } else if (event.key === 'Home') {
+        event.preventDefault();
+        allOptions[0].focus();
+    } else if (event.key === 'End') {
+        event.preventDefault();
+        allOptions[allOptions.length - 1].focus();
+    }
+}
+
+// PERFORMANCE: Load more lists for pagination
+async function loadMoreLists(page, operation, itemId, itemType, sourceListId, isBulk) {
+    const content = document.getElementById('listSelectorContent');
+    const paginationDiv = content.querySelector('.list-selector-pagination');
+    
+    if (paginationDiv) {
+        paginationDiv.innerHTML = '<div class="spinner" aria-hidden="true"></div>';
+    }
+    
+    try {
+        const response = await fetch(`${API_BASE}/lists/${sourceListId}/available-targets?page=${page}&page_size=50`, {
+            headers: getAuthHeaders()
+        });
+        
+        if (!response.ok) {
+            throw new Error('Failed to fetch more lists');
+        }
+        
+        const data = await response.json();
+        const lists = data.lists || [];
+        const pagination = data.pagination || {};
+        
+        // Append new lists to existing container
+        const listOptionsContainer = content.querySelector('.list-options');
+        if (listOptionsContainer) {
+            lists.forEach(list => {
+                const listElement = document.createElement('div');
+                listElement.innerHTML = renderListOption(list, operation, itemId, itemType, sourceListId, isBulk);
+                listOptionsContainer.appendChild(listElement.firstElementChild);
+            });
+        }
+        
+        // Update or remove pagination controls
+        if (pagination.has_more) {
+            paginationDiv.innerHTML = `
+                <p>Showing ${pagination.page * pagination.page_size} of ${pagination.total_lists} lists</p>
+                <button class="btn-load-more" onclick="loadMoreLists(${pagination.page + 1}, '${operation}', ${itemId}, '${itemType}', ${sourceListId}, ${isBulk})">
+                    Load More Lists
+                </button>
+            `;
+        } else {
+            paginationDiv.remove();
+        }
+        
+    } catch (error) {
+        console.error('Error loading more lists:', error);
+        if (paginationDiv) {
+            paginationDiv.innerHTML = '<p style="color: #ff6b6b;">Failed to load more lists</p>';
+        }
+    }
+}
+
+function closeListSelector() {
+    const modal = document.getElementById('listSelectorModal');
+    modal.style.display = 'none';
+}
+
+async function selectTargetList(targetListId, operation, itemId, itemType, sourceListId, isBulk = false) {
+    // Show loading state in modal
+    const content = document.getElementById('listSelectorContent');
+    content.innerHTML = `
+        <div class="list-selector-loading" role="status" aria-live="polite">
+            <div class="spinner" aria-hidden="true"></div>
+            <p aria-label="Processing operation">Processing...</p>
+        </div>
+    `;
+    
+    // Close modal immediately - the operation will show its own loading state
+    closeListSelector();
+    
+    try {
+        if (isBulk) {
+            // Handle bulk operations
+            if (operation === 'copy') {
+                await executeBulkCopyOperation(targetListId);
+            } else if (operation === 'move') {
+                await executeBulkMoveOperation(targetListId);
+            }
+        } else {
+            // Handle single item operations
+            if (operation === 'copy') {
+                await executeCopyOperation(itemId, itemType, sourceListId, targetListId);
+            } else if (operation === 'move') {
+                await executeMoveOperation(itemId, itemType, sourceListId, targetListId);
+            }
+        }
+    } catch (error) {
+        console.error('Error executing operation:', error);
+        showError(`Failed to ${operation} item. Please try again.`);
+    }
+}
+
+async function executeCopyOperation(itemId, itemType, sourceListId, targetListId, skipDuplicateCheck = false) {
+    // Cache operation details for potential retry
+    const operationDetails = {
+        type: 'copy',
+        params: { itemId, itemType, sourceListId, targetListId, skipDuplicateCheck }
+    };
+    operationCache.lastOperation = operationDetails;
+    
+    // Log operation start
+    logOperation('COPY_START', {
+        itemId,
+        itemType,
+        sourceListId,
+        targetListId,
+        skipDuplicateCheck
+    });
+    
+    try {
+        // Show loading state
+        showLoading('Copying item...');
+        
+        // Check for duplicates first (unless explicitly skipped)
+        if (!skipDuplicateCheck) {
+            const hasDuplicate = await checkForDuplicate(itemId, itemType, targetListId);
+            if (hasDuplicate) {
+                hideLoading();
+                // Show duplicate warning modal for copy operation
+                showDuplicateWarning('copy', itemId, itemType, sourceListId, targetListId);
+                logOperation('COPY_DUPLICATE', { itemId, itemType, targetListId });
+                return;
+            }
+        }
+        
+        const response = await fetch(`${API_BASE}/lists/${sourceListId}/items/${itemId}/copy`, {
+            method: 'POST',
+            headers: {
+                ...getAuthHeaders(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                target_list_id: targetListId,
+                item_type: itemType,
+                preserve_metadata: true
+            })
+        });
+        
+        hideLoading();
+        
+        if (!response.ok) {
+            const error = await response.json();
+            const errorInfo = categorizeError(new Error(error.detail || 'Copy operation failed'), response);
+            
+            // Log error
+            logOperation('COPY_ERROR', operationDetails.params, null, new Error(errorInfo.message));
+            
+            // Show error with retry if recoverable
+            if (errorInfo.recoverable && operationCache.retryCount < operationCache.maxRetries) {
+                showErrorWithRetry(errorInfo.message, operationDetails, errorInfo.type);
+            } else {
+                showError(errorInfo.message);
+                operationCache.retryCount = 0;
+                operationCache.lastOperation = null;
+            }
+            return;
+        }
+        
+        const result = await response.json();
+        
+        // Log success
+        logOperation('COPY_SUCCESS', operationDetails.params, result);
+        
+        // Reset retry count on success
+        operationCache.retryCount = 0;
+        operationCache.lastOperation = null;
+        
+        // Show success message
+        if (result.duplicate && result.items_affected === 0) {
+            showSuccess(`All items already exist in target list`);
+        } else if (result.duplicate) {
+            showSuccess(`${result.items_affected} item(s) copied (${result.message.match(/\d+/)?.[0] || 0} duplicate(s) skipped)`);
+        } else {
+            showSuccess(result.message || 'Item copied successfully');
+        }
+        
+        // Refresh watchlist
+        await loadWatchlist();
+        
+        // Refresh details modal list membership if modal is open
+        await refreshDetailsModalListMembership();
+        
+    } catch (error) {
+        hideLoading();
+        
+        // Log error
+        logOperation('COPY_EXCEPTION', operationDetails.params, null, error);
+        
+        // Categorize error
+        const errorInfo = categorizeError(error);
+        
+        // Show error with retry if recoverable
+        if (errorInfo.recoverable && operationCache.retryCount < operationCache.maxRetries) {
+            showErrorWithRetry(errorInfo.message, operationDetails, errorInfo.type);
+        } else {
+            showError(errorInfo.message);
+            operationCache.retryCount = 0;
+            operationCache.lastOperation = null;
+        }
+    }
+}
+
+async function executeMoveOperation(itemId, itemType, sourceListId, targetListId, skipDuplicateCheck = false) {
+    // Cache operation details for potential retry
+    const operationDetails = {
+        type: 'move',
+        params: { itemId, itemType, sourceListId, targetListId, skipDuplicateCheck }
+    };
+    operationCache.lastOperation = operationDetails;
+    
+    // Log operation start
+    logOperation('MOVE_START', {
+        itemId,
+        itemType,
+        sourceListId,
+        targetListId,
+        skipDuplicateCheck
+    });
+    
+    try {
+        // Show loading state
+        showLoading('Moving item...');
+        
+        // Check for duplicates first (unless explicitly skipped)
+        if (!skipDuplicateCheck) {
+            const hasDuplicate = await checkForDuplicate(itemId, itemType, targetListId);
+            if (hasDuplicate) {
+                hideLoading();
+                // Show duplicate warning modal for move operation
+                showDuplicateWarning('move', itemId, itemType, sourceListId, targetListId);
+                logOperation('MOVE_DUPLICATE', { itemId, itemType, targetListId });
+                return;
+            }
+        }
+        
+        const response = await fetch(`${API_BASE}/lists/${sourceListId}/items/${itemId}/move`, {
+            method: 'POST',
+            headers: {
+                ...getAuthHeaders(),
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                target_list_id: targetListId,
+                item_type: itemType
+            })
+        });
+        
+        hideLoading();
+        
+        if (!response.ok) {
+            const error = await response.json();
+            const errorInfo = categorizeError(new Error(error.detail || 'Move operation failed'), response);
+            
+            // Log error
+            logOperation('MOVE_ERROR', operationDetails.params, null, new Error(errorInfo.message));
+            
+            // Show error with retry if recoverable
+            if (errorInfo.recoverable && operationCache.retryCount < operationCache.maxRetries) {
+                showErrorWithRetry(errorInfo.message, operationDetails, errorInfo.type);
+            } else {
+                showError(errorInfo.message);
+                operationCache.retryCount = 0;
+                operationCache.lastOperation = null;
+            }
+            return;
+        }
+        
+        const result = await response.json();
+        
+        // Log success
+        logOperation('MOVE_SUCCESS', operationDetails.params, result);
+        
+        // Reset retry count on success
+        operationCache.retryCount = 0;
+        operationCache.lastOperation = null;
+        
+        // Store undo data for this move operation
+        undoMoveData = {
+            sourceListId: sourceListId,
+            targetListId: targetListId,
+            items: [{
+                item_id: parseInt(itemId),
+                item_type: itemType
+            }]
+        };
+        
+        // Clear any existing undo timeout
+        if (undoTimeout) {
+            clearTimeout(undoTimeout);
+        }
+        
+        // Set timeout to clear undo data after 10 seconds
+        undoTimeout = setTimeout(() => {
+            undoMoveData = null;
+            undoTimeout = null;
+        }, 10000);
+        
+        // Show success message with undo button
+        let message;
+        if (result.duplicate && result.items_affected === 0) {
+            message = `All items already exist in target list. Removed from source.`;
+        } else if (result.duplicate) {
+            message = `${result.items_affected} item(s) moved (${result.message.match(/\d+/)?.[0] || 0} duplicate(s) removed from source)`;
+        } else {
+            message = result.message || 'Item moved successfully';
+        }
+        
+        showSuccess(message, {
+            showUndo: true,
+            onUndo: () => undoMoveOperation(undoMoveData),
+            duration: 10000
+        });
+        
+        // Refresh watchlist
+        await loadWatchlist();
+        
+        // Refresh details modal list membership if modal is open
+        await refreshDetailsModalListMembership();
+        
+    } catch (error) {
+        hideLoading();
+        
+        // Log error
+        logOperation('MOVE_EXCEPTION', operationDetails.params, null, error);
+        
+        // Categorize error
+        const errorInfo = categorizeError(error);
+        
+        // Show error with retry if recoverable
+        if (errorInfo.recoverable && operationCache.retryCount < operationCache.maxRetries) {
+            showErrorWithRetry(errorInfo.message, operationDetails, errorInfo.type);
+        } else {
+            showError(errorInfo.message);
+            operationCache.retryCount = 0;
+            operationCache.lastOperation = null;
+        }
+    }
+}
+
+// Check if an item already exists in a target list
+async function checkForDuplicate(itemId, itemType, targetListId) {
+    try {
+        // Fetch the target list items
+        const response = await fetch(`${API_BASE}/lists/${targetListId}/items`, {
+            headers: getAuthHeaders()
+        });
+        
+        if (!response.ok) {
+            console.error('Failed to fetch target list items');
+            return false;
+        }
+        
+        const items = await response.json();
+        
+        // Check if the item already exists in the target list
+        const duplicate = items.some(item => 
+            item.item_id === itemId && item.item_type === itemType
+        );
+        
+        return duplicate;
+    } catch (error) {
+        console.error('Error checking for duplicate:', error);
+        return false;
+    }
+}
+
+// Show duplicate warning modal
+function showDuplicateWarning(operation, itemId, itemType, sourceListId, targetListId) {
+    const modal = document.getElementById('duplicateWarningModal');
+    const title = document.getElementById('duplicateWarningTitle');
+    const subtitle = document.getElementById('duplicateWarningSubtitle');
+    const content = document.getElementById('duplicateWarningContent');
+    const buttonsContainer = document.getElementById('duplicateWarningButtons');
+    
+    // Get target list name
+    const targetList = userLists.find(list => list.id == targetListId);
+    const targetListName = targetList ? targetList.name : 'the target list';
+    
+    // Update modal content based on operation type
+    if (operation === 'copy') {
+        title.textContent = '⚠️ Duplicate Item Detected';
+        subtitle.textContent = 'This item already exists in the target list';
+        content.innerHTML = `
+            <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 20px;">
+                This item is already in <strong>${targetListName}</strong>.
+            </p>
+            <p style="color: rgba(255, 255, 255, 0.6); font-size: 0.9em;">
+                You can skip this duplicate and keep the existing item, or cancel the operation.
+            </p>
+        `;
+        
+        // Buttons for copy operation
+        buttonsContainer.innerHTML = `
+            <button class="btn btn-secondary" onclick="closeDuplicateWarning()">Cancel</button>
+            <button class="btn btn-primary" onclick="proceedWithCopy(${itemId}, '${itemType}', ${sourceListId}, ${targetListId})">
+                Skip Duplicate
+            </button>
+        `;
+    } else if (operation === 'move') {
+        title.textContent = '⚠️ Duplicate Item Detected';
+        subtitle.textContent = 'This item already exists in the target list';
+        content.innerHTML = `
+            <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 20px;">
+                This item is already in <strong>${targetListName}</strong>.
+            </p>
+            <p style="color: rgba(255, 255, 255, 0.6); font-size: 0.9em;">
+                You can remove it from the source list only, or cancel the operation.
+            </p>
+        `;
+        
+        // Buttons for move operation
+        buttonsContainer.innerHTML = `
+            <button class="btn btn-secondary" onclick="closeDuplicateWarning()">Cancel</button>
+            <button class="btn btn-primary" onclick="proceedWithMove(${itemId}, '${itemType}', ${sourceListId}, ${targetListId})">
+                Remove from Source Only
+            </button>
+        `;
+    }
+    
+    // Show modal
+    modal.style.display = 'flex';
+}
+
+// Close duplicate warning modal
+function closeDuplicateWarning() {
+    const modal = document.getElementById('duplicateWarningModal');
+    modal.style.display = 'none';
+}
+
+// Proceed with copy operation (skip duplicate)
+async function proceedWithCopy(itemId, itemType, sourceListId, targetListId) {
+    closeDuplicateWarning();
+    closeListSelector();
+    
+    try {
+        // Execute copy with duplicate check skipped
+        await executeCopyOperation(itemId, itemType, sourceListId, targetListId, true);
+    } catch (error) {
+        console.error('Error in copy operation:', error);
+        showError(error.message || 'Failed to copy item');
+    }
+}
+
+// Proceed with move operation (remove from source only)
+async function proceedWithMove(itemId, itemType, sourceListId, targetListId) {
+    closeDuplicateWarning();
+    closeListSelector();
+    
+    try {
+        // Execute move with duplicate check skipped
+        await executeMoveOperation(itemId, itemType, sourceListId, targetListId, true);
+    } catch (error) {
+        console.error('Error in move operation:', error);
+        showError(error.message || 'Failed to move item');
+    }
+}
+
+function createNewListAndCopy(operation, itemId, itemType, sourceListId) {
+    // Close list selector
+    closeListSelector();
+    
+    // Store the pending operation
+    window.pendingCopyMoveOperation = {
+        operation,
+        itemId,
+        itemType,
+        sourceListId
+    };
+    
+    // Open create list modal
+    showCreateListModal();
+}
+
+// Undo move operation
+async function undoMoveOperation(operationDetails) {
+    try {
+        showLoading('Undoing move operation...');
+        
+        // Clear the undo timeout
+        if (undoTimeout) {
+            clearTimeout(undoTimeout);
+            undoTimeout = null;
+        }
+        
+        // Move items back to source list
+        const response = await fetch(`${API_BASE}/lists/bulk-operation`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                operation: 'move',
+                source_list_id: operationDetails.targetListId,
+                target_list_id: operationDetails.sourceListId,
+                items: operationDetails.items
+            })
+        });
+        
+        hideLoading();
+        
+        if (response.ok) {
+            const result = await response.json();
+            showSuccess('Move operation undone successfully');
+            
+            // Clear undo data
+            undoMoveData = null;
+            
+            // Reload watchlist
+            await loadWatchlist();
+            
+            // Refresh details modal list membership if modal is open
+            await refreshDetailsModalListMembership();
+        } else {
+            const error = await response.json();
+            showError(error.detail || 'Failed to undo move operation');
+        }
+    } catch (error) {
+        hideLoading();
+        console.error('Error undoing move operation:', error);
+        showError('Failed to undo move operation');
     }
 }
 
@@ -3327,11 +4618,26 @@ function showError(message) {
         errorDiv.style.right = '20px';
         errorDiv.style.zIndex = '10000';
         errorDiv.style.maxWidth = '300px';
+        errorDiv.setAttribute('role', 'alert');
+        errorDiv.setAttribute('aria-live', 'assertive');
         document.body.appendChild(errorDiv);
     }
     
-    errorDiv.textContent = message;
+    // Add error icon with animation
+    errorDiv.innerHTML = `
+        <span class="message-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none">
+                <path class="xmark-icon" d="M6 6L18 18M18 6L6 18" stroke-linecap="round"/>
+            </svg>
+        </span>
+        <span>${message}</span>
+    `;
     errorDiv.style.display = 'block';
+    
+    // Trigger animation
+    errorDiv.classList.remove('animate');
+    void errorDiv.offsetWidth; // Force reflow
+    errorDiv.classList.add('animate');
     
     // Auto-hide after 5 seconds
     setTimeout(() => {
@@ -3339,7 +4645,7 @@ function showError(message) {
     }, 5000);
 }
 
-function showSuccess(message) {
+function showSuccess(message, options = {}) {
     // Create or update success message
     let successDiv = document.querySelector('.success-message');
     if (!successDiv) {
@@ -3349,17 +4655,69 @@ function showSuccess(message) {
         successDiv.style.top = '20px';
         successDiv.style.right = '20px';
         successDiv.style.zIndex = '10000';
-        successDiv.style.maxWidth = '300px';
+        successDiv.style.maxWidth = '400px';
+        successDiv.setAttribute('role', 'status');
+        successDiv.setAttribute('aria-live', 'polite');
         document.body.appendChild(successDiv);
     }
     
-    successDiv.textContent = message;
+    // Clear any existing content
+    successDiv.innerHTML = '';
+    
+    // Create message container
+    const messageContainer = document.createElement('div');
+    messageContainer.style.display = 'flex';
+    messageContainer.style.alignItems = 'center';
+    messageContainer.style.justifyContent = 'space-between';
+    messageContainer.style.gap = '12px';
+    
+    // Add success icon with animation
+    const iconSpan = document.createElement('span');
+    iconSpan.className = 'message-icon';
+    iconSpan.setAttribute('aria-hidden', 'true');
+    iconSpan.innerHTML = `
+        <svg viewBox="0 0 24 24" fill="none">
+            <path class="checkmark-icon" d="M5 13l4 4L19 7" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+    `;
+    messageContainer.appendChild(iconSpan);
+    
+    // Add message text
+    const messageText = document.createElement('span');
+    messageText.textContent = message;
+    messageText.style.flex = '1';
+    messageContainer.appendChild(messageText);
+    
+    // Add undo button if provided
+    if (options.showUndo && options.onUndo) {
+        const undoButton = document.createElement('button');
+        undoButton.textContent = 'Undo';
+        undoButton.className = 'btn btn-secondary';
+        undoButton.style.padding = '4px 12px';
+        undoButton.style.fontSize = '13px';
+        undoButton.style.minWidth = 'auto';
+        undoButton.style.whiteSpace = 'nowrap';
+        undoButton.setAttribute('aria-label', 'Undo move operation');
+        undoButton.onclick = () => {
+            options.onUndo();
+            successDiv.style.display = 'none';
+        };
+        messageContainer.appendChild(undoButton);
+    }
+    
+    successDiv.appendChild(messageContainer);
     successDiv.style.display = 'block';
     
-    // Auto-hide after 6 seconds (2x longer for better readability)
+    // Trigger animation
+    successDiv.classList.remove('animate');
+    void successDiv.offsetWidth; // Force reflow
+    successDiv.classList.add('animate');
+    
+    // Auto-hide after specified duration or default 6 seconds
+    const duration = options.duration || 6000;
     setTimeout(() => {
         successDiv.style.display = 'none';
-    }, 6000);
+    }, duration);
 }
 
 function showWarning(message) {
@@ -3389,6 +4747,47 @@ function showWarning(message) {
     setTimeout(() => {
         warningDiv.style.display = 'none';
     }, 10000);
+}
+
+// Global loading overlay
+function showLoading(message = 'Loading...') {
+    let loadingOverlay = document.querySelector('.loading-overlay');
+    if (!loadingOverlay) {
+        loadingOverlay = document.createElement('div');
+        loadingOverlay.className = 'loading-overlay';
+        loadingOverlay.setAttribute('role', 'status');
+        loadingOverlay.setAttribute('aria-live', 'polite');
+        loadingOverlay.innerHTML = `
+            <div class="loading-content">
+                <div class="spinner" aria-hidden="true"></div>
+                <p class="loading-message"></p>
+            </div>
+        `;
+        document.body.appendChild(loadingOverlay);
+    }
+    
+    const messageElement = loadingOverlay.querySelector('.loading-message');
+    messageElement.textContent = message;
+    loadingOverlay.setAttribute('aria-label', message);
+    loadingOverlay.style.display = 'flex';
+}
+
+function hideLoading() {
+    const loadingOverlay = document.querySelector('.loading-overlay');
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'none';
+    }
+}
+
+// Update progress for bulk operations
+function updateBulkProgress(current, total, operation = 'Processing') {
+    const loadingOverlay = document.querySelector('.loading-overlay');
+    if (loadingOverlay) {
+        const messageElement = loadingOverlay.querySelector('.loading-message');
+        const message = `${operation} ${current} of ${total} items...`;
+        messageElement.textContent = message;
+        loadingOverlay.setAttribute('aria-label', message);
+    }
 }
 
 // --- Import Type Dropdown Logic ---
@@ -3680,6 +5079,9 @@ function setDefaultFilterState() {
 
 // Show educational tip when user marks their first item as watched
 function showWatchedItemEducationTip() {
+    // Set the flag immediately to prevent showing again
+    localStorage.setItem('hasSeenWatchedTip', 'true');
+    
     // Create toast container
     const toast = document.createElement('div');
     toast.className = 'education-toast';
@@ -3801,14 +5203,12 @@ function showWatchedItemEducationTip() {
     document.getElementById('toastDismiss').onclick = () => {
         toast.style.animation = 'slideDown 0.3s ease-out';
         setTimeout(() => toast.remove(), 300);
-        localStorage.setItem('hasSeenWatchedTip', 'true');
     };
     
     // Handle "Show Me" - open filter menu and highlight the unwatched toggle
     document.getElementById('toastShowMe').onclick = () => {
         toast.style.animation = 'slideDown 0.3s ease-out';
         setTimeout(() => toast.remove(), 300);
-        localStorage.setItem('hasSeenWatchedTip', 'true');
         
         // Open the filter menu
         showFilterOptions();
@@ -4684,6 +6084,48 @@ async function showDetails(type, id, itemData) {
         `;
     }
     
+    // Get list membership for this item (only for movies, series, and collections)
+    let listActionsSection = '';
+    if (type !== 'episode' && type !== 'season') {
+        const listMembership = await getItemListMembership(type, id);
+        
+        listActionsSection = `
+            <div id="listActionsSection" style="margin-top: 20px; padding: 16px; background: rgba(255,255,255,0.05); border-radius: 8px;">
+                <h3 style="color: #ffffff; margin: 0 0 12px 0;">List Actions</h3>
+                <div style="display: flex; gap: 8px; margin-bottom: 12px;">
+                    <button id="copyToListBtn" onclick="openListSelectorFromDetails('copy', '${type}', ${id})" style="background: #00d4aa; color: #000000; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 600; flex: 1; transition: opacity 0.2s;" aria-label="Copy to list">
+                        <span id="copyBtnText">📋 Copy to List</span>
+                        <span id="copyBtnLoading" style="display: none; align-items: center; gap: 6px;" aria-live="polite">
+                            <span class="spinner" style="width: 14px; height: 14px; border-width: 2px; border-color: rgba(0,0,0,0.2); border-top-color: #000; display: inline-block; vertical-align: middle;" aria-hidden="true"></span>
+                            Copying...
+                        </span>
+                    </button>
+                    <button id="moveToListBtn" onclick="openListSelectorFromDetails('move', '${type}', ${id})" style="background: #4a90e2; color: #ffffff; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-weight: 600; flex: 1; transition: opacity 0.2s;" aria-label="Move to list">
+                        <span id="moveBtnText">➡️ Move to List</span>
+                        <span id="moveBtnLoading" style="display: none; align-items: center; gap: 6px;" aria-live="polite">
+                            <span class="spinner" style="width: 14px; height: 14px; border-width: 2px; border-color: rgba(255,255,255,0.3); border-top-color: #fff; display: inline-block; vertical-align: middle;" aria-hidden="true"></span>
+                            Moving...
+                        </span>
+                    </button>
+                </div>
+                <div id="listMembershipDisplay" style="margin-top: 12px;">
+                    ${listMembership.length > 0 ? `
+                        <div style="color: #cccccc; font-size: 0.9em; margin-bottom: 8px;">Currently in lists:</div>
+                        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+                            ${listMembership.map(list => `
+                                <span style="background: ${list.color || '#4a90e2'}; color: #ffffff; padding: 4px 8px; border-radius: 4px; font-size: 0.85em;">
+                                    ${list.icon || '📋'} ${list.name}
+                                </span>
+                            `).join('')}
+                        </div>
+                    ` : `
+                        <div style="color: #999999; font-size: 0.9em; font-style: italic;">Not in any lists</div>
+                    `}
+                </div>
+            </div>
+        `;
+    }
+    
     modalContent.innerHTML = `
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
             <h1 style="color: #ffffff; margin: 0; font-size: 1.8em;">Details</h1>
@@ -4691,6 +6133,7 @@ async function showDetails(type, id, itemData) {
         </div>
         ${content}
         ${notesSection}
+        ${listActionsSection}
         <div style="margin-top: 24px; text-align: center;">
             <button onclick="closeModal()" style="background: #00d4aa; color: #000000; border: none; padding: 12px 24px; border-radius: 6px; cursor: pointer; font-weight: 600;">Close</button>
         </div>
@@ -4698,6 +6141,12 @@ async function showDetails(type, id, itemData) {
     
     modal.appendChild(modalContent);
     document.body.appendChild(modal);
+    
+    // Store modal scroll position
+    window.detailsModalScrollPosition = 0;
+    modalContent.addEventListener('scroll', () => {
+        window.detailsModalScrollPosition = modalContent.scrollTop;
+    });
     
     // Close modal when clicking outside
     modal.addEventListener('click', (e) => {
@@ -4707,10 +6156,134 @@ async function showDetails(type, id, itemData) {
     });
 }
 
+/**
+ * Get list membership for an item
+ * Returns array of lists that contain this item
+ */
+async function getItemListMembership(itemType, itemId) {
+    try {
+        const response = await fetch(`${API_BASE}/lists`, {
+            headers: getAuthHeaders()
+        });
+        
+        if (!response.ok) {
+            console.error('Failed to fetch lists for membership check');
+            return [];
+        }
+        
+        const allLists = await response.json();
+        const membership = [];
+        
+        // Check each list to see if it contains this item
+        for (const list of allLists) {
+            try {
+                const itemsResponse = await fetch(`${API_BASE}/lists/${list.id}/items`, {
+                    headers: getAuthHeaders()
+                });
+                
+                if (itemsResponse.ok) {
+                    const listItems = await itemsResponse.json();
+                    
+                    // Check if this item is in the list
+                    const hasItem = listItems.some(item => 
+                        item.item_type === itemType && item.item_id == itemId
+                    );
+                    
+                    if (hasItem) {
+                        membership.push({
+                            id: list.id,
+                            name: list.name,
+                            icon: list.icon,
+                            color: list.color || list.background_color
+                        });
+                    }
+                }
+            } catch (error) {
+                console.error(`Error checking list ${list.id}:`, error);
+            }
+        }
+        
+        return membership;
+    } catch (error) {
+        console.error('Error getting list membership:', error);
+        return [];
+    }
+}
 
+/**
+ * Open list selector from details modal
+ * Maintains modal state and updates after operation
+ */
+async function openListSelectorFromDetails(operation, itemType, itemId) {
+    // Get the source list ID (use 'personal' as default if not in a specific list)
+    const sourceListId = window.currentListId || 'personal';
+    
+    // Show loading state on button
+    const btnText = document.getElementById(operation === 'copy' ? 'copyBtnText' : 'moveBtnText');
+    const btnLoading = document.getElementById(operation === 'copy' ? 'copyBtnLoading' : 'moveBtnLoading');
+    const btn = document.getElementById(operation === 'copy' ? 'copyToListBtn' : 'moveToListBtn');
+    
+    if (btnText && btnLoading && btn) {
+        btnText.style.display = 'none';
+        btnLoading.style.display = 'inline-flex';
+        btn.disabled = true;
+        btn.setAttribute('aria-busy', 'true');
+        btn.style.opacity = '0.7';
+        btn.style.cursor = 'wait';
+    }
+    
+    // Store current modal data for refresh
+    window.detailsModalContext = { type: itemType, id: itemId };
+    
+    // Open the list selector modal
+    await showListSelector(operation, itemId, itemType, sourceListId);
+    
+    // Reset button state
+    if (btnText && btnLoading && btn) {
+        btnText.style.display = 'inline';
+        btnLoading.style.display = 'none';
+        btn.disabled = false;
+        btn.removeAttribute('aria-busy');
+        btn.style.opacity = '1';
+        btn.style.cursor = 'pointer';
+    }
+}
 
-
-
+/**
+ * Refresh list membership display in details modal
+ * Called after successful copy/move operations
+ */
+async function refreshDetailsModalListMembership() {
+    if (!window.detailsModalContext) return;
+    
+    const { type, id } = window.detailsModalContext;
+    const listMembershipDisplay = document.getElementById('listMembershipDisplay');
+    
+    if (!listMembershipDisplay) return;
+    
+    // Get updated list membership
+    const listMembership = await getItemListMembership(type, id);
+    
+    // Update the display
+    listMembershipDisplay.innerHTML = listMembership.length > 0 ? `
+        <div style="color: #cccccc; font-size: 0.9em; margin-bottom: 8px;">Currently in lists:</div>
+        <div style="display: flex; flex-wrap: wrap; gap: 6px;">
+            ${listMembership.map(list => `
+                <span style="background: ${list.color || '#4a90e2'}; color: #ffffff; padding: 4px 8px; border-radius: 4px; font-size: 0.85em;">
+                    ${list.icon || '📋'} ${list.name}
+                </span>
+            `).join('')}
+        </div>
+    ` : `
+        <div style="color: #999999; font-size: 0.9em; font-style: italic;">Not in any lists</div>
+    `;
+    
+    // Restore scroll position
+    const modalContent = document.querySelector('.modal-overlay > div');
+    if (modalContent && window.detailsModalScrollPosition !== undefined) {
+        modalContent.scrollTop = window.detailsModalScrollPosition;
+    }
+}
 
 /**
  * Toggle watched status for entire season
@@ -6217,6 +7790,27 @@ function renderWatchlistFromData(watchlistData) {
             };
         });
         
+        // Add event listeners for item menu buttons
+        document.querySelectorAll('.item-menu-btn').forEach(btn => {
+            btn.onclick = function(e) {
+                const itemId = btn.getAttribute('data-item-id');
+                const itemType = btn.getAttribute('data-item-type');
+                const listId = 1; // Default to main watchlist for now
+                openItemMenu(itemId, itemType, listId, e);
+            };
+        });
+        
+        // Setup long-press gesture for mobile on watchlist rows
+        document.querySelectorAll('.watchlist-row').forEach(row => {
+            const menuBtn = row.querySelector('.item-menu-btn');
+            if (menuBtn) {
+                const itemId = menuBtn.getAttribute('data-item-id');
+                const itemType = menuBtn.getAttribute('data-item-type');
+                const listId = 1; // Default to main watchlist for now
+                setupLongPressGesture(row, itemId, itemType, listId);
+            }
+        });
+        
         // Add event listeners for clickable areas (poster, title, meta)
         document.querySelectorAll('.clickable-area').forEach(area => {
             // Skip if element already has an onclick handler (like episodes)
@@ -7644,4 +9238,476 @@ function showCustomConfirmModal(title, message) {
             }
         });
     });
-}// Force rebuild Thu Sep  4 16:07:12 EDT 2025
+}
+
+// ===== BULK SELECTION MODE =====
+
+// State for bulk selection
+let bulkSelectionState = {
+    active: false,
+    selectedItems: [] // Array of {itemId, itemType, sourceListId}
+};
+
+// Toggle bulk selection mode
+function toggleBulkSelectionMode() {
+    if (bulkSelectionState.active) {
+        exitBulkSelectionMode();
+    } else {
+        enterBulkSelectionMode();
+    }
+}
+
+// Enter bulk selection mode
+function enterBulkSelectionMode() {
+    console.log('Entering bulk selection mode');
+    bulkSelectionState.active = true;
+    bulkSelectionState.selectedItems = [];
+    
+    // Add class to watchlist content to show checkboxes
+    const watchlistContent = document.getElementById('watchlistContent');
+    if (watchlistContent) {
+        watchlistContent.classList.add('bulk-selection-mode');
+        watchlistContent.setAttribute('aria-label', 'Bulk selection mode active. Click items to select them.');
+    }
+    
+    // Update Select Items button appearance
+    const selectItemsBtn = document.getElementById('selectItemsBtn');
+    if (selectItemsBtn) {
+        selectItemsBtn.classList.add('active');
+        selectItemsBtn.innerHTML = '<span aria-hidden="true">✖️</span> Cancel Selection';
+        selectItemsBtn.setAttribute('aria-label', 'Cancel bulk selection mode');
+        selectItemsBtn.setAttribute('aria-pressed', 'true');
+    }
+    
+    // Show bulk action bar
+    const bulkActionBar = document.getElementById('bulkActionBar');
+    if (bulkActionBar) {
+        bulkActionBar.classList.add('show');
+        bulkActionBar.setAttribute('role', 'toolbar');
+        bulkActionBar.setAttribute('aria-label', 'Bulk actions toolbar');
+    }
+    
+    // Add event listeners to all watchlist item checkboxes
+    attachBulkSelectionListeners();
+    
+    // Update count
+    updateBulkSelectionCount();
+    
+    // Announce to screen readers
+    announceToScreenReader('Bulk selection mode activated. Click items to select them.');
+}
+
+// Exit bulk selection mode
+function exitBulkSelectionMode() {
+    console.log('Exiting bulk selection mode');
+    bulkSelectionState.active = false;
+    bulkSelectionState.selectedItems = [];
+    
+    // Remove class from watchlist content to hide checkboxes
+    const watchlistContent = document.getElementById('watchlistContent');
+    if (watchlistContent) {
+        watchlistContent.classList.remove('bulk-selection-mode');
+        watchlistContent.removeAttribute('aria-label');
+    }
+    
+    // Update Select Items button appearance
+    const selectItemsBtn = document.getElementById('selectItemsBtn');
+    if (selectItemsBtn) {
+        selectItemsBtn.classList.remove('active');
+        selectItemsBtn.innerHTML = '<span aria-hidden="true">☑️</span> Select Items';
+        selectItemsBtn.setAttribute('aria-label', 'Enter bulk selection mode');
+        selectItemsBtn.setAttribute('aria-pressed', 'false');
+    }
+    
+    // Hide bulk action bar
+    const bulkActionBar = document.getElementById('bulkActionBar');
+    if (bulkActionBar) {
+        bulkActionBar.classList.remove('show');
+        bulkActionBar.removeAttribute('role');
+        bulkActionBar.removeAttribute('aria-label');
+    }
+    
+    // Clear all selections
+    document.querySelectorAll('.watchlist-row.selected').forEach(row => {
+        row.classList.remove('selected');
+        row.removeAttribute('aria-selected');
+    });
+    
+    // Remove event listeners
+    removeBulkSelectionListeners();
+    
+    // Announce to screen readers
+    announceToScreenReader('Bulk selection mode deactivated.');
+}
+
+// Attach event listeners to checkboxes for bulk selection
+function attachBulkSelectionListeners() {
+    // Find all watchlist rows with checkboxes
+    document.querySelectorAll('.watchlist-row').forEach(row => {
+        row.addEventListener('click', handleBulkRowClick);
+    });
+}
+
+// Remove event listeners from checkboxes
+function removeBulkSelectionListeners() {
+    document.querySelectorAll('.watchlist-row').forEach(row => {
+        row.removeEventListener('click', handleBulkRowClick);
+    });
+}
+
+// Handle row click in bulk selection mode
+function handleBulkRowClick(e) {
+    if (!bulkSelectionState.active) return;
+    
+    // Don't trigger if clicking on buttons or other interactive elements
+    if (e.target.closest('button') || e.target.closest('.item-menu-btn') || e.target.closest('.expand-arrow')) {
+        return;
+    }
+    
+    const row = e.currentTarget;
+    const itemId = row.getAttribute('data-item-id');
+    const itemType = row.getAttribute('data-item-type');
+    
+    if (!itemId || !itemType) return;
+    
+    // Toggle selection
+    const isSelected = row.classList.contains('selected');
+    
+    if (isSelected) {
+        // Deselect
+        row.classList.remove('selected');
+        row.setAttribute('aria-selected', 'false');
+        bulkSelectionState.selectedItems = bulkSelectionState.selectedItems.filter(
+            item => !(item.itemId === itemId && item.itemType === itemType)
+        );
+    } else {
+        // Select
+        row.classList.add('selected');
+        row.setAttribute('aria-selected', 'true');
+        bulkSelectionState.selectedItems.push({
+            itemId: itemId,
+            itemType: itemType,
+            sourceListId: getCurrentListId() // Get current list ID
+        });
+    }
+    
+    // Update count
+    updateBulkSelectionCount();
+}
+
+// Update bulk selection count display
+function updateBulkSelectionCount() {
+    const countElement = document.getElementById('bulkSelectionCount');
+    if (countElement) {
+        const count = bulkSelectionState.selectedItems.length;
+        countElement.textContent = count;
+        countElement.setAttribute('aria-label', `${count} item${count !== 1 ? 's' : ''} selected`);
+    }
+}
+
+// Announce message to screen readers using ARIA live region
+function announceToScreenReader(message, priority = 'polite') {
+    let announcer = document.getElementById('screenReaderAnnouncer');
+    if (!announcer) {
+        announcer = document.createElement('div');
+        announcer.id = 'screenReaderAnnouncer';
+        announcer.setAttribute('role', 'status');
+        announcer.setAttribute('aria-live', priority);
+        announcer.setAttribute('aria-atomic', 'true');
+        announcer.style.position = 'absolute';
+        announcer.style.left = '-10000px';
+        announcer.style.width = '1px';
+        announcer.style.height = '1px';
+        announcer.style.overflow = 'hidden';
+        document.body.appendChild(announcer);
+    }
+    
+    // Update aria-live priority if different
+    if (announcer.getAttribute('aria-live') !== priority) {
+        announcer.setAttribute('aria-live', priority);
+    }
+    
+    // Clear and set new message
+    announcer.textContent = '';
+    setTimeout(() => {
+        announcer.textContent = message;
+    }, 100);
+}
+
+// Get current list ID (default to 1 for main watchlist)
+function getCurrentListId() {
+    // Check if we have a selected list
+    const activeListChip = document.querySelector('.list-chip.active');
+    if (activeListChip) {
+        return parseInt(activeListChip.getAttribute('data-list-id')) || 1;
+    }
+    return 1; // Default to main watchlist
+}
+
+// Bulk copy selected items
+async function bulkCopySelected() {
+    if (bulkSelectionState.selectedItems.length === 0) {
+        showError('No items selected');
+        return;
+    }
+    
+    // Show list selector modal for bulk copy
+    showListSelector('copy', null, null, null, true);
+}
+
+// Bulk move selected items
+async function bulkMoveSelected() {
+    if (bulkSelectionState.selectedItems.length === 0) {
+        showError('No items selected');
+        return;
+    }
+    
+    // Show list selector modal for bulk move
+    showListSelector('move', null, null, null, true);
+}
+
+// Execute bulk copy operation
+async function executeBulkCopyOperation(targetListId) {
+    if (bulkSelectionState.selectedItems.length === 0) {
+        showError('No items selected');
+        return;
+    }
+    
+    const sourceListId = getCurrentListId();
+    const items = bulkSelectionState.selectedItems.map(item => ({
+        item_id: parseInt(item.itemId),
+        item_type: item.itemType
+    }));
+    
+    // Cache operation details for potential retry
+    const operationDetails = {
+        type: 'bulkCopy',
+        params: { targetListId, sourceListId, items }
+    };
+    operationCache.lastOperation = operationDetails;
+    
+    // Log operation start
+    logOperation('BULK_COPY_START', {
+        sourceListId,
+        targetListId,
+        itemCount: items.length
+    });
+    
+    try {
+        const itemCount = items.length;
+        showLoading(`Copying ${itemCount} item${itemCount !== 1 ? 's' : ''}...`);
+        
+        const response = await fetch(`${API_BASE}/lists/bulk-operation`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                operation: 'copy',
+                source_list_id: sourceListId,
+                target_list_id: targetListId,
+                items: items
+            })
+        });
+        
+        hideLoading();
+        
+        if (response.ok) {
+            const result = await response.json();
+            
+            // Log success
+            logOperation('BULK_COPY_SUCCESS', operationDetails.params, result);
+            
+            // Reset retry count on success
+            operationCache.retryCount = 0;
+            operationCache.lastOperation = null;
+            
+            let message = `${result.items_affected} items copied successfully`;
+            if (result.duplicates_skipped > 0) {
+                message += ` (${result.duplicates_skipped} duplicates skipped)`;
+            }
+            
+            // Check for partial failures
+            if (result.errors && result.errors.length > 0) {
+                message += `\n⚠️ ${result.errors.length} items failed`;
+                console.warn('Bulk copy partial failures:', result.errors);
+                
+                // Offer to retry failed items
+                showWarning(`${message}. Check console for details.`);
+            } else {
+                showSuccess(message);
+            }
+            
+            // Exit bulk selection mode
+            exitBulkSelectionMode();
+            
+            // Reload watchlist
+            loadWatchlist();
+        } else {
+            const error = await response.json();
+            const errorInfo = categorizeError(new Error(error.detail || 'Failed to copy items'), response);
+            
+            // Log error
+            logOperation('BULK_COPY_ERROR', operationDetails.params, null, new Error(errorInfo.message));
+            
+            // Show error with retry if recoverable
+            if (errorInfo.recoverable && operationCache.retryCount < operationCache.maxRetries) {
+                showErrorWithRetry(errorInfo.message, operationDetails, errorInfo.type);
+            } else {
+                showError(errorInfo.message);
+                operationCache.retryCount = 0;
+                operationCache.lastOperation = null;
+            }
+        }
+    } catch (error) {
+        hideLoading();
+        
+        // Log error
+        logOperation('BULK_COPY_EXCEPTION', operationDetails.params, null, error);
+        
+        // Categorize error
+        const errorInfo = categorizeError(error);
+        
+        // Show error with retry if recoverable
+        if (errorInfo.recoverable && operationCache.retryCount < operationCache.maxRetries) {
+            showErrorWithRetry(errorInfo.message, operationDetails, errorInfo.type);
+        } else {
+            showError(errorInfo.message);
+            operationCache.retryCount = 0;
+            operationCache.lastOperation = null;
+        }
+    }
+}
+
+// Execute bulk move operation
+async function executeBulkMoveOperation(targetListId) {
+    if (bulkSelectionState.selectedItems.length === 0) {
+        showError('No items selected');
+        return;
+    }
+    
+    const sourceListId = getCurrentListId();
+    const items = bulkSelectionState.selectedItems.map(item => ({
+        item_id: parseInt(item.itemId),
+        item_type: item.itemType
+    }));
+    
+    // Cache operation details for potential retry
+    const operationDetails = {
+        type: 'bulkMove',
+        params: { targetListId, sourceListId, items }
+    };
+    operationCache.lastOperation = operationDetails;
+    
+    // Log operation start
+    logOperation('BULK_MOVE_START', {
+        sourceListId,
+        targetListId,
+        itemCount: items.length
+    });
+    
+    try {
+        const itemCount = items.length;
+        showLoading(`Moving ${itemCount} item${itemCount !== 1 ? 's' : ''}...`);
+        
+        const response = await fetch(`${API_BASE}/lists/bulk-operation`, {
+            method: 'POST',
+            headers: getAuthHeaders(),
+            body: JSON.stringify({
+                operation: 'move',
+                source_list_id: sourceListId,
+                target_list_id: targetListId,
+                items: items
+            })
+        });
+        
+        hideLoading();
+        
+        if (response.ok) {
+            const result = await response.json();
+            
+            // Log success
+            logOperation('BULK_MOVE_SUCCESS', operationDetails.params, result);
+            
+            // Reset retry count on success
+            operationCache.retryCount = 0;
+            operationCache.lastOperation = null;
+            
+            // Store undo data for this bulk move operation
+            undoMoveData = {
+                sourceListId: sourceListId,
+                targetListId: targetListId,
+                items: items
+            };
+            
+            // Clear any existing undo timeout
+            if (undoTimeout) {
+                clearTimeout(undoTimeout);
+            }
+            
+            // Set timeout to clear undo data after 10 seconds
+            undoTimeout = setTimeout(() => {
+                undoMoveData = null;
+                undoTimeout = null;
+            }, 10000);
+            
+            let message = `${result.items_affected} items moved successfully`;
+            if (result.duplicates_skipped > 0) {
+                message += ` (${result.duplicates_skipped} duplicates skipped)`;
+            }
+            
+            // Check for partial failures
+            if (result.errors && result.errors.length > 0) {
+                message += `\n⚠️ ${result.errors.length} items failed`;
+                console.warn('Bulk move partial failures:', result.errors);
+                
+                // Show warning instead of success for partial failures
+                showWarning(`${message}. Check console for details.`);
+            } else {
+                showSuccess(message, {
+                    showUndo: true,
+                    onUndo: () => undoMoveOperation(undoMoveData),
+                    duration: 10000
+                });
+            }
+            
+            // Exit bulk selection mode
+            exitBulkSelectionMode();
+            
+            // Reload watchlist
+            loadWatchlist();
+        } else {
+            const error = await response.json();
+            const errorInfo = categorizeError(new Error(error.detail || 'Failed to move items'), response);
+            
+            // Log error
+            logOperation('BULK_MOVE_ERROR', operationDetails.params, null, new Error(errorInfo.message));
+            
+            // Show error with retry if recoverable
+            if (errorInfo.recoverable && operationCache.retryCount < operationCache.maxRetries) {
+                showErrorWithRetry(errorInfo.message, operationDetails, errorInfo.type);
+            } else {
+                showError(errorInfo.message);
+                operationCache.retryCount = 0;
+                operationCache.lastOperation = null;
+            }
+        }
+    } catch (error) {
+        hideLoading();
+        
+        // Log error
+        logOperation('BULK_MOVE_EXCEPTION', operationDetails.params, null, error);
+        
+        // Categorize error
+        const errorInfo = categorizeError(error);
+        
+        // Show error with retry if recoverable
+        if (errorInfo.recoverable && operationCache.retryCount < operationCache.maxRetries) {
+            showErrorWithRetry(errorInfo.message, operationDetails, errorInfo.type);
+        } else {
+            showError(errorInfo.message);
+            operationCache.retryCount = 0;
+            operationCache.lastOperation = null;
+        }
+    }
+}
+
+// Force rebuild Thu Sep  4 16:07:12 EDT 2025

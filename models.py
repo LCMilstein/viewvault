@@ -178,6 +178,26 @@ class ListItemUpdate(SQLModel):
     watched_by: Optional[str] = None
     notes: Optional[str] = None
 
+class ListItemCopy(SQLModel):
+    target_list_id: int
+    item_type: str  # "movie", "series", "collection"
+    preserve_metadata: bool = True
+
+class ListItemMove(SQLModel):
+    target_list_id: int
+    item_type: str  # "movie", "series", "collection"
+
+class BulkOperationItem(SQLModel):
+    item_id: int
+    item_type: str  # "movie", "series", "collection"
+
+class BulkOperation(SQLModel):
+    operation: str  # "copy" or "move"
+    source_list_id: int
+    target_list_id: int
+    items: list[BulkOperationItem]
+    preserve_metadata: bool = True  # Only used for copy operations
+
 class LibraryImportHistory(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     user_id: int = Field(foreign_key="user.id")

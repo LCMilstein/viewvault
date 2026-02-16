@@ -11,8 +11,8 @@ from fastapi import FastAPI, status, HTTPException, Query, Request, Depends, API
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
 from fastapi.middleware.cors import CORSMiddleware
-from sqlmodel import SQLModel, Session, select, text, update
-from models import Series, Episode, Movie, MovieCreate, SeriesCreate, EpisodeCreate, User, UserCreate, UserLogin, Token, List, ListItem, ListPermission, ListCreate, ListUpdate, ListItemAdd, ListItemUpdate, ChangePassword, LibraryImportHistory, VerifyEmailRequest, ResendVerificationRequest
+from sqlmodel import SQLModel, Session, select, text, update, func
+from models import Series, Episode, Movie, MovieCreate, SeriesCreate, EpisodeCreate, User, UserCreate, UserLogin, Token, List, ListItem, ListPermission, ListCreate, ListUpdate, ListItemAdd, ListItemUpdate, ListItemCopy, ListItemMove, BulkOperation, BulkOperationItem, ChangePassword, LibraryImportHistory, VerifyEmailRequest, ResendVerificationRequest
 from security import get_current_user, get_current_admin_user, authenticate_user, create_access_token, get_password_hash, ACCESS_TOKEN_EXPIRE_MINUTES
 from auth0_bridge import auth0_bridge
 from email_service import email_service
@@ -183,6 +183,11 @@ async def lifespan(app: FastAPI):
         run_database_migration()
         fix_hashed_password_constraint()
         logger.info("Database migrations completed")
+        
+        # Run performance optimizations
+        from database_performance_migration import run_performance_migration
+        run_performance_migration()
+        logger.info("Performance optimizations completed")
     except Exception as e:
         logger.error(f"Error in lifespan: {e}")
         import traceback
@@ -4935,6 +4940,856 @@ def remove_item_from_list(
     except Exception as e:
         print(f"Error removing item from list: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to remove item from list: {str(e)}")
+
+def expand_collection_items(collection_id: int, user_id: int, session: Session):
+    """
+    Get all movies in a collection for a specific user.
+    Returns a list of movie IDs.
+    Optimized with single query.
+    """
+    movies = session.exec(
+        select(Movie.id).where(
+            Movie.collection_id == collection_id,
+            Movie.user_id == user_id,
+            Movie.deleted == False
+        )
+    ).all()
+    return list(movies)
+
+
+def expand_series_items(series_id: int, session: Session):
+    """
+    Get series and all episodes for a specific series.
+    Returns a tuple of (series_id, list of episode IDs).
+    Optimized with single query selecting only IDs.
+    """
+    episodes = session.exec(
+        select(Episode.id).where(
+            Episode.series_id == series_id,
+            Episode.deleted == False
+        )
+    ).all()
+    return (series_id, list(episodes))
+
+
+@api_router.get("/lists/{source_list_id}/available-targets")
+def get_available_target_lists(
+    source_list_id: int,
+    current_user: User = Depends(get_current_user),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100)
+):
+    """Get available target lists for copy/move operations with pagination"""
+    try:
+        with Session(engine) as session:
+            # Validate source list exists (can be "personal" or numeric ID)
+            if source_list_id != "personal":
+                source_list = session.exec(
+                    select(List).where(
+                        List.id == source_list_id,
+                        List.deleted == False
+                    )
+                ).first()
+                
+                if not source_list:
+                    raise HTTPException(status_code=404, detail="Source list not found")
+                
+                # Check if user has access to source list
+                if source_list.user_id != current_user.id:
+                    shared_access = session.exec(
+                        select(ListPermission).where(
+                            ListPermission.list_id == source_list_id,
+                            ListPermission.shared_with_user_id == current_user.id,
+                            ListPermission.deleted == False
+                        )
+                    ).first()
+                    
+                    if not shared_access:
+                        raise HTTPException(status_code=403, detail="Access denied to source list")
+            
+            # Get all lists owned by current user (excluding source list)
+            user_lists = session.exec(
+                select(List).where(
+                    List.user_id == current_user.id,
+                    List.deleted == False
+                )
+            ).all()
+            
+            # Get shared lists where user has edit permission (excluding source list)
+            shared_lists_query = session.exec(
+                select(List).join(
+                    ListPermission,
+                    List.id == ListPermission.list_id
+                ).where(
+                    ListPermission.shared_with_user_id == current_user.id,
+                    ListPermission.permission_level == "edit",
+                    ListPermission.deleted == False,
+                    List.deleted == False
+                )
+            ).all()
+            
+            # Combine all lists
+            all_lists_data = []
+            list_ids = []
+            
+            # Collect user's own lists
+            for user_list in user_lists:
+                # Skip source list
+                if str(user_list.id) == str(source_list_id):
+                    continue
+                
+                all_lists_data.append({
+                    "id": user_list.id,
+                    "name": user_list.name,
+                    "icon": user_list.icon or "📋",
+                    "color": user_list.color or "#007AFF",
+                    "updated_at": user_list.updated_at
+                })
+                list_ids.append(user_list.id)
+            
+            # Collect shared lists with edit permission
+            for shared_list in shared_lists_query:
+                # Skip source list
+                if str(shared_list.id) == str(source_list_id):
+                    continue
+                
+                all_lists_data.append({
+                    "id": shared_list.id,
+                    "name": shared_list.name,
+                    "icon": shared_list.icon or "🔗",
+                    "color": shared_list.color or "#007AFF",
+                    "updated_at": shared_list.updated_at
+                })
+                list_ids.append(shared_list.id)
+            
+            # PERFORMANCE OPTIMIZATION: Batch fetch item counts for all lists
+            from sqlalchemy import func
+            if list_ids:
+                item_counts_query = session.exec(
+                    select(
+                        ListItem.list_id,
+                        func.count(ListItem.id).label('count')
+                    ).where(
+                        ListItem.list_id.in_(list_ids),
+                        ListItem.deleted == False
+                    ).group_by(ListItem.list_id)
+                ).all()
+                
+                # Create lookup dict for item counts
+                item_counts_map = {list_id: count for list_id, count in item_counts_query}
+            else:
+                item_counts_map = {}
+            
+            # Add item counts to list data
+            for list_data in all_lists_data:
+                list_data["item_count"] = item_counts_map.get(list_data["id"], 0)
+            
+            # Sort lists by most recently updated
+            all_lists_data.sort(key=lambda x: x["updated_at"], reverse=True)
+            
+            # Calculate pagination
+            total_lists = len(all_lists_data)
+            total_pages = (total_lists + page_size - 1) // page_size
+            start_idx = (page - 1) * page_size
+            end_idx = start_idx + page_size
+            
+            # Get paginated slice
+            paginated_lists = all_lists_data[start_idx:end_idx]
+            
+            # Remove updated_at from response (used only for sorting)
+            for list_item in paginated_lists:
+                del list_item["updated_at"]
+            
+            return {
+                "lists": paginated_lists,
+                "pagination": {
+                    "page": page,
+                    "page_size": page_size,
+                    "total_lists": total_lists,
+                    "total_pages": total_pages,
+                    "has_more": page < total_pages
+                }
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting available target lists: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get available target lists: {str(e)}")
+
+
+@api_router.post("/lists/{source_list_id}/items/{item_id}/copy")
+def copy_item_to_list(
+    source_list_id: int,
+    item_id: int,
+    copy_data: ListItemCopy,
+    current_user: User = Depends(get_current_user)
+):
+    """Copy an item from one list to another"""
+    try:
+        with Session(engine) as session:
+            # Validate source list exists and user has access
+            source_list = session.exec(
+                select(List).where(
+                    List.id == source_list_id,
+                    List.deleted == False
+                )
+            ).first()
+            
+            if not source_list:
+                raise HTTPException(status_code=404, detail="Source list not found")
+            
+            # Check if user owns the source list or has shared access
+            if source_list.user_id != current_user.id:
+                shared_access = session.exec(
+                    select(ListPermission).where(
+                        ListPermission.list_id == source_list_id,
+                        ListPermission.shared_with_user_id == current_user.id,
+                        ListPermission.deleted == False
+                    )
+                ).first()
+                
+                if not shared_access:
+                    raise HTTPException(status_code=403, detail="Access denied to source list")
+            
+            # Validate target list exists and user has edit permission
+            target_list = session.exec(
+                select(List).where(
+                    List.id == copy_data.target_list_id,
+                    List.deleted == False
+                )
+            ).first()
+            
+            if not target_list:
+                raise HTTPException(status_code=404, detail="Target list not found")
+            
+            # Check if user owns the target list or has edit permission
+            has_target_access = False
+            if target_list.user_id == current_user.id:
+                has_target_access = True
+            else:
+                shared_access = session.exec(
+                    select(ListPermission).where(
+                        ListPermission.list_id == copy_data.target_list_id,
+                        ListPermission.shared_with_user_id == current_user.id,
+                        ListPermission.permission_level == "edit",
+                        ListPermission.deleted == False
+                    )
+                ).first()
+                
+                if shared_access:
+                    has_target_access = True
+            
+            if not has_target_access:
+                raise HTTPException(status_code=403, detail="Access denied to target list")
+            
+            # Validate item type
+            if copy_data.item_type not in ["movie", "series", "collection"]:
+                raise HTTPException(status_code=400, detail="Invalid item type")
+            
+            # Find the source list item
+            source_item = session.exec(
+                select(ListItem).where(
+                    ListItem.list_id == source_list_id,
+                    ListItem.item_id == item_id,
+                    ListItem.item_type == copy_data.item_type,
+                    ListItem.deleted == False
+                )
+            ).first()
+            
+            if not source_item:
+                raise HTTPException(status_code=404, detail="Item not found in source list")
+            
+            # Expand collections and series
+            items_to_copy = []
+            
+            if copy_data.item_type == "collection":
+                # Get all movies in the collection
+                movie_ids = expand_collection_items(item_id, current_user.id, session)
+                for movie_id in movie_ids:
+                    items_to_copy.append({
+                        "item_type": "movie",
+                        "item_id": movie_id
+                    })
+            elif copy_data.item_type == "series":
+                # Add the series itself and all episodes
+                items_to_copy.append({
+                    "item_type": "series",
+                    "item_id": item_id
+                })
+                # Get all episodes for the series
+                _, episode_ids = expand_series_items(item_id, session)
+                for episode_id in episode_ids:
+                    items_to_copy.append({
+                        "item_type": "episode",
+                        "item_id": episode_id
+                    })
+            else:
+                # Single movie or other item type
+                items_to_copy.append({
+                    "item_type": copy_data.item_type,
+                    "item_id": item_id
+                })
+            
+            # Copy all items
+            items_copied = 0
+            duplicates_found = 0
+            
+            for item in items_to_copy:
+                # Check for duplicate in target list
+                existing_item = session.exec(
+                    select(ListItem).where(
+                        ListItem.list_id == copy_data.target_list_id,
+                        ListItem.item_id == item["item_id"],
+                        ListItem.item_type == item["item_type"],
+                        ListItem.deleted == False
+                    )
+                ).first()
+                
+                if existing_item:
+                    duplicates_found += 1
+                    continue
+                
+                # Get source item metadata for this specific item
+                item_source = session.exec(
+                    select(ListItem).where(
+                        ListItem.list_id == source_list_id,
+                        ListItem.item_id == item["item_id"],
+                        ListItem.item_type == item["item_type"],
+                        ListItem.deleted == False
+                    )
+                ).first()
+                
+                # Preserve metadata from source if available, otherwise use defaults
+                watched = False
+                watched_by = "you"
+                watched_at = None
+                notes = None
+                
+                if item_source and copy_data.preserve_metadata:
+                    watched = item_source.watched
+                    watched_by = item_source.watched_by
+                    watched_at = item_source.watched_at
+                    notes = item_source.notes
+                
+                # Create new list item in target list
+                new_item = ListItem(
+                    list_id=copy_data.target_list_id,
+                    item_type=item["item_type"],
+                    item_id=item["item_id"],
+                    watched=watched,
+                    watched_by=watched_by,
+                    watched_at=watched_at,
+                    notes=notes,
+                    added_at=datetime.now(timezone.utc)
+                )
+                
+                session.add(new_item)
+                items_copied += 1
+            
+            session.commit()
+            
+            # Build response message
+            if duplicates_found > 0:
+                message = f"{items_copied} item(s) copied to '{target_list.name}' ({duplicates_found} duplicate(s) skipped)"
+            else:
+                message = f"{items_copied} item(s) copied to '{target_list.name}' successfully"
+            
+            return {
+                "success": True,
+                "message": message,
+                "duplicate": duplicates_found > 0,
+                "items_affected": items_copied
+            }
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error copying item to list: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to copy item: {str(e)}")
+
+@api_router.post("/lists/{source_list_id}/items/{item_id}/move")
+def move_item_to_list(
+    source_list_id: int,
+    item_id: int,
+    move_data: ListItemMove,
+    current_user: User = Depends(get_current_user)
+):
+    """Move an item from one list to another"""
+    try:
+        with Session(engine) as session:
+            # Begin transaction
+            session.begin()
+            
+            try:
+                # Validate source list exists and user has access
+                source_list = session.exec(
+                    select(List).where(
+                        List.id == source_list_id,
+                        List.deleted == False
+                    )
+                ).first()
+                
+                if not source_list:
+                    raise HTTPException(status_code=404, detail="Source list not found")
+                
+                # Check if user owns the source list or has shared access
+                if source_list.user_id != current_user.id:
+                    shared_access = session.exec(
+                        select(ListPermission).where(
+                            ListPermission.list_id == source_list_id,
+                            ListPermission.shared_with_user_id == current_user.id,
+                            ListPermission.deleted == False
+                        )
+                    ).first()
+                    
+                    if not shared_access:
+                        raise HTTPException(status_code=403, detail="Access denied to source list")
+                
+                # Validate target list exists and user has edit permission
+                target_list = session.exec(
+                    select(List).where(
+                        List.id == move_data.target_list_id,
+                        List.deleted == False
+                    )
+                ).first()
+                
+                if not target_list:
+                    raise HTTPException(status_code=404, detail="Target list not found")
+                
+                # Check if user owns the target list or has edit permission
+                has_target_access = False
+                if target_list.user_id == current_user.id:
+                    has_target_access = True
+                else:
+                    shared_access = session.exec(
+                        select(ListPermission).where(
+                            ListPermission.list_id == move_data.target_list_id,
+                            ListPermission.shared_with_user_id == current_user.id,
+                            ListPermission.permission_level == "edit",
+                            ListPermission.deleted == False
+                        )
+                    ).first()
+                    
+                    if shared_access:
+                        has_target_access = True
+                
+                if not has_target_access:
+                    raise HTTPException(status_code=403, detail="Access denied to target list")
+                
+                # Validate item type
+                if move_data.item_type not in ["movie", "series", "collection"]:
+                    raise HTTPException(status_code=400, detail="Invalid item type")
+                
+                # Find the source list item
+                source_item = session.exec(
+                    select(ListItem).where(
+                        ListItem.list_id == source_list_id,
+                        ListItem.item_id == item_id,
+                        ListItem.item_type == move_data.item_type,
+                        ListItem.deleted == False
+                    )
+                ).first()
+                
+                if not source_item:
+                    raise HTTPException(status_code=404, detail="Item not found in source list")
+                
+                # Expand collections and series
+                items_to_move = []
+                
+                if move_data.item_type == "collection":
+                    # Get all movies in the collection
+                    movie_ids = expand_collection_items(item_id, current_user.id, session)
+                    for movie_id in movie_ids:
+                        items_to_move.append({
+                            "item_type": "movie",
+                            "item_id": movie_id
+                        })
+                elif move_data.item_type == "series":
+                    # Add the series itself and all episodes
+                    items_to_move.append({
+                        "item_type": "series",
+                        "item_id": item_id
+                    })
+                    # Get all episodes for the series
+                    _, episode_ids = expand_series_items(item_id, session)
+                    for episode_id in episode_ids:
+                        items_to_move.append({
+                            "item_type": "episode",
+                            "item_id": episode_id
+                        })
+                else:
+                    # Single movie or other item type
+                    items_to_move.append({
+                        "item_type": move_data.item_type,
+                        "item_id": item_id
+                    })
+                
+                # Move all items
+                items_moved = 0
+                duplicates_removed = 0
+                
+                for item in items_to_move:
+                    # Get source item for this specific item
+                    item_source = session.exec(
+                        select(ListItem).where(
+                            ListItem.list_id == source_list_id,
+                            ListItem.item_id == item["item_id"],
+                            ListItem.item_type == item["item_type"],
+                            ListItem.deleted == False
+                        )
+                    ).first()
+                    
+                    if not item_source:
+                        # Item not in source list, skip
+                        continue
+                    
+                    # Check for duplicate in target list
+                    existing_item = session.exec(
+                        select(ListItem).where(
+                            ListItem.list_id == move_data.target_list_id,
+                            ListItem.item_id == item["item_id"],
+                            ListItem.item_type == item["item_type"],
+                            ListItem.deleted == False
+                        )
+                    ).first()
+                    
+                    if existing_item:
+                        # Duplicate exists - just remove from source
+                        item_source.deleted = True
+                        session.add(item_source)
+                        duplicates_removed += 1
+                    else:
+                        # Create new list item in target list
+                        new_item = ListItem(
+                            list_id=move_data.target_list_id,
+                            item_type=item["item_type"],
+                            item_id=item["item_id"],
+                            watched=item_source.watched,
+                            watched_by=item_source.watched_by,
+                            watched_at=item_source.watched_at,
+                            notes=item_source.notes,
+                            added_at=datetime.now(timezone.utc)
+                        )
+                        
+                        session.add(new_item)
+                        
+                        # Soft delete from source list
+                        item_source.deleted = True
+                        session.add(item_source)
+                        items_moved += 1
+                
+                # Commit transaction
+                session.commit()
+                
+                # Build response message
+                if duplicates_removed > 0:
+                    message = f"{items_moved} item(s) moved to '{target_list.name}' ({duplicates_removed} duplicate(s) removed from source)"
+                else:
+                    message = f"{items_moved} item(s) moved to '{target_list.name}' successfully"
+                
+                return {
+                    "success": True,
+                    "message": message,
+                    "duplicate": duplicates_removed > 0,
+                    "items_affected": items_moved + duplicates_removed
+                }
+                
+            except HTTPException:
+                # Rollback on HTTP exceptions
+                session.rollback()
+                raise
+            except Exception as e:
+                # Rollback on any other error
+                session.rollback()
+                logger.error(f"Error moving item to list: {e}")
+                raise HTTPException(status_code=500, detail=f"Failed to move item: {str(e)}")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in move operation: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to move item: {str(e)}")
+
+@api_router.post("/lists/bulk-operation")
+def bulk_copy_move_operation(
+    bulk_data: BulkOperation,
+    current_user: User = Depends(get_current_user)
+):
+    """Perform bulk copy or move operations on multiple items"""
+    try:
+        # Validate operation type
+        if bulk_data.operation not in ["copy", "move"]:
+            raise HTTPException(status_code=400, detail="Operation must be 'copy' or 'move'")
+        
+        # Validate items array is not empty
+        if not bulk_data.items or len(bulk_data.items) == 0:
+            raise HTTPException(status_code=400, detail="Items array cannot be empty")
+        
+        with Session(engine) as session:
+            # Begin transaction for entire bulk operation
+            session.begin()
+            
+            try:
+                # Validate source list exists and user has access
+                source_list = session.exec(
+                    select(List).where(
+                        List.id == bulk_data.source_list_id,
+                        List.deleted == False
+                    )
+                ).first()
+                
+                if not source_list:
+                    raise HTTPException(status_code=404, detail="Source list not found")
+                
+                # Check if user owns the source list or has shared access
+                if source_list.user_id != current_user.id:
+                    shared_access = session.exec(
+                        select(ListPermission).where(
+                            ListPermission.list_id == bulk_data.source_list_id,
+                            ListPermission.shared_with_user_id == current_user.id,
+                            ListPermission.deleted == False
+                        )
+                    ).first()
+                    
+                    if not shared_access:
+                        raise HTTPException(status_code=403, detail="Access denied to source list")
+                
+                # Validate target list exists and user has edit permission
+                target_list = session.exec(
+                    select(List).where(
+                        List.id == bulk_data.target_list_id,
+                        List.deleted == False
+                    )
+                ).first()
+                
+                if not target_list:
+                    raise HTTPException(status_code=404, detail="Target list not found")
+                
+                # Check if user owns the target list or has edit permission
+                has_target_access = False
+                if target_list.user_id == current_user.id:
+                    has_target_access = True
+                else:
+                    shared_access = session.exec(
+                        select(ListPermission).where(
+                            ListPermission.list_id == bulk_data.target_list_id,
+                            ListPermission.shared_with_user_id == current_user.id,
+                            ListPermission.permission_level == "edit",
+                            ListPermission.deleted == False
+                        )
+                    ).first()
+                    
+                    if shared_access:
+                        has_target_access = True
+                
+                if not has_target_access:
+                    raise HTTPException(status_code=403, detail="Access denied to target list")
+                
+                # Validate all items before starting operation
+                for item in bulk_data.items:
+                    if item.item_type not in ["movie", "series", "collection", "episode"]:
+                        raise HTTPException(status_code=400, detail=f"Invalid item type: {item.item_type}")
+                    
+                    # Verify item exists in source list
+                    source_item = session.exec(
+                        select(ListItem).where(
+                            ListItem.list_id == bulk_data.source_list_id,
+                            ListItem.item_id == item.item_id,
+                            ListItem.item_type == item.item_type,
+                            ListItem.deleted == False
+                        )
+                    ).first()
+                    
+                    if not source_item:
+                        raise HTTPException(
+                            status_code=404, 
+                            detail=f"Item {item.item_id} of type {item.item_type} not found in source list"
+                        )
+                
+                # Expand all items (collections and series)
+                expanded_items = []
+                for item in bulk_data.items:
+                    if item.item_type == "collection":
+                        # Get all movies in the collection
+                        movie_ids = expand_collection_items(item.item_id, current_user.id, session)
+                        for movie_id in movie_ids:
+                            expanded_items.append({
+                                "item_type": "movie",
+                                "item_id": movie_id
+                            })
+                    elif item.item_type == "series":
+                        # Add the series itself and all episodes
+                        expanded_items.append({
+                            "item_type": "series",
+                            "item_id": item.item_id
+                        })
+                        # Get all episodes for the series
+                        _, episode_ids = expand_series_items(item.item_id, session)
+                        for episode_id in episode_ids:
+                            expanded_items.append({
+                                "item_type": "episode",
+                                "item_id": episode_id
+                            })
+                    else:
+                        # Single movie, episode, or other item type
+                        expanded_items.append({
+                            "item_type": item.item_type,
+                            "item_id": item.item_id
+                        })
+                
+                # PERFORMANCE OPTIMIZATION: Batch fetch all source items and check duplicates
+                # Build list of (item_id, item_type) tuples for batch queries
+                item_keys = [(item["item_id"], item["item_type"]) for item in expanded_items]
+                
+                # Batch fetch all source items
+                source_items_query = session.exec(
+                    select(ListItem).where(
+                        ListItem.list_id == bulk_data.source_list_id,
+                        ListItem.deleted == False
+                    )
+                ).all()
+                
+                # Create lookup dict for source items
+                source_items_map = {
+                    (item.item_id, item.item_type): item 
+                    for item in source_items_query
+                }
+                
+                # Batch fetch all existing items in target list to check for duplicates
+                existing_items_query = session.exec(
+                    select(ListItem).where(
+                        ListItem.list_id == bulk_data.target_list_id,
+                        ListItem.deleted == False
+                    )
+                ).all()
+                
+                # Create set of existing (item_id, item_type) tuples for fast lookup
+                existing_items_set = {
+                    (item.item_id, item.item_type) 
+                    for item in existing_items_query
+                }
+                
+                # Process each item with batch-fetched data
+                items_affected = 0
+                duplicates_skipped = 0
+                errors = []
+                new_items_batch = []
+                items_to_delete = []
+                
+                for item in expanded_items:
+                    try:
+                        item_key = (item["item_id"], item["item_type"])
+                        
+                        # Get source item from pre-fetched map
+                        item_source = source_items_map.get(item_key)
+                        
+                        if not item_source:
+                            # Item not in source list, skip
+                            continue
+                        
+                        # Check for duplicate using pre-fetched set
+                        if item_key in existing_items_set:
+                            # Duplicate exists
+                            duplicates_skipped += 1
+                            
+                            # For move operations, mark source for deletion
+                            if bulk_data.operation == "move":
+                                items_to_delete.append(item_source)
+                                items_affected += 1
+                            
+                            continue
+                        
+                        # Prepare metadata
+                        watched = False
+                        watched_by = "you"
+                        watched_at = None
+                        notes = None
+                        
+                        if bulk_data.operation == "copy" and bulk_data.preserve_metadata:
+                            watched = item_source.watched
+                            watched_by = item_source.watched_by
+                            watched_at = item_source.watched_at
+                            notes = item_source.notes
+                        elif bulk_data.operation == "move":
+                            # Always preserve metadata for move operations
+                            watched = item_source.watched
+                            watched_by = item_source.watched_by
+                            watched_at = item_source.watched_at
+                            notes = item_source.notes
+                        
+                        # Create new list item for batch insert
+                        new_item = ListItem(
+                            list_id=bulk_data.target_list_id,
+                            item_type=item["item_type"],
+                            item_id=item["item_id"],
+                            watched=watched,
+                            watched_by=watched_by,
+                            watched_at=watched_at,
+                            notes=notes,
+                            added_at=datetime.now(timezone.utc)
+                        )
+                        
+                        new_items_batch.append(new_item)
+                        
+                        # For move operations, mark source for deletion
+                        if bulk_data.operation == "move":
+                            items_to_delete.append(item_source)
+                        
+                        items_affected += 1
+                        
+                    except Exception as item_error:
+                        # Track individual item errors but continue processing
+                        error_msg = f"Failed to {bulk_data.operation} item {item['item_id']} ({item['item_type']}): {str(item_error)}"
+                        errors.append(error_msg)
+                        logger.error(error_msg)
+                
+                # PERFORMANCE OPTIMIZATION: Batch insert all new items
+                if new_items_batch:
+                    session.add_all(new_items_batch)
+                
+                # PERFORMANCE OPTIMIZATION: Batch update deleted flags for move operations
+                if items_to_delete:
+                    for item in items_to_delete:
+                        item.deleted = True
+                    session.add_all(items_to_delete)
+                
+                # Commit transaction
+                session.commit()
+                
+                # Build response message
+                operation_verb = "copied" if bulk_data.operation == "copy" else "moved"
+                message = f"{items_affected} item(s) {operation_verb} to '{target_list.name}'"
+                
+                if duplicates_skipped > 0:
+                    message += f" ({duplicates_skipped} duplicate(s) skipped)"
+                
+                if errors:
+                    message += f" with {len(errors)} error(s)"
+                
+                return {
+                    "success": True,
+                    "message": message,
+                    "items_affected": items_affected,
+                    "duplicates_skipped": duplicates_skipped,
+                    "errors": errors
+                }
+                
+            except HTTPException:
+                # Rollback on HTTP exceptions
+                session.rollback()
+                raise
+            except Exception as e:
+                # Rollback on any other error
+                session.rollback()
+                logger.error(f"Error in bulk {bulk_data.operation} operation: {e}")
+                raise HTTPException(status_code=500, detail=f"Failed to {bulk_data.operation} items: {str(e)}")
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error in bulk operation: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to perform bulk operation: {str(e)}")
 
 @api_router.patch("/lists/{list_id}/items/{item_id}/watched")
 def toggle_item_watched_in_list(

@@ -1513,6 +1513,61 @@
 
       /* Accessible focus states */
       :focus-visible { outline: 3px solid #00d4aa; outline-offset: 2px; border-radius: 6px; }
+      
+      /* Enhanced focus styles for copy/move UI components */
+      .item-menu-btn:focus-visible {
+        outline: 3px solid #00d4aa;
+        outline-offset: 2px;
+        background: rgba(0, 212, 170, 0.1);
+      }
+      
+      .item-menu-option:focus-visible {
+        outline: 3px solid #00d4aa;
+        outline-offset: -2px;
+        background: rgba(0, 212, 170, 0.15);
+      }
+      
+      .list-option:focus-visible {
+        outline: 3px solid #00d4aa;
+        outline-offset: -2px;
+        background: rgba(0, 212, 170, 0.15);
+        transform: translateX(4px);
+      }
+      
+      .btn-create-list:focus-visible,
+      .btn-load-more:focus-visible {
+        outline: 3px solid #00d4aa;
+        outline-offset: 2px;
+      }
+      
+      .bulk-selection-mode .watchlist-row:focus-visible {
+        outline: 3px solid #00d4aa;
+        outline-offset: -2px;
+      }
+      
+      /* Ensure sufficient color contrast for WCAG AA */
+      .item-menu-option {
+        color: #333;
+        background: #fff;
+      }
+      
+      .item-menu-option:hover {
+        background: #f8f9fa;
+        color: #000;
+      }
+      
+      .list-option {
+        color: #fff;
+      }
+      
+      .list-option-name {
+        color: #fff;
+        font-weight: 600;
+      }
+      
+      .list-option-count {
+        color: rgba(255, 255, 255, 0.8);
+      }
 
       /* Respect reduced motion */
       @media (prefers-reduced-motion: reduce) {
@@ -2399,6 +2454,168 @@
         box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
     }
 
+    /* List Selector Modal Styles */
+    .list-selector-modal {
+        max-width: 500px;
+        width: 90%;
+    }
+
+    .list-options {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 4px;
+    }
+
+    .list-option {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 16px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .list-option:hover {
+        background: rgba(255, 255, 255, 0.1);
+        border-color: rgba(0, 212, 170, 0.5);
+        /* PERFORMANCE: Using transform for better animation performance */
+        transform: translateX(4px);
+        transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+    }
+
+    .list-option-icon {
+        font-size: 1.8em;
+        width: 40px;
+        height: 40px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.1);
+        flex-shrink: 0;
+    }
+
+    .list-option-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .list-option-name {
+        color: #ffffff;
+        font-size: 1.1em;
+        font-weight: 600;
+        margin: 0 0 4px 0;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .list-option-count {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 0.9em;
+        margin: 0;
+    }
+
+    .create-new-option {
+        margin-top: 12px;
+        padding-top: 12px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-create-list {
+        width: 100%;
+        padding: 14px;
+        background: rgba(0, 212, 170, 0.2);
+        border: 2px dashed rgba(0, 212, 170, 0.5);
+        color: #00d4aa;
+        border-radius: 12px;
+        font-size: 1em;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+    }
+
+    .btn-create-list:hover {
+        background: rgba(0, 212, 170, 0.3);
+        border-color: #00d4aa;
+        transform: translateY(-2px);
+    }
+
+    .list-selector-loading {
+        text-align: center;
+        padding: 40px 20px;
+        color: rgba(255, 255, 255, 0.6);
+    }
+
+    .list-selector-loading .spinner {
+        display: inline-block;
+        width: 40px;
+        height: 40px;
+        border: 4px solid rgba(255, 255, 255, 0.1);
+        border-top-color: #00d4aa;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        margin-bottom: 16px;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    .list-options::-webkit-scrollbar {
+        width: 8px;
+    }
+
+    .list-options::-webkit-scrollbar-track {
+        background: rgba(255, 255, 255, 0.05);
+        border-radius: 4px;
+    }
+
+    .list-options::-webkit-scrollbar-thumb {
+        background: rgba(0, 212, 170, 0.3);
+        border-radius: 4px;
+    }
+
+    .list-options::-webkit-scrollbar-thumb:hover {
+        background: rgba(0, 212, 170, 0.5);
+    }
+
+    /* PERFORMANCE: Pagination controls for large list sets */
+    .list-selector-pagination {
+        padding: 16px;
+        text-align: center;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .list-selector-pagination p {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 0.9em;
+        margin-bottom: 12px;
+    }
+
+    .btn-load-more {
+        background: rgba(0, 212, 170, 0.1);
+        color: #00d4aa;
+        border: 1px solid rgba(0, 212, 170, 0.3);
+        padding: 10px 20px;
+        border-radius: 8px;
+        cursor: pointer;
+        font-size: 0.95em;
+        transition: all 0.2s ease;
+    }
+
+    .btn-load-more:hover {
+        background: rgba(0, 212, 170, 0.2);
+        border-color: #00d4aa;
+        transform: translateY(-2px);
+    }
+
     /* Modal responsive design */
     @media (max-width: 768px) {
         .form-layout {
@@ -2426,6 +2643,14 @@
         
         .modal-buttons .btn {
             width: 100%;
+        }
+
+        .list-selector-modal {
+            max-width: 95%;
+        }
+
+        .list-options {
+            max-height: 60vh;
         }
     }
 
@@ -2764,8 +2989,6 @@
         border-color: #ff5252;
         transform: translateY(-1px);
     }
-        padding-bottom: 8px;
-    }
 
     .info-row {
         display: flex;
@@ -2832,6 +3055,780 @@
 
     .auth0-section .info-text {
         color: #b8e6d9;
+    }
+
+    /* Item Menu Component Styles */
+    .item-menu-btn {
+        background: none;
+        border: none;
+        color: #6c757d;
+        cursor: pointer;
+        font-size: 18px;
+        padding: 8px;
+        border-radius: 4px;
+        transition: all 0.2s;
+        min-width: 44px;
+        min-height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        margin-left: 8px;
+        -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+    }
+
+    .item-menu-btn:hover {
+        background: rgba(0, 0, 0, 0.05);
+        color: #333;
+    }
+
+    .item-menu-btn:active {
+        background: rgba(0, 0, 0, 0.1);
+        transform: scale(0.95);
+    }
+
+    .item-menu-dropdown {
+        position: absolute;
+        right: 10px;
+        background: white;
+        border: 1px solid #e9ecef;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+        min-width: 200px;
+        z-index: 1000;
+        display: none;
+        padding: 8px 0;
+    }
+
+    .item-menu-dropdown.show {
+        display: block;
+    }
+
+    .item-menu-option {
+        padding: 14px 20px;
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        transition: background-color 0.2s;
+        color: #333;
+        font-weight: 500;
+        white-space: nowrap;
+        font-size: 15px;
+        min-height: 48px;
+        -webkit-tap-highlight-color: rgba(0, 0, 0, 0.05);
+    }
+
+    .item-menu-option:hover {
+        background-color: #f8f9fa;
+    }
+
+    .item-menu-option:active {
+        background-color: #e9ecef;
+    }
+
+    .item-menu-option.danger {
+        color: #dc3545;
+    }
+
+    .item-menu-option.danger:hover {
+        background-color: #f8d7da;
+    }
+
+    .item-menu-option.danger:active {
+        background-color: #f5c6cb;
+    }
+
+    .item-menu-option span {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 24px;
+        height: 24px;
+        font-size: 18px;
+        flex-shrink: 0;
+    }
+
+    .item-menu-option:disabled,
+    .item-menu-option.disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
+
+    .item-menu-btn:disabled,
+    .item-menu-btn[aria-busy="true"] {
+        opacity: 0.7;
+        cursor: wait;
+    }
+
+    .item-menu-btn .spinner {
+        display: inline-block;
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(0, 0, 0, 0.1);
+        border-top-color: #333;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    /* Bulk Selection Mode Styles */
+    .bulk-selection-mode .watchlist-row {
+        cursor: pointer;
+        transition: all 0.2s ease;
+        -webkit-tap-highlight-color: rgba(0, 212, 170, 0.1);
+    }
+
+    .bulk-selection-mode .watchlist-row:hover {
+        background: rgba(0, 212, 170, 0.08) !important;
+    }
+
+    .bulk-selection-mode .watchlist-row:active {
+        background: rgba(0, 212, 170, 0.12) !important;
+    }
+
+    .watchlist-row.selected {
+        background: rgba(0, 212, 170, 0.15) !important;
+        border-left-color: #00d4aa !important;
+        box-shadow: 0 0 0 2px rgba(0, 212, 170, 0.3) !important;
+    }
+
+    .watchlist-row.selected::before {
+        content: '✓';
+        position: absolute;
+        left: 8px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #00d4aa;
+        font-size: 20px;
+        font-weight: bold;
+        z-index: 10;
+        background: rgba(255, 255, 255, 0.9);
+        border-radius: 50%;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .bulk-selection-mode .watchlist-row {
+        position: relative;
+        padding-left: 48px;
+    }
+
+    /* Mobile-specific bulk selection enhancements */
+    @media (max-width: 768px) {
+        .watchlist-row.selected::before {
+            width: 44px;
+            height: 44px;
+            font-size: 24px;
+            left: 4px;
+        }
+
+        .bulk-selection-mode .watchlist-row {
+            padding-left: 56px;
+            min-height: 60px;
+        }
+    }
+
+    .bulk-action-bar {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+        border-top: 2px solid #00d4aa;
+        box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
+        padding: 16px 20px;
+        display: none;
+        align-items: center;
+        justify-content: space-between;
+        z-index: 999;
+        backdrop-filter: blur(10px);
+    }
+
+    .bulk-action-bar.show {
+        display: flex;
+    }
+
+    .bulk-selection-info {
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: 600;
+    }
+
+    .bulk-selection-count {
+        color: #00d4aa;
+        font-size: 18px;
+        font-weight: 700;
+    }
+
+    .bulk-actions {
+        display: flex;
+        gap: 12px;
+        align-items: center;
+    }
+
+    .btn-bulk-action {
+        padding: 12px 20px;
+        border: none;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        min-height: 48px;
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .btn-bulk-copy {
+        background: linear-gradient(90deg, #00d4aa 0%, #00b894 100%);
+        color: white;
+    }
+
+    .btn-bulk-copy:hover {
+        background: linear-gradient(90deg, #00b894 0%, #009977 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(0, 212, 170, 0.3);
+    }
+
+    .btn-bulk-copy:active {
+        background: linear-gradient(90deg, #009977 0%, #008866 100%);
+        transform: scale(0.98);
+    }
+
+    .btn-bulk-move {
+        background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+        color: white;
+    }
+
+    .btn-bulk-move:hover {
+        background: linear-gradient(90deg, #5568d3 0%, #653a8f 100%);
+        transform: translateY(-2px);
+        box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+    }
+
+    .btn-bulk-move:active {
+        background: linear-gradient(90deg, #4a5bc4 0%, #5a3380 100%);
+        transform: scale(0.98);
+    }
+
+    .btn-bulk-cancel {
+        background: rgba(255, 255, 255, 0.1);
+        color: #ffffff;
+        border: 1px solid rgba(255, 255, 255, 0.2);
+    }
+
+    .btn-bulk-cancel:hover {
+        background: rgba(255, 255, 255, 0.2);
+        border-color: rgba(255, 255, 255, 0.3);
+    }
+
+    .btn-bulk-cancel:active {
+        background: rgba(255, 255, 255, 0.15);
+        transform: scale(0.98);
+    }
+
+    .btn-select-items {
+        background: rgba(0, 212, 170, 0.2);
+        border: 2px solid rgba(0, 212, 170, 0.5);
+        color: #00d4aa;
+        padding: 8px 16px;
+        border-radius: 8px;
+        font-size: 14px;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.3s ease;
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .btn-select-items:hover {
+        background: rgba(0, 212, 170, 0.3);
+        border-color: #00d4aa;
+        transform: translateY(-2px);
+    }
+
+    .btn-select-items.active {
+        background: rgba(0, 212, 170, 0.3);
+        border-color: #00d4aa;
+    }
+
+    /* Mobile responsive adjustments for bulk selection */
+    @media (max-width: 768px) {
+        .bulk-action-bar {
+            flex-direction: column;
+            gap: 12px;
+            padding: 16px;
+        }
+
+        .bulk-actions {
+            width: 100%;
+            justify-content: space-between;
+        }
+
+        .btn-bulk-action {
+            flex: 1;
+            justify-content: center;
+            padding: 14px 16px;
+            font-size: 14px;
+            min-height: 52px;
+        }
+
+        .bulk-selection-info {
+            font-size: 15px;
+        }
+
+        .bulk-selection-count {
+            font-size: 20px;
+        }
+    }
+
+    /* Item Menu Dropdown Styles */
+    .item-menu-btn {
+        background: none;
+        border: none;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 20px;
+        cursor: pointer;
+        padding: 8px 12px;
+        border-radius: 8px;
+        transition: all 0.2s ease;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .item-menu-btn:hover {
+        background: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .item-menu-dropdown {
+        position: absolute;
+        right: 10px;
+        top: 100%;
+        margin-top: 4px;
+        background: rgba(30, 30, 50, 0.98);
+        border: 1px solid rgba(255, 255, 255, 0.2);
+        border-radius: 12px;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+        z-index: 1000;
+        min-width: 180px;
+        overflow: hidden;
+        opacity: 0;
+        transform: translateY(-10px);
+        transition: opacity 0.2s ease, transform 0.2s ease;
+        pointer-events: none;
+    }
+
+    .item-menu-dropdown.show {
+        opacity: 1;
+        transform: translateY(0);
+        pointer-events: all;
+    }
+
+    .item-menu-option {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 12px 16px;
+        color: #e0e0e0;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        font-size: 14px;
+    }
+
+    .item-menu-option:hover {
+        background: rgba(0, 212, 170, 0.15);
+        color: #ffffff;
+    }
+
+    .item-menu-option.danger:hover {
+        background: rgba(255, 107, 107, 0.15);
+        color: #ff6b6b;
+    }
+
+    .item-menu-option span {
+        font-size: 16px;
+    }
+
+    /* List Selector Modal Styles */
+    .list-selector-modal {
+        max-width: 500px;
+        width: 90%;
+    }
+
+    .list-selector-loading {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+        color: rgba(255, 255, 255, 0.7);
+    }
+
+    .list-selector-loading .spinner {
+        width: 40px;
+        height: 40px;
+        border: 3px solid rgba(255, 255, 255, 0.2);
+        border-top-color: #00d4aa;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+        margin-bottom: 16px;
+    }
+
+    @keyframes spin {
+        to { transform: rotate(360deg); }
+    }
+
+    /* Global Loading Overlay */
+    .loading-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.7);
+        backdrop-filter: blur(4px);
+        display: none;
+        align-items: center;
+        justify-content: center;
+        z-index: 10001;
+    }
+
+    .loading-content {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 16px;
+        background: rgba(15, 20, 40, 0.95);
+        padding: 32px 48px;
+        border-radius: 16px;
+        border: 2px solid rgba(0, 212, 170, 0.3);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    .loading-content .spinner {
+        width: 48px;
+        height: 48px;
+        border: 4px solid rgba(255, 255, 255, 0.1);
+        border-top-color: #00d4aa;
+        border-radius: 50%;
+        animation: spin 0.8s linear infinite;
+    }
+
+    .loading-message {
+        color: rgba(255, 255, 255, 0.9);
+        font-size: 16px;
+        font-weight: 500;
+        margin: 0;
+        text-align: center;
+    }
+
+    /* Success and Error Animations */
+    @keyframes successPulse {
+        0% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(40, 167, 69, 0.7);
+        }
+        50% {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 10px rgba(40, 167, 69, 0);
+        }
+        100% {
+            transform: scale(1);
+            box-shadow: 0 0 0 0 rgba(40, 167, 69, 0);
+        }
+    }
+
+    @keyframes errorShake {
+        0%, 100% { transform: translateX(0); }
+        10%, 30%, 50%, 70%, 90% { transform: translateX(-4px); }
+        20%, 40%, 60%, 80% { transform: translateX(4px); }
+    }
+
+    @keyframes checkmark {
+        0% {
+            stroke-dashoffset: 100;
+        }
+        100% {
+            stroke-dashoffset: 0;
+        }
+    }
+
+    @keyframes xmark {
+        0% {
+            stroke-dashoffset: 50;
+        }
+        100% {
+            stroke-dashoffset: 0;
+        }
+    }
+
+    .success-message.animate {
+        animation: successPulse 0.6s ease-out;
+    }
+
+    .error-message.animate {
+        animation: errorShake 0.5s ease-out;
+    }
+
+    /* Success/Error Icons */
+    .message-icon {
+        display: inline-block;
+        width: 20px;
+        height: 20px;
+        margin-right: 8px;
+        vertical-align: middle;
+    }
+
+    .message-icon svg {
+        width: 100%;
+        height: 100%;
+    }
+
+    .checkmark-icon {
+        stroke: #28a745;
+        stroke-width: 3;
+        stroke-dasharray: 100;
+        stroke-dashoffset: 100;
+        animation: checkmark 0.5s ease-out forwards;
+    }
+
+    .xmark-icon {
+        stroke: #dc3545;
+        stroke-width: 3;
+        stroke-dasharray: 50;
+        stroke-dashoffset: 50;
+        animation: xmark 0.5s ease-out forwards;
+    }
+
+    .list-options {
+        display: flex;
+        flex-direction: column;
+        gap: 12px;
+        max-height: 400px;
+        overflow-y: auto;
+        padding: 4px;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .list-option {
+        display: flex;
+        align-items: center;
+        gap: 12px;
+        padding: 18px;
+        background: rgba(255, 255, 255, 0.05);
+        border: 2px solid rgba(255, 255, 255, 0.1);
+        border-radius: 12px;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        min-height: 64px;
+        -webkit-tap-highlight-color: rgba(0, 212, 170, 0.1);
+    }
+
+    .list-option:hover {
+        background: rgba(0, 212, 170, 0.1);
+        border-color: #00d4aa;
+        transform: translateX(4px);
+    }
+
+    .list-option:active {
+        background: rgba(0, 212, 170, 0.15);
+        border-color: #00d4aa;
+        transform: scale(0.98);
+    }
+
+    .list-option-icon {
+        font-size: 24px;
+        flex-shrink: 0;
+    }
+
+    .list-option-info {
+        flex: 1;
+    }
+
+    .list-option-name {
+        color: #ffffff;
+        font-size: 16px;
+        font-weight: 500;
+        margin: 0 0 4px 0;
+    }
+
+    .list-option-count {
+        color: rgba(255, 255, 255, 0.6);
+        font-size: 13px;
+        margin: 0;
+    }
+
+    .create-new-option {
+        margin-top: 16px;
+        padding-top: 16px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+    }
+
+    .btn-create-list {
+        width: 100%;
+        padding: 16px;
+        background: rgba(0, 212, 170, 0.1);
+        border: 2px dashed rgba(0, 212, 170, 0.4);
+        border-radius: 12px;
+        color: #00d4aa;
+        font-size: 15px;
+        font-weight: 500;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        min-height: 56px;
+        -webkit-tap-highlight-color: rgba(0, 212, 170, 0.1);
+    }
+
+    .btn-create-list:hover {
+        background: rgba(0, 212, 170, 0.2);
+        border-color: #00d4aa;
+        transform: translateY(-2px);
+    }
+
+    .btn-create-list:active {
+        background: rgba(0, 212, 170, 0.25);
+        border-color: #00d4aa;
+        transform: scale(0.98);
+    }
+
+    /* Mobile-specific list selector styles */
+    @media (max-width: 768px) {
+        .list-selector-modal {
+            max-width: 95%;
+            max-height: 85vh;
+        }
+
+        .list-options {
+            max-height: 50vh;
+        }
+
+        .list-option {
+            padding: 20px;
+            min-height: 72px;
+        }
+
+        .list-option-icon {
+            font-size: 28px;
+        }
+
+        .list-option-name {
+            font-size: 17px;
+        }
+
+        .list-option-count {
+            font-size: 14px;
+        }
+
+        .btn-create-list {
+            padding: 18px;
+            font-size: 16px;
+            min-height: 60px;
+        }
+
+        /* Mobile touch enhancements for item menu */
+        .item-menu-btn {
+            min-width: 48px;
+            min-height: 48px;
+            padding: 10px;
+        }
+
+        .item-menu-dropdown {
+            min-width: 220px;
+            padding: 10px 0;
+        }
+
+        .item-menu-option {
+            padding: 16px 22px;
+            min-height: 52px;
+            font-size: 16px;
+        }
+
+        .item-menu-option span {
+            width: 26px;
+            height: 26px;
+            font-size: 20px;
+        }
+    }
+
+    /* General mobile touch feedback */
+    @media (hover: none) and (pointer: coarse) {
+        /* Remove hover effects on touch devices */
+        .item-menu-btn:hover {
+            background: none;
+        }
+
+        .item-menu-option:hover {
+            background-color: transparent;
+        }
+
+        .list-option:hover {
+            background: rgba(255, 255, 255, 0.05);
+            transform: none;
+        }
+
+        .btn-create-list:hover {
+            background: rgba(0, 212, 170, 0.1);
+            transform: none;
+        }
+
+        /* Enhance active states for touch */
+        button:active,
+        .btn:active {
+            opacity: 0.8;
+        }
+    }
+
+    /* Watchlist row touch feedback */
+    .watchlist-row {
+        -webkit-tap-highlight-color: rgba(0, 212, 170, 0.05);
+    }
+
+    .watchlist-row:active {
+        background: rgba(0, 212, 170, 0.05) !important;
+    }
+
+    /* Modal overlay touch improvements */
+    .modal-overlay {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    .modal {
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Prevent text selection during long press */
+    .bulk-selection-mode .watchlist-row {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+    }
+
+    /* Long-press visual feedback */
+    .watchlist-row.long-press-active {
+        background: rgba(0, 212, 170, 0.1) !important;
+        animation: longPressGlow 0.5s ease-in-out;
+    }
+
+    @keyframes longPressGlow {
+        0% {
+            box-shadow: 0 0 0 0 rgba(0, 212, 170, 0.4);
+        }
+        50% {
+            box-shadow: 0 0 0 8px rgba(0, 212, 170, 0.1);
+        }
+        100% {
+            box-shadow: 0 0 0 0 rgba(0, 212, 170, 0);
+        }
     }
 </style>
 </head>
@@ -2910,6 +3907,9 @@
                         <!-- Lists will be populated here -->
                     </div>
                     <div class="list-actions-section">
+                        <button class="btn-select-items" id="selectItemsBtn" onclick="toggleBulkSelectionMode()" aria-label="Enter bulk selection mode" aria-pressed="false">
+                            <span aria-hidden="true">☑️</span> Select Items
+                        </button>
                         <button class="btn btn-secondary" id="createListBtn">+ New List</button>
                     </div>
                 </div>
@@ -3211,6 +4211,66 @@
                 <button class="btn btn-secondary" onclick="closeEditListModal()">Cancel</button>
                 <button class="btn btn-primary" onclick="saveListChanges()">Save Changes</button>
             </div>
+        </div>
+    </div>
+
+    <!-- List Selector Modal -->
+    <div id="listSelectorModal" class="modal-overlay" style="display: none;" role="dialog" aria-modal="true" aria-labelledby="listSelectorTitle">
+        <div class="modal list-selector-modal">
+            <div class="modal-header">
+                <h3 id="listSelectorTitle">📋 Select Target List</h3>
+                <p class="modal-subtitle" id="listSelectorSubtitle">Choose where to copy this item</p>
+            </div>
+            <div class="modal-body">
+                <div id="listSelectorContent" role="list" aria-label="Available lists">
+                    <!-- Loading state -->
+                    <div class="list-selector-loading" role="status" aria-live="polite">
+                        <div class="spinner" aria-hidden="true"></div>
+                        <p>Loading lists...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-buttons">
+                <button class="btn btn-secondary" onclick="closeListSelector()" aria-label="Cancel and close list selector">Cancel</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Duplicate Warning Modal -->
+    <div id="duplicateWarningModal" class="modal-overlay" style="display: none;">
+        <div class="modal duplicate-warning-modal">
+            <div class="modal-header">
+                <h3 id="duplicateWarningTitle">⚠️ Duplicate Item Detected</h3>
+                <p class="modal-subtitle" id="duplicateWarningSubtitle">This item already exists in the target list</p>
+            </div>
+            <div class="modal-body">
+                <div id="duplicateWarningContent" style="padding: 20px; text-align: center;">
+                    <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 20px;">
+                        This item is already in the target list. What would you like to do?
+                    </p>
+                </div>
+            </div>
+            <div class="modal-buttons" id="duplicateWarningButtons">
+                <!-- Buttons will be dynamically added based on operation type -->
+            </div>
+        </div>
+    </div>
+
+    <!-- Bulk Action Bar -->
+    <div id="bulkActionBar" class="bulk-action-bar">
+        <div class="bulk-selection-info" role="status" aria-live="polite">
+            <span class="bulk-selection-count" id="bulkSelectionCount" aria-label="0 items selected">0</span> items selected
+        </div>
+        <div class="bulk-actions">
+            <button class="btn-bulk-action btn-bulk-copy" onclick="bulkCopySelected()" aria-label="Copy selected items to another list">
+                <span aria-hidden="true">📋</span> Copy Selected
+            </button>
+            <button class="btn-bulk-action btn-bulk-move" onclick="bulkMoveSelected()" aria-label="Move selected items to another list">
+                <span aria-hidden="true">➡️</span> Move Selected
+            </button>
+            <button class="btn-bulk-action btn-bulk-cancel" onclick="exitBulkSelectionMode()" aria-label="Cancel bulk selection mode">
+                Cancel
+            </button>
         </div>
     </div>
 

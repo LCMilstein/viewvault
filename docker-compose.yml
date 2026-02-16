@@ -20,6 +20,10 @@ services:
       - JELLYFIN_API_KEY=${JELLYFIN_API_KEY}
       - TMDB_API_KEY=${TMDB_API_KEY}
       - IMDB_API_KEY=${IMDB_API_KEY}
+      - AUTH0_DOMAIN=${AUTH0_DOMAIN}
+      - AUTH0_CLIENT_ID=${AUTH0_CLIENT_ID}
+      - AUTH0_CLIENT_SECRET=${AUTH0_CLIENT_SECRET}
+      - AUTH0_CALLBACK_URL=${AUTH0_CALLBACK_URL:-http://localhost:8008/auth0/callback}
     # env_file:
       # - ./secrets.env
     restart: unless-stopped
