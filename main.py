@@ -219,6 +219,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Request logging middleware — logs method, path, status, latency, user_id
+from middleware import RequestLoggingMiddleware
+app.add_middleware(RequestLoggingMiddleware)
+
 # Mount static files
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
@@ -291,30 +295,30 @@ def login(request: Request, user_credentials: UserLogin):
 @api_router.get("/auth/me")
 def get_current_user_info(current_user: User = Depends(get_current_user)):
     """Get current user information"""
-    print(f"🔍 AUTH_ME: Called for user: {current_user.username}")
-    print(f"🔍 AUTH_ME: User ID: {current_user.id}")
-    print(f"🔍 AUTH_ME: Is admin: {current_user.is_admin}")
-    print(f"🔍 AUTH_ME: User object: {current_user}")
+    logger.debug(f"AUTH_ME: Called for user: {current_user.username}")
+    logger.debug(f"AUTH_ME: User ID: {current_user.id}")
+    logger.debug(f"AUTH_ME: Is admin: {current_user.is_admin}")
+    logger.debug(f"AUTH_ME: User object: {current_user}")
     
     # Double-check from database
     with Session(engine) as session:
         db_user = session.get(User, current_user.id)
         if db_user:
-            print(f"🔍 AUTH_ME: Database verification - ID: {db_user.id}, is_admin: {db_user.is_admin}")
+            logger.debug(f"AUTH_ME: Database verification - ID: {db_user.id}, is_admin: {db_user.is_admin}")
         else:
-            print(f"❌ AUTH_ME: User not found in database!")
+            logger.error("AUTH_ME: User not found in database!")
         
         # Debug: Check all users in database
-        print(f"🔍 AUTH_ME: Checking all users in database...")
+        logger.debug("AUTH_ME: Checking all users in database...")
         all_users = session.exec(select(User)).all()
-        print(f"🔍 AUTH_ME: Found {len(all_users)} total users:")
+        logger.debug(f"AUTH_ME: Found {len(all_users)} total users:")
         for user in all_users:
-            print(f"  - User: {user.username}, ID: {user.id}, is_admin: {user.is_admin}")
-        
+            logger.debug(f"  - User: {user.username}, ID: {user.id}, is_admin: {user.is_admin}")
+
         admin_users = session.exec(select(User).where(User.is_admin == True)).all()
-        print(f"🔍 AUTH_ME: Found {len(admin_users)} admin users:")
+        logger.debug(f"AUTH_ME: Found {len(admin_users)} admin users:")
         for user in admin_users:
-            print(f"  - Admin: {user.username}, ID: {user.id}")
+            logger.debug(f"  - Admin: {user.username}, ID: {user.id}")
     
     return {
         "id": current_user.id,
@@ -326,23 +330,23 @@ def get_current_user_info(current_user: User = Depends(get_current_user)):
 @api_router.get("/debug/auth-test")
 def debug_auth_test(current_user: User = Depends(get_current_user)):
     """Debug endpoint to test authentication - similar to watchlist but simpler"""
-    print(f"🔍 AUTH_TEST: Called for user: {current_user.username} (ID: {current_user.id})")
-    print(f"🔍 AUTH_TEST: User auth_provider: {getattr(current_user, 'auth_provider', 'unknown')}")
-    print(f"🔍 AUTH_TEST: User is_active: {current_user.is_active}")
-    print(f"🔍 AUTH_TEST: User auth0_user_id: {getattr(current_user, 'auth0_user_id', 'None')}")
+    logger.debug(f"AUTH_TEST: Called for user: {current_user.username} (ID: {current_user.id})")
+    logger.debug(f"AUTH_TEST: User auth_provider: {getattr(current_user, 'auth_provider', 'unknown')}")
+    logger.debug(f"AUTH_TEST: User is_active: {current_user.is_active}")
+    logger.debug(f"AUTH_TEST: User auth0_user_id: {getattr(current_user, 'auth0_user_id', 'None')}")
     
     # Test database access
     try:
         with Session(engine) as session:
-            print(f"🔍 AUTH_TEST: Database session created successfully")
-            
+            logger.debug("AUTH_TEST: Database session created successfully")
+
             # Simple query to test database access
             user_count = session.exec(select(User)).all()
-            print(f"🔍 AUTH_TEST: Total users in database: {len(user_count)}")
-            
+            logger.debug(f"AUTH_TEST: Total users in database: {len(user_count)}")
+
             # Test user-specific query
             user_movies = session.exec(select(Movie).where(Movie.user_id == current_user.id)).all()
-            print(f"🔍 AUTH_TEST: Movies for user {current_user.id}: {len(user_movies)}")
+            logger.debug(f"AUTH_TEST: Movies for user {current_user.id}: {len(user_movies)}")
             
             return {
                 "status": "success",
@@ -358,9 +362,9 @@ def debug_auth_test(current_user: User = Depends(get_current_user)):
                 }
             }
     except Exception as e:
-        print(f"🔍 AUTH_TEST: Database error: {e}")
+        logger.error(f"AUTH_TEST: Database error: {e}")
         import traceback
-        print(f"🔍 AUTH_TEST: Traceback: {traceback.format_exc()}")
+        logger.error(f"AUTH_TEST: Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Database test failed: {str(e)}")
 
 @api_router.post("/auth/change-password")
@@ -482,7 +486,7 @@ def make_current_user_admin(current_user: User = Depends(get_current_user)):
 @api_router.post("/admin/users/{user_id}/toggle-admin")
 def toggle_user_admin_status(user_id: int, admin_update: dict, current_user: User = Depends(get_current_admin_user)):
     """Toggle admin status for a user (admin only)"""
-    print(f"🔍 TOGGLE_ADMIN: Admin {current_user.username} toggling admin status for user {user_id}")
+    logger.info(f"TOGGLE_ADMIN: Admin {current_user.username} toggling admin status for user {user_id}")
     
     if user_id == current_user.id:
         raise HTTPException(status_code=400, detail="Cannot change your own admin status")
@@ -494,35 +498,35 @@ def toggle_user_admin_status(user_id: int, admin_update: dict, current_user: Use
                 raise HTTPException(status_code=404, detail="User not found")
             
             new_admin_status = admin_update.get("is_admin", False)
-            print(f"🔍 TOGGLE_ADMIN: Setting user {user.username} admin status to {new_admin_status}")
+            logger.info(f"TOGGLE_ADMIN: Setting user {user.username} admin status to {new_admin_status}")
             
             user.is_admin = new_admin_status
             session.add(user)
             session.commit()
             
-            print(f"✅ TOGGLE_ADMIN: Successfully updated {user.username} admin status to {new_admin_status}")
+            logger.info(f"TOGGLE_ADMIN: Successfully updated {user.username} admin status to {new_admin_status}")
             return {"message": f"User {user.username} admin status updated to {new_admin_status}"}
             
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ TOGGLE_ADMIN: Error updating admin status: {e}")
+        logger.error(f"TOGGLE_ADMIN: Error updating admin status: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to update admin status: {str(e)}")
 
 @app.get("/debug-users")
 def debug_users():
     """Debug endpoint to see all users in database (no auth required)"""
-    print(f"🔍 DEBUG: Checking all users in database...")
+    logger.debug("DEBUG: Checking all users in database...")
     with Session(engine) as session:
         users = session.exec(select(User)).all()
-        print(f"🔍 DEBUG: Found {len(users)} users:")
+        logger.debug(f"DEBUG: Found {len(users)} users:")
         for user in users:
-            print(f"  - User: {user.username}, ID: {user.id}, is_admin: {user.is_admin}")
-        
+            logger.debug(f"  - User: {user.username}, ID: {user.id}, is_admin: {user.is_admin}")
+
         admin_users = session.exec(select(User).where(User.is_admin == True)).all()
-        print(f"🔍 DEBUG: Found {len(admin_users)} admin users:")
+        logger.debug(f"DEBUG: Found {len(admin_users)} admin users:")
         for user in admin_users:
-            print(f"  - Admin: {user.username}, ID: {user.id}")
+            logger.debug(f"  - Admin: {user.username}, ID: {user.id}")
         
         return {
             "total_users": len(users),
@@ -533,14 +537,14 @@ def debug_users():
 @api_router.delete("/auth/delete-current-user")
 def delete_current_user(current_user: User = Depends(get_current_user)):
     """Delete the current user account (for testing purposes)"""
-    print(f"🔍 DELETE_USER: Deleting user: {current_user.username} (ID: {current_user.id})")
+    logger.info(f"DELETE_USER: Deleting user: {current_user.username} (ID: {current_user.id})")
     with Session(engine) as session:
         db_user = session.get(User, current_user.id)
         if not db_user:
             raise HTTPException(status_code=404, detail="User not found")
         
         # Delete all user's data first (in reverse dependency order)
-        print(f"🔍 DELETE_USER: Deleting user data for {db_user.username}")
+        logger.info(f"DELETE_USER: Deleting user data for {db_user.username}")
         
         # Delete list items
         list_items = session.exec(select(ListItem).where(ListItem.list_id.in_(
@@ -548,13 +552,13 @@ def delete_current_user(current_user: User = Depends(get_current_user)):
         ))).all()
         for item in list_items:
             session.delete(item)
-        print(f"🔍 DELETE_USER: Deleted {len(list_items)} list items")
+        logger.info(f"DELETE_USER: Deleted {len(list_items)} list items")
         
         # Delete lists
         lists = session.exec(select(List).where(List.user_id == current_user.id)).all()
         for list_item in lists:
             session.delete(list_item)
-        print(f"🔍 DELETE_USER: Deleted {len(lists)} lists")
+        logger.info(f"DELETE_USER: Deleted {len(lists)} lists")
         
         # Delete episodes
         episodes = session.exec(select(Episode).where(Episode.series_id.in_(
@@ -562,25 +566,25 @@ def delete_current_user(current_user: User = Depends(get_current_user)):
         ))).all()
         for episode in episodes:
             session.delete(episode)
-        print(f"🔍 DELETE_USER: Deleted {len(episodes)} episodes")
+        logger.info(f"DELETE_USER: Deleted {len(episodes)} episodes")
         
         # Delete series
         series = session.exec(select(Series).where(Series.user_id == current_user.id)).all()
         for series_item in series:
             session.delete(series_item)
-        print(f"🔍 DELETE_USER: Deleted {len(series)} series")
+        logger.info(f"DELETE_USER: Deleted {len(series)} series")
         
         # Delete movies
         movies = session.exec(select(Movie).where(Movie.user_id == current_user.id)).all()
         for movie in movies:
             session.delete(movie)
-        print(f"🔍 DELETE_USER: Deleted {len(movies)} movies")
+        logger.info(f"DELETE_USER: Deleted {len(movies)} movies")
         
         # Finally, delete the user
         session.delete(db_user)
         session.commit()
         
-        print(f"✅ DELETE_USER: Successfully deleted user {current_user.username} and all their data")
+        logger.info(f"DELETE_USER: Successfully deleted user {current_user.username} and all their data")
         return {"message": f"User {current_user.username} and all their data have been deleted"}
 
 # =============================================================================
@@ -658,37 +662,37 @@ async def handle_auth0_callback(request: Request):
 @api_router.post("/auth/auth0/mobile-callback")
 async def handle_auth0_mobile_callback(request: Request):
     """Handle Auth0 mobile callback with direct access token"""
-    print("🔍 MOBILE CALLBACK: Starting mobile callback processing")
-    
+    logger.debug("MOBILE CALLBACK: Starting mobile callback processing")
+
     if not auth0_bridge.is_available:
-        print("🔍 MOBILE CALLBACK: Auth0 not configured")
+        logger.debug("MOBILE CALLBACK: Auth0 not configured")
         raise HTTPException(status_code=503, detail="Auth0 not configured")
     
     try:
         body = await request.json()
         access_token = body.get("access_token")
         
-        print(f"🔍 MOBILE CALLBACK: Received access token: {access_token[:20]}..." if access_token else "🔍 MOBILE CALLBACK: No access token provided")
+        logger.debug("MOBILE CALLBACK: Received access token" if access_token else "MOBILE CALLBACK: No access token provided")
         
         if not access_token:
-            print("🔍 MOBILE CALLBACK: Missing access_token in request")
+            logger.debug("MOBILE CALLBACK: Missing access_token in request")
             raise HTTPException(status_code=400, detail="Missing access_token")
         
         # Handle mobile callback with access token
-        print("🔍 MOBILE CALLBACK: Calling auth0_bridge.handle_mobile_callback")
+        logger.debug("MOBILE CALLBACK: Calling auth0_bridge.handle_mobile_callback")
         jwt_token = auth0_bridge.handle_mobile_callback(access_token)
         
         if not jwt_token:
-            print("🔍 MOBILE CALLBACK: Failed to create JWT token")
+            logger.error("MOBILE CALLBACK: Failed to create JWT token")
             raise HTTPException(status_code=401, detail="Failed to process mobile authentication")
         
-        print(f"🔍 MOBILE CALLBACK: Successfully created JWT token: {jwt_token[:20]}...")
+        logger.info("MOBILE CALLBACK: Successfully created JWT token")
         return {"access_token": jwt_token, "token_type": "bearer"}
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"🔍 MOBILE CALLBACK: Unexpected error: {e}")
+        logger.error(f"MOBILE CALLBACK: Unexpected error: {e}")
         logger.error(f"Auth0 mobile callback error: {e}")
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
@@ -699,27 +703,27 @@ TMDB_IMAGE_BASE = "https://image.tmdb.org/t/p/w500"
 @api_router.get("/search/movies/")
 @limiter.limit("30/minute")
 def search_movies(request: Request, query: str):
-    print("[DEBUG] /search/movies/ endpoint called with query:", query)
+    logger.debug(f"/search/movies/ endpoint called with query: {query}")
     try:
         tmdb_results = movie_api.search(query)
-        print(f"[DEBUG] Raw TMDB movie search results: {tmdb_results}")
+        logger.debug(f"Raw TMDB movie search results count: {len(tmdb_results) if tmdb_results else 0}")
         movies = []
         for m in tmdb_results:
-            print(f"[DEBUG] Processing movie result: {m}")
+            logger.debug(f"Processing movie result: {getattr(m, 'title', 'unknown')}")
             if not hasattr(m, 'id'):
-                print(f"[DEBUG] Skipping result (no id): {m}")
+                logger.debug(f"Skipping result (no id): {getattr(m, 'title', 'unknown')}")
                 continue
             imdb_id = getattr(m, 'imdb_id', None)
             if not imdb_id:
                 try:
                     details = movie_api.details(m.id)
                     imdb_id = getattr(details, 'imdb_id', None)
-                    print(f"[DEBUG] Fetched details for movie id {m.id}: imdb_id={imdb_id}")
+                    logger.debug(f"Fetched details for movie id {m.id}: imdb_id={imdb_id}")
                 except Exception as e:
-                    print(f"[DEBUG] Failed to fetch details for movie id {m.id}: {e}")
+                    logger.debug(f"Failed to fetch details for movie id {m.id}: {e}")
                     continue
             if not imdb_id:
-                print(f"[DEBUG] Skipping movie (no imdb_id): {m}")
+                logger.debug(f"Skipping movie (no imdb_id): {getattr(m, 'title', 'unknown')}")
                 continue
             # Robust poster URL
             poster_path = getattr(m, 'poster_path', None)
@@ -730,36 +734,35 @@ def search_movies(request: Request, query: str):
                 "release_date": getattr(m, 'release_date', None) or "",
                 "poster_url": poster_url
             })
-        print(f"[DEBUG] Final movie results: {movies}")
+        logger.debug(f"Final movie results count: {len(movies)}")
         return movies
     except Exception as e:
         import traceback
-        print(f"[ERROR] Movie search failed: {e}")
-        traceback.print_exc()
+        logger.error(f"Movie search failed: {e}", exc_info=True)
         return {"error": "Movie search failed", "details": str(e)}, 500
 
 @api_router.get("/search/series/")
 @limiter.limit("30/minute")
 def search_series(request: Request, query: str):
-    print("[DEBUG] /search/series/ endpoint called with query:", query)
+    logger.debug(f"/search/series/ endpoint called with query: {query}")
     try:
         tmdb_results = tv_api.search(query)
-        print(f"[DEBUG] Raw TMDB series search results: {tmdb_results}")
+        logger.debug(f"Raw TMDB series search results count: {len(tmdb_results) if tmdb_results else 0}")
         series = []
         for s in tmdb_results:
-            print(f"[DEBUG] Processing series result: {s}")
+            logger.debug(f"Processing series result: {getattr(s, 'name', 'unknown')}")
             if not hasattr(s, 'id'):
-                print(f"[DEBUG] Skipping result (no id): {s}")
+                logger.debug(f"Skipping result (no id): {getattr(s, 'name', 'unknown')}")
                 continue
             try:
                 details = get_tv_details_with_imdb(s.id)
                 imdb_id = details.get('imdb_id') if details else None
-                print(f"[DEBUG] Fetched details for series id {getattr(s, 'id', None)}: imdb_id={imdb_id}")
+                logger.debug(f"Fetched details for series id {getattr(s, 'id', None)}: imdb_id={imdb_id}")
             except Exception as e:
-                print(f"[DEBUG] Failed to fetch details for series id {getattr(s, 'id', None)}: {e}")
+                logger.debug(f"Failed to fetch details for series id {getattr(s, 'id', None)}: {e}")
                 continue
             if not imdb_id:
-                print(f"[DEBUG] Skipping series (no imdb_id): {s}")
+                logger.debug(f"Skipping series (no imdb_id): {getattr(s, 'name', 'unknown')}")
                 continue
             poster_path = getattr(s, 'poster_path', None)
             poster_url = f"{TMDB_IMAGE_BASE}{poster_path}" if poster_path else "/static/no-image.png"
@@ -769,12 +772,12 @@ def search_series(request: Request, query: str):
                 "poster_url": poster_url,
                 "episodes": []
             })
-        print(f"[DEBUG] Final TMDB series results: {series}")
+        logger.debug(f"Final TMDB series results count: {len(series)}")
         # If no importable results, try TVMaze
         if not series:
-            print("[DEBUG] No importable TMDB series found, trying TVMaze fallback...")
+            logger.debug("No importable TMDB series found, trying TVMaze fallback...")
             tvmaze_results = search_series_tvmaze(query)
-            print(f"[DEBUG] TVMaze fallback results: {tvmaze_results}")
+            logger.debug(f"TVMaze fallback results count: {len(tvmaze_results)}")
             # Ensure TVMaze fallback also has all fields
             for item in tvmaze_results:
                 item["title"] = item.get("title") or "Untitled"
@@ -785,8 +788,7 @@ def search_series(request: Request, query: str):
         return series
     except Exception as e:
         import traceback
-        print(f"[ERROR] Series search failed: {e}")
-        traceback.print_exc()
+        logger.error(f"Series search failed: {e}", exc_info=True)
         return {"error": "Series search failed", "details": str(e)}, 500
 
 # --- TVMaze fallback helper ---
@@ -811,7 +813,7 @@ def search_series_tvmaze(query: str):
             })
         return results
     except Exception as e:
-        print(f"[ERROR] TVMaze search failed: {e}")
+        logger.error(f"TVMaze search failed: {e}")
         return []
 
 def fetch_and_store_poster_thumb(poster_url):
@@ -839,7 +841,7 @@ def save_poster_image(poster_url, imdb_id):
                 f.write(resp.content)
             return f"/static/posters/{filename}"
     except Exception as e:
-        print(f"[ERROR] Failed to save poster image: {e}")
+        logger.error(f"Failed to save poster image: {e}")
     return None
 
 @api_router.post("/import/movie/{imdb_id}")
@@ -1082,9 +1084,9 @@ async def import_movie_with_sequels(imdb_id: str, request: Request, current_user
     except Exception:
         target_list_ids = []
     collection_movies = get_collection_movies_by_imdb(imdb_id)
-    print(f"[IMPORT] Collection movies to process: {[m.get('title') for m in collection_movies]}")
+    logger.info(f"IMPORT: Collection movies to process: {[m.get('title') for m in collection_movies]}")
     if not collection_movies:
-        print("[IMPORT] No franchise/collection found for this movie on TMDB")
+        logger.info("IMPORT: No franchise/collection found for this movie on TMDB")
         raise HTTPException(status_code=404, detail="No franchise/collection found for this movie on TMDB")
 
     imported_movies = []
@@ -1099,27 +1101,27 @@ async def import_movie_with_sequels(imdb_id: str, request: Request, current_user
     with Session(engine) as session:
         for movie_data in collection_movies:
             tmdb_id = movie_data.get('id')
-            print(f"[IMPORT] Processing: {movie_data.get('title')} (TMDB ID: {tmdb_id})")
+            logger.info(f"IMPORT: Processing: {movie_data.get('title')} (TMDB ID: {tmdb_id})")
             # Fetch full details to get IMDB ID
             full_details = movie_api.details(tmdb_id)
             imdb_id = getattr(full_details, 'imdb_id', None)
             if not imdb_id:
                 # Fallback: try to fetch IMDB ID using find_api
-                print(f"[IMPORT] No IMDB ID in TMDB details for {movie_data.get('title')}, trying find_api fallback...")
+                logger.debug(f"IMPORT: No IMDB ID in TMDB details for {movie_data.get('title')}, trying find_api fallback...")
                 try:
                     find_result = find_api.find(tmdb_id, external_source='tmdb_id')
                     if find_result and 'movie_results' in find_result and find_result['movie_results']:
                         imdb_id = find_result['movie_results'][0].get('imdb_id')
-                        print(f"[IMPORT] Fallback IMDB ID for {movie_data.get('title')}: {imdb_id}")
+                        logger.debug(f"IMPORT: Fallback IMDB ID for {movie_data.get('title')}: {imdb_id}")
                 except Exception as e:
-                    print(f"[IMPORT] Fallback find_api failed for {movie_data.get('title')}: {e}")
+                    logger.warning(f"IMPORT: Fallback find_api failed for {movie_data.get('title')}: {e}")
             if not imdb_id:
-                print(f"[IMPORT] Skipping {movie_data.get('title')} - No IMDB ID in TMDB details or fallback.")
+                logger.info(f"IMPORT: Skipping {movie_data.get('title')} - No IMDB ID in TMDB details or fallback.")
                 skipped_movies.append({"title": movie_data.get('title'), "reason": "No IMDB ID in TMDB details or fallback"})
                 continue
             existing = session.exec(select(Movie).where(Movie.imdb_id == imdb_id, Movie.user_id == current_user.id)).first()
             if existing:
-                print(f"[IMPORT] Skipping {movie_data.get('title')} - Already exists in DB")
+                logger.debug(f"IMPORT: Skipping {movie_data.get('title')} - Already exists in DB")
                 skipped_movies.append({"title": movie_data.get('title'), "reason": "Already exists"})
                 continue
             # Get collection info for each movie (should be same for all in collection)
@@ -1157,7 +1159,7 @@ async def import_movie_with_sequels(imdb_id: str, request: Request, current_user
             )
             session.add(movie)
             imported_movies.append(movie)
-            print(f"[IMPORT] Imported: {movie.title} ({movie.imdb_id})")
+            logger.info(f"IMPORT: Imported: {movie.title} ({movie.imdb_id})")
             
             # Add to specified lists (if any)
             if target_list_ids:
@@ -1192,15 +1194,15 @@ async def import_movie_with_sequels(imdb_id: str, request: Request, current_user
                                         user_id=current_user.id
                                     )
                                     session.add(new_list_item)
-                                    print(f"[IMPORT] Added {movie.title} to list {target_list.name}")
+                                    logger.info(f"IMPORT: Added {movie.title} to list {target_list.name}")
                             else:
-                                print(f"[IMPORT] List {list_id} not found or no access for user {current_user.username}")
+                                logger.warning(f"IMPORT: List {list_id} not found or no access for user {current_user.username}")
                         except Exception as e:
-                            print(f"[IMPORT] Failed to add {movie.title} to list {list_id}: {e}")
+                            logger.error(f"IMPORT: Failed to add {movie.title} to list {list_id}: {e}")
                             # Continue with other lists even if one fails
         
         session.commit()
-        print(f"[IMPORT] Total imported: {len(imported_movies)}, Total skipped: {len(skipped_movies)}")
+        logger.info(f"IMPORT: Total imported: {len(imported_movies)}, Total skipped: {len(skipped_movies)}")
         return {
             "imported_movies": [m.title for m in imported_movies],
             "skipped_movies": skipped_movies,
@@ -1584,7 +1586,7 @@ def get_series_from_tvmaze_by_imdb(imdb_id: str):
                 "poster_url": data.get("image", {}).get("medium") or data.get("image", {}).get("original"),
             }
     except Exception as e:
-        print(f"[ERROR] TVMaze lookup failed: {e}")
+        logger.error(f"TVMaze lookup failed: {e}")
     return None
 
 # Movie endpoints
@@ -1965,7 +1967,7 @@ def get_episode_details(episode_id: int):
                         "runtime": tmdb_data.get('runtime')
                     })
             except Exception as e:
-                print(f"Error fetching TMDB episode data: {e}")
+                logger.error(f"Error fetching TMDB episode data: {e}")
         
         return enhanced_data
 
@@ -2015,13 +2017,13 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
     # Additional validation for Auth0 users
     if hasattr(current_user, 'auth_provider') and current_user.auth_provider == 'auth0':
         if not getattr(current_user, 'auth0_user_id', None):
-            print("🔍 WATCHLIST ENDPOINT: ERROR - Auth0 user missing auth0_user_id")
+            logger.error("WATCHLIST ENDPOINT: Auth0 user missing auth0_user_id")
             raise HTTPException(status_code=401, detail="Invalid user configuration")
     
     try:
         with Session(engine) as session:
-            print(f"🔍 WATCHLIST ENDPOINT: Database session created successfully")
-            print(f"🔍 WATCHLIST ENDPOINT: Querying movies for user_id: {current_user.id}")
+            logger.debug("WATCHLIST ENDPOINT: Database session created successfully")
+            logger.debug(f"WATCHLIST ENDPOINT: Querying movies for user_id: {current_user.id}")
             
             # --- Movies ---
             # Check if is_new column exists in the database
@@ -2128,7 +2130,7 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
                     else:
                         standalone_movies.append(movie_data)
                 except Exception as e:
-                    print(f"Error processing movie {m.id}: {e}")
+                    logger.error(f"Error processing movie {m.id}: {e}")
                     continue
 
             # --- Series ---
@@ -2212,7 +2214,7 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
                     watched = all(ep.watched for ep in episodes) if episodes else False
                     # Get season posters if we have a TMDB ID
                     season_posters = {}
-                    print(f"🔍 Getting season posters for series {s.id} with IMDB ID: {s.imdb_id}")
+                    logger.debug(f"Getting season posters for series {s.id} with IMDB ID: {s.imdb_id}")
                     if s.imdb_id:
                         try:
                             from tmdb_service import get_season_posters
@@ -2221,23 +2223,23 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
                             if s.imdb_id.startswith('tmdb_'):
                                 # Extract TMDB ID from tmdb_ prefix
                                 tmdb_id = s.imdb_id.replace('tmdb_', '')
-                                print(f"🔍 Using TMDB ID directly: {tmdb_id}")
+                                logger.debug(f"Using TMDB ID directly: {tmdb_id}")
                             else:
                                 # Convert IMDB ID to TMDB ID if needed
                                 tmdb_series = get_tmdb_series_by_imdb(s.imdb_id)
-                                print(f"🔍 TMDB series found: {tmdb_series}")
+                                logger.debug(f"TMDB series found for {s.imdb_id}")
                                 if tmdb_series and 'id' in tmdb_series:
                                     tmdb_id = tmdb_series['id']
                             
                             if tmdb_id:
                                 season_posters = get_season_posters(int(tmdb_id))
-                                print(f"🔍 Season posters retrieved: {season_posters}")
+                                logger.debug(f"Season posters retrieved for series {s.id}: {len(season_posters)} seasons")
                             else:
-                                print(f"🔍 No TMDB ID found for series {s.id}")
+                                logger.debug(f"No TMDB ID found for series {s.id}")
                         except Exception as e:
-                            print(f"Error getting season posters for series {s.id}: {e}")
+                            logger.error(f"Error getting season posters for series {s.id}: {e}")
                     else:
-                        print(f"🔍 Skipping season posters for series {s.id} - no IMDB ID")
+                        logger.debug(f"Skipping season posters for series {s.id} - no IMDB ID")
                     
                     series_data.append({
                         "id": s.id,
@@ -2252,7 +2254,7 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
                         "average_episode_runtime": getattr(s, 'average_episode_runtime', None)  # Add average episode runtime field
                     })
                 except Exception as e:
-                    print(f"Error processing series {s.id}: {e}")
+                    logger.error(f"Error processing series {s.id}: {e}")
                     continue
 
             # --- Collections as list ---
@@ -2271,10 +2273,10 @@ def get_watchlist(current_user: User = Depends(get_current_user)):
         # Re-raise HTTP exceptions (like 401 Unauthorized)
         raise
     except Exception as e:
-        print(f"🔍 WATCHLIST ENDPOINT: Unexpected error: {e}")
-        print(f"🔍 WATCHLIST ENDPOINT: Error type: {type(e).__name__}")
+        logger.error(f"WATCHLIST ENDPOINT: Unexpected error: {e}")
+        logger.error(f"WATCHLIST ENDPOINT: Error type: {type(e).__name__}")
         import traceback
-        print(f"🔍 WATCHLIST ENDPOINT: Traceback: {traceback.format_exc()}")
+        logger.error(f"WATCHLIST ENDPOINT: Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Failed to load watchlist: {str(e)}")
 
 @api_router.post("/watchlist/movie/{movie_id}/toggle")
@@ -2545,26 +2547,22 @@ def clear_all(request: Request, current_user: User = Depends(get_current_admin_u
 @api_router.get("/search/all/")
 def search_all(query: str):
     """Unified search for both movies and TV series using TMDB."""
-    print(f"[DEBUG] ====== search_all function called with query: '{query}' ======")
-    print(f"[DEBUG] This is a test to see if the updated code is running!")
-    print(f"[DEBUG] Function entry point reached!")
-    print(f"[DEBUG] Query parameter: {query}")
-    print(f"[DEBUG] Query type: {type(query)}")
+    logger.debug(f"search_all function called with query: '{query}'")
     # Search movies
     movie_results = movie_api.search(query)
-    print(f"[DEBUG] TMDB movie search results for '{query}': {movie_results}")
+    logger.debug(f"TMDB movie search results for '{query}': {len(movie_results) if movie_results else 0} results")
     movies = []
     for m in movie_results:
         if not hasattr(m, 'id'):
-            print(f"[DEBUG] Skipping movie result (no id): {m}")
+            logger.debug(f"Skipping movie result (no id)")
             continue
         imdb_id = getattr(m, 'imdb_id', None)
         if not imdb_id:
             details = movie_api.details(m.id)
             imdb_id = getattr(details, 'imdb_id', None)
-            print(f"[DEBUG] Fetched details for movie id {m.id}: imdb_id={imdb_id}")
+            logger.debug(f"Fetched details for movie id {m.id}: imdb_id={imdb_id}")
         if not imdb_id:
-            print(f"[DEBUG] Skipping movie '{getattr(m, 'title', None)}' (TMDB id {m.id}) - no IMDB ID")
+            logger.debug(f"Skipping movie '{getattr(m, 'title', None)}' (TMDB id {m.id}) - no IMDB ID")
             continue
         poster_path = getattr(m, 'poster_path', None)
         poster_url = f"{TMDB_IMAGE_BASE}{poster_path}" if poster_path else "/static/no-image.png"
@@ -2575,33 +2573,32 @@ def search_all(query: str):
             "poster_url": poster_url,
             "type": "movie"
         })
-        print(f"[DEBUG] Included movie: {getattr(m, 'title', None)} (IMDB {imdb_id})")
+        logger.debug(f"Included movie: {getattr(m, 'title', None)} (IMDB {imdb_id})")
 
     # Search TV series
     try:
-        print(f"[DEBUG] Starting TV series search for '{query}'")
+        logger.debug(f"Starting TV series search for '{query}'")
         series_results = tv_api.search(query)
-        print(f"[DEBUG] TMDB series search results for '{query}': {series_results}")
-        print(f"[DEBUG] Number of series results: {len(series_results) if series_results else 0}")
+        logger.debug(f"TMDB series search results for '{query}': {len(series_results) if series_results else 0} results")
         series = []
         found_series_ids = set()
         normalized_query = query.strip().lower()
         
         if not series_results:
-            print(f"[DEBUG] No series results found for '{query}'")
+            logger.debug(f"No series results found for '{query}'")
         else:
             for s in series_results:
                 if not hasattr(s, 'id'):
-                    print(f"[DEBUG] Skipping series result (no id): {s}")
+                    logger.debug(f"Skipping series result (no id)")
                     continue
-                print(f"[DEBUG] Processing series: id={getattr(s, 'id', None)}, name={getattr(s, 'name', None)}")
+                logger.debug(f"Processing series: id={getattr(s, 'id', None)}, name={getattr(s, 'name', None)}")
                 found_series_ids.add(getattr(s, 'id', None))
                 details = get_tv_details_with_imdb(s.id)
-                print(f"[DEBUG] Full TMDB TV details for id {s.id}: {details}")
+                logger.debug(f"TMDB TV details for id {s.id} retrieved")
                 imdb_id = details.get('imdb_id') if details else None
-                print(f"[DEBUG] Fetched details for series id {s.id}: imdb_id={imdb_id}")
+                logger.debug(f"Fetched details for series id {s.id}: imdb_id={imdb_id}")
                 if not imdb_id:
-                    print(f"[DEBUG] Series '{getattr(s, 'name', None)}' (TMDB id {s.id}) has no IMDB ID from TMDB, but including it anyway")
+                    logger.debug(f"Series '{getattr(s, 'name', None)}' (TMDB id {s.id}) has no IMDB ID from TMDB, but including it anyway")
                     # For series without IMDB ID, we'll still include them but mark them as not importable
                     imdb_id = f"tmdb_{s.id}"  # Use TMDB ID as a fallback
                 poster_path = getattr(s, 'poster_path', None)
@@ -2613,13 +2610,13 @@ def search_all(query: str):
                     "poster_url": poster_url,
                     "type": "series"
                 })
-                print(f"[DEBUG] Included series: {getattr(s, 'name', None)} (IMDB {imdb_id})")
+                logger.debug(f"Included series: {getattr(s, 'name', None)} (IMDB {imdb_id})")
     except Exception as e:
-        print(f"[DEBUG] Error during TV series search: {e}")
+        logger.error(f"Error during TV series search: {e}")
         series = []
     # Enhanced fallback: if we have few or no series results, try a broader search
     if len(series) < 2:  # If we have less than 2 series results
-        print(f"[DEBUG] Limited series results for '{query}', trying broader search...")
+        logger.debug(f"Limited series results for '{query}', trying broader search...")
         # Use TMDB API directly to search for the series by name
         import os, requests
         api_key = os.environ.get("TMDB_API_KEY")
@@ -2627,7 +2624,7 @@ def search_all(query: str):
         resp = requests.get(url)
         if resp.status_code == 200:
             data = resp.json()
-            print(f"[DEBUG] Direct TMDB search/tv response for '{query}': {data}")
+            logger.debug(f"Direct TMDB search/tv response for '{query}': {len(data.get('results', []))} results")
             results = data.get('results', [])
             for result in results:
                 name = result.get('name', '').strip().lower()
@@ -2641,9 +2638,9 @@ def search_all(query: str):
                 has_match = any(word in name for word in query_words if len(word) > 2)
                 
                 if has_match and result_id not in found_series_ids:
-                    print(f"[DEBUG] Found broader match for '{query}' with id {result_id}, fetching details...")
+                    logger.debug(f"Found broader match for '{query}' with id {result_id}, fetching details...")
                     details = get_tv_details_with_imdb(result_id)
-                    print(f"[DEBUG] Direct fetch TMDB TV details for id {result_id}: {details}")
+                    logger.debug(f"Direct fetch TMDB TV details for id {result_id} retrieved")
                     imdb_id = details.get('imdb_id') if details else None
                     if imdb_id:
                         poster_path = details.get('poster_path')
@@ -2655,11 +2652,11 @@ def search_all(query: str):
                             "poster_url": poster_url,
                             "type": "series"
                         })
-                        print(f"[DEBUG] Included broader series: {details.get('name')} (IMDB {imdb_id})")
+                        logger.debug(f"Included broader series: {details.get('name')} (IMDB {imdb_id})")
                     else:
-                        print(f"[DEBUG] Broader fetch for '{query}' did not yield an IMDB ID.")
+                        logger.debug(f"Broader fetch for '{query}' did not yield an IMDB ID.")
         else:
-            print(f"[DEBUG] TMDB API error for search/tv '{query}': {resp.status_code} {resp.text}")
+            logger.error(f"TMDB API error for search/tv '{query}': {resp.status_code}")
 
     # Combine and sort results by relevance
     all_results = movies + series
@@ -2725,7 +2722,7 @@ def search_all(query: str):
     # Limit to top 12 results (6 movies + 6 series max)
     limited_results = sorted_results[:12]
     
-    print(f"[DEBUG] Final sorted results (limited to 12): {limited_results}")
+    logger.debug(f"Final sorted results count (limited to 12): {len(limited_results)}")
     return limited_results
 
 @api_router.post("/import/by_url/")
@@ -2740,16 +2737,16 @@ async def import_by_url(request: Request):
     url = data['url'].strip()
     if url.startswith('@'):
         url = url[1:].strip()
-    print(f"[DEBUG] Import by URL: {url}")
+    logger.debug(f"Import by URL: {url}")
     imdb_id = extract_imdb_id_from_url(url)
     if not imdb_id:
         # Try TVMaze URL
         imdb_id = get_imdb_id_from_tvmaze_url(url)
     if not imdb_id:
         return {"error": "Could not extract IMDB ID from URL."}, 400
-    print(f"[DEBUG] Extracted IMDB ID: {imdb_id}")
+    logger.debug(f"Extracted IMDB ID: {imdb_id}")
     tmdb_result = find_api.find(imdb_id, external_source='imdb_id')
-    print(f"[DEBUG] TMDB find result: {tmdb_result}")
+    logger.debug(f"TMDB find result for {imdb_id}: movie_results={len(tmdb_result.get('movie_results', []))}, tv_results={len(tmdb_result.get('tv_results', []))}")
     if tmdb_result.get('movie_results'):
         # Import as movie
         return import_movie(imdb_id)
@@ -2799,16 +2796,16 @@ def share_import(request: Request):
     if not data or 'url' not in data:
         return {"error": "Missing 'url' in request body."}, 400
     url = data['url']
-    print(f"[DEBUG] Share import by URL: {url}")
+    logger.debug(f"Share import by URL: {url}")
     imdb_id = extract_imdb_id_from_url(url)
     if not imdb_id:
         imdb_id = get_imdb_id_from_tvmaze_url(url)
     if not imdb_id:
         return {"error": "Could not extract IMDB ID from URL."}, 400
-    print(f"[DEBUG] Extracted IMDB ID: {imdb_id}")
+    logger.debug(f"Extracted IMDB ID: {imdb_id}")
     from tmdb_service import find_api
     tmdb_result = find_api.find(imdb_id, external_source='imdb_id')
-    print(f"[DEBUG] TMDB find result: {tmdb_result}")
+    logger.debug(f"TMDB find result for {imdb_id}")
     if tmdb_result.get('movie_results'):
         # Import movie with sequels
         try:
@@ -3942,20 +3939,20 @@ def read_email_login():
 async def auth0_callback_redirect(code: str = None, error: str = None, state: str = None):
     """Handle Auth0 callback and authenticate user with account linking support"""
     if error:
-        print(f"🔍 AUTH0 CALLBACK: Error received: {error}")
+        logger.warning(f"AUTH0 CALLBACK: Error received: {error}")
         return RedirectResponse(f"/login?error={error}")
     
     if not code:
-        print("🔍 AUTH0 CALLBACK: No code received")
+        logger.warning("AUTH0 CALLBACK: No code received")
         return RedirectResponse("/login?error=no_code")
     
     if not auth0_bridge.is_available:
-        print("🔍 AUTH0 CALLBACK: Auth0 not configured")
+        logger.warning("AUTH0 CALLBACK: Auth0 not configured")
         return RedirectResponse("/login?error=auth0_not_configured")
     
     try:
-        print(f"🔍 AUTH0 CALLBACK: Processing code: {code[:20]}...")
-        print(f"🔍 AUTH0 CALLBACK: State parameter: {state}")
+        logger.debug("AUTH0 CALLBACK: Processing authorization code")
+        logger.debug(f"AUTH0 CALLBACK: State parameter: {state}")
         
         # Exchange code for token
         base_url = os.getenv('BASE_URL', 'https://app.viewvault.app')
@@ -3963,37 +3960,37 @@ async def auth0_callback_redirect(code: str = None, error: str = None, state: st
         
         token_data = auth0_bridge.exchange_code_for_token(code, redirect_uri)
         if not token_data:
-            print("🔍 AUTH0 CALLBACK: Failed to exchange code for token")
+            logger.error("AUTH0 CALLBACK: Failed to exchange code for token")
             return RedirectResponse("/login?error=token_exchange_failed")
         
         # Get user info
         user_data = auth0_bridge.get_user_info(token_data.get("access_token"))
         if not user_data:
-            print("🔍 AUTH0 CALLBACK: Failed to get user information")
+            logger.error("AUTH0 CALLBACK: Failed to get user information")
             return RedirectResponse("/login?error=user_info_failed")
         
         # Check if this is an account linking request
         if state and state.startswith("link_account_"):
             user_id = state.replace("link_account_", "")
-            print(f"🔍 AUTH0 CALLBACK: Account linking request for user ID: {user_id}")
+            logger.info(f"AUTH0 CALLBACK: Account linking request for user ID: {user_id}")
             
             # Handle account linking
             success = auth0_bridge.link_oauth_to_existing_user(user_data, int(user_id))
             if success:
-                print(f"🔍 AUTH0 CALLBACK: Successfully linked OAuth account")
+                logger.info("AUTH0 CALLBACK: Successfully linked OAuth account")
                 return RedirectResponse("/?message=oauth_linked_successfully")
             else:
-                print(f"🔍 AUTH0 CALLBACK: Failed to link OAuth account")
+                logger.error("AUTH0 CALLBACK: Failed to link OAuth account")
                 return RedirectResponse("/?error=oauth_linking_failed")
         
         # Regular authentication flow
         # Create JWT token
         jwt_token = auth0_bridge.create_jwt_for_auth0_user(user_data)
         if not jwt_token:
-            print("🔍 AUTH0 CALLBACK: Failed to create JWT token")
+            logger.error("AUTH0 CALLBACK: Failed to create JWT token")
             return RedirectResponse("/login?error=jwt_creation_failed")
         
-        print(f"🔍 AUTH0 CALLBACK: Successfully authenticated user: {user_data.get('email', 'unknown')}")
+        logger.info(f"AUTH0 CALLBACK: Successfully authenticated user: {user_data.get('email', 'unknown')}")
         
         # Redirect to main app with token (URL encode the token)
         from urllib.parse import quote
@@ -4002,7 +3999,7 @@ async def auth0_callback_redirect(code: str = None, error: str = None, state: st
         return RedirectResponse(url=redirect_url, status_code=302)
         
     except Exception as e:
-        print(f"🔍 AUTH0 CALLBACK: Exception during processing: {e}")
+        logger.error(f"AUTH0 CALLBACK: Exception during processing: {e}")
         return RedirectResponse(f"/login?error=callback_error")
 
 # Mobile Auth0 Universal Login endpoints
@@ -4035,10 +4032,10 @@ async def get_mobile_auth0_signup_url():
 @app.post("/api/auth/auth0/mobile/callback")
 async def handle_mobile_auth0_callback(request: Request):
     """Handle Auth0 mobile callback with authorization code (same as web)"""
-    print("🔍 MOBILE AUTH CALLBACK: Starting mobile callback processing")
-    
+    logger.debug("MOBILE AUTH CALLBACK: Starting mobile callback processing")
+
     if not auth0_bridge.is_available:
-        print("🔍 MOBILE AUTH CALLBACK: Auth0 not configured")
+        logger.warning("MOBILE AUTH CALLBACK: Auth0 not configured")
         raise HTTPException(status_code=503, detail="Auth0 not configured")
     
     try:
@@ -4046,14 +4043,14 @@ async def handle_mobile_auth0_callback(request: Request):
         code = body.get("code")
         error = body.get("error")
         
-        print(f"🔍 MOBILE AUTH CALLBACK: Received callback with code: {code[:20] if code else 'None'}...")
+        logger.debug("MOBILE AUTH CALLBACK: Received callback with authorization code")
         
         if error:
-            print(f"🔍 MOBILE AUTH CALLBACK: Auth0 error: {error}")
+            logger.error(f"MOBILE AUTH CALLBACK: Auth0 error: {error}")
             raise HTTPException(status_code=400, detail=f"Auth0 authentication failed: {error}")
         
         if not code:
-            print("🔍 MOBILE AUTH CALLBACK: No authorization code provided")
+            logger.warning("MOBILE AUTH CALLBACK: No authorization code provided")
             raise HTTPException(status_code=400, detail="No authorization code provided")
         
         # Exchange code for token using mobile client ID
@@ -4062,28 +4059,28 @@ async def handle_mobile_auth0_callback(request: Request):
         
         token_data = auth0_bridge.exchange_code_for_token_mobile(code, redirect_uri)
         if not token_data:
-            print("🔍 MOBILE AUTH CALLBACK: Failed to exchange code for token")
+            logger.error("MOBILE AUTH CALLBACK: Failed to exchange code for token")
             raise HTTPException(status_code=401, detail="Failed to exchange authorization code")
         
         # Get user info from Auth0 (same logic as web)
         user_data = auth0_bridge.get_user_info(token_data.get("access_token"))
         if not user_data:
-            print("🔍 MOBILE AUTH CALLBACK: Failed to get user information")
+            logger.error("MOBILE AUTH CALLBACK: Failed to get user information")
             raise HTTPException(status_code=401, detail="Failed to get user information")
         
         # Create JWT token for ViewVault (same logic as web)
         jwt_token = auth0_bridge.create_jwt_for_auth0_user(user_data)
         if not jwt_token:
-            print("🔍 MOBILE AUTH CALLBACK: Failed to create JWT token")
+            logger.error("MOBILE AUTH CALLBACK: Failed to create JWT token")
             raise HTTPException(status_code=401, detail="Failed to create authentication token")
         
-        print(f"🔍 MOBILE AUTH CALLBACK: Successfully created JWT token: {jwt_token[:20]}...")
+        logger.info("MOBILE AUTH CALLBACK: Successfully created JWT token")
         return {"access_token": jwt_token, "token_type": "bearer"}
         
     except HTTPException:
         raise
     except Exception as e:
-        print(f"🔍 MOBILE AUTH CALLBACK: Unexpected error: {e}")
+        logger.error(f"MOBILE AUTH CALLBACK: Unexpected error: {e}")
         logger.error(f"Auth0 mobile callback error: {e}")
         import traceback
         logger.error(f"Traceback: {traceback.format_exc()}")
@@ -4309,14 +4306,14 @@ async def get_progress_performance(current_user: User = Depends(get_current_admi
 @api_router.get("/lists")
 def get_user_lists(current_user: User = Depends(get_current_user)):
     """Get all lists for the current user"""
-    print(f"🔍 LISTS ENDPOINT: Called for user: {current_user.username} (ID: {current_user.id})")
-    print(f"🔍 LISTS ENDPOINT: User auth_provider: {getattr(current_user, 'auth_provider', 'unknown')}")
+    logger.debug(f"LISTS ENDPOINT: Called for user: {current_user.username} (ID: {current_user.id})")
+    logger.debug(f"LISTS ENDPOINT: User auth_provider: {getattr(current_user, 'auth_provider', 'unknown')}")
     try:
         # Create a fresh database session
         with Session(engine) as session:
-            print("DEBUG: Session created successfully")
+            logger.debug("LISTS: Session created successfully")
             # Get user's own lists
-            print("DEBUG: Getting user's own lists...")
+            logger.debug("LISTS: Getting user's own lists...")
             # Use a more defensive query approach
             user_lists_query = text("""
                 SELECT id, user_id, name, description, type, color, background_color, icon, 
@@ -4344,11 +4341,11 @@ def get_user_lists(current_user: User = Depends(get_current_user)):
                     deleted=row[11]
                 )
                 user_lists.append(user_list)
-            print(f"DEBUG: Found {len(user_lists)} user lists")
+            logger.debug(f"LISTS: Found {len(user_lists)} user lists")
             
             # Get shared lists where user has access (defensive approach)
             try:
-                print("DEBUG: Getting shared lists...")
+                logger.debug("LISTS: Getting shared lists...")
                 shared_lists_query = text("""
                     SELECT l.id, l.user_id, l.name, l.description, l.type, l.color, l.background_color, l.icon, 
                            l.is_active, l.created_at, l.updated_at, l.deleted
@@ -4378,9 +4375,9 @@ def get_user_lists(current_user: User = Depends(get_current_user)):
                         deleted=row[11]
                     )
                     shared_lists.append(shared_list)
-                print(f"DEBUG: Found {len(shared_lists)} shared lists")
+                logger.debug(f"LISTS: Found {len(shared_lists)} shared lists")
             except Exception as e:
-                print(f"DEBUG: Error getting shared lists: {e}")
+                logger.error(f"LISTS: Error getting shared lists: {e}")
                 shared_lists = []  # Fallback to empty list if shared lists fail
             
             # Combine and format lists
@@ -4434,7 +4431,7 @@ def get_user_lists(current_user: User = Depends(get_current_user)):
             # Total unwatched items (movies + series only)
             total_unwatched = unwatched_movies + unwatched_series
             
-            print(f"DEBUG: Personal watchlist count - Movies: {unwatched_movies}, Series: {unwatched_series}, Total: {total_unwatched}")
+            logger.debug(f"LISTS: Personal watchlist count - Movies: {unwatched_movies}, Series: {unwatched_series}, Total: {total_unwatched}")
             
             personal_list["item_count"] = total_unwatched
             
@@ -4537,8 +4534,8 @@ def get_user_lists(current_user: User = Depends(get_current_user)):
             
     except Exception as e:
         import traceback
-        print(f"Error getting user lists: {e}")
-        print(f"Full traceback: {traceback.format_exc()}")
+        logger.error(f"Error getting user lists: {e}")
+        logger.error(f"Full traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=f"Failed to get lists: {str(e)}")
 
 @api_router.post("/lists")
@@ -4594,7 +4591,7 @@ def create_list(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error creating list: {e}")
+        logger.error(f"Error creating list: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to create list: {str(e)}")
 
 @api_router.put("/lists/{list_id}")
@@ -4649,7 +4646,7 @@ def update_list(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error updating list: {e}")
+        logger.error(f"Error updating list: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to update list: {str(e)}")
 
 @api_router.delete("/lists/{list_id}")
@@ -4696,7 +4693,7 @@ def delete_list(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error deleting list: {e}")
+        logger.error(f"Error deleting list: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete list: {str(e)}")
 
 @api_router.get("/lists/{list_id}/items")
@@ -4846,7 +4843,7 @@ def get_list_items(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error getting list items: {e}")
+        logger.error(f"Error getting list items: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get list items: {str(e)}")
 
 @api_router.post("/lists/{list_id}/items")
@@ -4902,7 +4899,7 @@ def add_item_to_list(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error adding item to list: {e}")
+        logger.error(f"Error adding item to list: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to add item to list: {str(e)}")
 
 @api_router.delete("/lists/{list_id}/items/{item_id}")
@@ -4947,7 +4944,7 @@ def remove_item_from_list(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error removing item from list: {e}")
+        logger.error(f"Error removing item from list: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to remove item from list: {str(e)}")
 
 def expand_collection_items(collection_id: int, user_id: int, session: Session):
@@ -5868,7 +5865,7 @@ def toggle_item_watched_in_list(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error updating item in list: {e}")
+        logger.error(f"Error updating item in list: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to update item: {str(e)}")
 
 # ============================================================================
@@ -5946,7 +5943,7 @@ def share_list(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error sharing list: {e}")
+        logger.error(f"Error sharing list: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to share list: {str(e)}")
 
 @api_router.delete("/lists/{list_id}/unshare")
@@ -5979,7 +5976,7 @@ def unshare_list(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error unsharing list: {e}")
+        logger.error(f"Error unsharing list: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to unshare list: {str(e)}")
 
 @app.get("/admin")
@@ -5992,16 +5989,16 @@ def admin_console(current_user: User = Depends(get_current_admin_user)):
 def get_admin_users(current_user: User = Depends(get_current_admin_user)):
     """Get all users for admin management"""
     try:
-        print(f"Admin users request from user: {current_user.username}")
+        logger.info(f"Admin users request from user: {current_user.username}")
         with Session(engine) as session:
-            print("Database session created successfully")
+            logger.debug("Database session created successfully")
             # Get all active users with their item counts
             users = []
             active_users = session.exec(select(User).where(User.is_active == True)).all()
-            print(f"Found {len(active_users)} active users")
+            logger.debug(f"Found {len(active_users)} active users")
             
             for user in active_users:
-                print(f"Processing user: {user.username}")
+                logger.debug(f"Processing user: {user.username}")
                 # Count user's items
                 movie_count = len(session.exec(select(Movie).where(Movie.user_id == user.id, Movie.deleted == False)).all())
                 series_count = len(session.exec(select(Series).where(Series.user_id == user.id, Series.deleted == False)).all())
@@ -6018,12 +6015,10 @@ def get_admin_users(current_user: User = Depends(get_current_admin_user)):
                     "list_count": list_count
                 })
             
-            print(f"Returning {len(users)} users")
+            logger.debug(f"Returning {len(users)} users")
             return {"users": users}
     except Exception as e:
-        print(f"Error getting admin users: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Error getting admin users: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get users: {str(e)}")
 
 @api_router.get("/admin/users/{user_id}")
@@ -6052,7 +6047,7 @@ def get_admin_user(user_id: int, current_user: User = Depends(get_current_admin_
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error getting admin user: {e}")
+        logger.error(f"Error getting admin user: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get user: {str(e)}")
 
 @api_router.put("/admin/users/{user_id}")
@@ -6083,7 +6078,7 @@ def update_admin_user(
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error updating admin user: {e}")
+        logger.error(f"Error updating admin user: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to update user: {str(e)}")
 
 @api_router.post("/admin/users/{user_id}/clear-data")
@@ -6133,7 +6128,7 @@ def clear_user_data(user_id: int, current_user: User = Depends(get_current_admin
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error clearing user data: {e}")
+        logger.error(f"Error clearing user data: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to clear user data: {str(e)}")
 
 @api_router.post("/admin/users/{user_id}/reset-password")
@@ -6158,7 +6153,7 @@ def reset_user_password(user_id: int, current_user: User = Depends(get_current_a
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error resetting user password: {e}")
+        logger.error(f"Error resetting user password: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to reset password: {str(e)}")
 
 @api_router.delete("/admin/users/{user_id}")
@@ -6216,7 +6211,7 @@ def delete_admin_user(user_id: int, current_user: User = Depends(get_current_adm
     except HTTPException:
         raise
     except Exception as e:
-        print(f"Error deleting admin user: {e}")
+        logger.error(f"Error deleting admin user: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to delete user: {str(e)}")
 
 @api_router.get("/admin/dashboard")
@@ -6227,23 +6222,23 @@ def get_admin_dashboard(current_user: User = Depends(get_current_admin_user)):
     Individual user operations properly respect user boundaries and soft deletes.
     """
     try:
-        print(f"Admin dashboard request from user: {current_user.username}")
+        logger.info(f"Admin dashboard request from user: {current_user.username}")
         with Session(engine) as session:
-            print("Database session created successfully")
+            logger.debug("Database session created successfully")
             # Count total users
             total_users = len(session.exec(select(User).where(User.is_active == True)).all())
-            print(f"Total active users: {total_users}")
+            logger.debug(f"Total active users: {total_users}")
             
             # Count total movies and series (global stats for admin monitoring)
             # NOTE: These are global counts for system monitoring only
             # Individual user queries properly filter by user_id + deleted status
             total_movies = len(session.exec(select(Movie).where(Movie.deleted == False)).all())
             total_series = len(session.exec(select(Series).where(Series.deleted == False)).all())
-            print(f"Total movies: {total_movies}, Total series: {total_series}")
+            logger.debug(f"Total movies: {total_movies}, Total series: {total_series}")
             
             # Count admin users
             admin_users = len(session.exec(select(User).where(User.is_admin == True, User.is_active == True)).all())
-            print(f"Total admin users: {admin_users}")
+            logger.debug(f"Total admin users: {admin_users}")
             
             result = {
                 "total_users": total_users,
@@ -6251,25 +6246,114 @@ def get_admin_dashboard(current_user: User = Depends(get_current_admin_user)):
                 "total_series": total_series,
                 "admin_users": admin_users
             }
-            print(f"Dashboard result: {result}")
+            logger.debug(f"Dashboard result: {result}")
             return result
     except Exception as e:
-        print(f"Error getting admin dashboard: {e}")
-        import traceback
-        traceback.print_exc()
+        logger.error(f"Error getting admin dashboard: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to get dashboard data: {str(e)}")
+
+@api_router.get("/admin/usage-stats")
+def get_usage_stats(current_user: User = Depends(get_current_admin_user)):
+    """Get detailed usage statistics for admin monitoring.
+
+    Returns active users (last 30 days), content totals, per-user breakdowns,
+    and recent activity. No new tables needed — queries existing data.
+    """
+    try:
+        with Session(engine) as session:
+            now = datetime.now(timezone.utc)
+            thirty_days_ago = now - timedelta(days=30)
+            seven_days_ago = now - timedelta(days=7)
+
+            # --- Active users ---
+            all_active_users = session.exec(select(User).where(User.is_active == True)).all()
+            active_30d = [u for u in all_active_users if u.last_login and u.last_login >= thirty_days_ago]
+            active_7d = [u for u in active_30d if u.last_login >= seven_days_ago]
+
+            # --- Content totals ---
+            total_movies = len(session.exec(select(Movie).where(Movie.deleted == False)).all())
+            total_series = len(session.exec(select(Series).where(Series.deleted == False)).all())
+            total_episodes = len(session.exec(select(Episode).where(Episode.deleted == False)).all())
+            total_lists = len(session.exec(select(List).where(List.deleted == False)).all())
+
+            # --- Per-user breakdown (top 10 by content count) ---
+            per_user = []
+            for user in all_active_users:
+                movie_count = len(session.exec(
+                    select(Movie).where(Movie.user_id == user.id, Movie.deleted == False)
+                ).all())
+                series_count = len(session.exec(
+                    select(Series).where(Series.user_id == user.id, Series.deleted == False)
+                ).all())
+                list_count = len(session.exec(
+                    select(List).where(List.user_id == user.id, List.deleted == False)
+                ).all())
+                per_user.append({
+                    "user_id": user.id,
+                    "username": user.username,
+                    "email": user.email,
+                    "auth_provider": user.auth_provider,
+                    "last_login": user.last_login.isoformat() if user.last_login else None,
+                    "created_at": user.created_at.isoformat() if user.created_at else None,
+                    "movies": movie_count,
+                    "series": series_count,
+                    "lists": list_count,
+                    "total_items": movie_count + series_count,
+                })
+            per_user.sort(key=lambda x: x["total_items"], reverse=True)
+
+            # --- Recently added content (last 7 days) ---
+            recent_movies = len(session.exec(
+                select(Movie).where(Movie.deleted == False, Movie.added_at >= seven_days_ago)
+            ).all())
+            recent_series = len(session.exec(
+                select(Series).where(Series.deleted == False, Series.added_at >= seven_days_ago)
+            ).all())
+
+            # --- Auth provider breakdown ---
+            auth_breakdown = {}
+            for user in all_active_users:
+                provider = user.auth_provider or "local"
+                auth_breakdown[provider] = auth_breakdown.get(provider, 0) + 1
+
+            result = {
+                "users": {
+                    "total_active": len(all_active_users),
+                    "active_last_30d": len(active_30d),
+                    "active_last_7d": len(active_7d),
+                    "auth_providers": auth_breakdown,
+                },
+                "content": {
+                    "total_movies": total_movies,
+                    "total_series": total_series,
+                    "total_episodes": total_episodes,
+                    "total_lists": total_lists,
+                    "added_last_7d": {
+                        "movies": recent_movies,
+                        "series": recent_series,
+                    },
+                },
+                "per_user": per_user[:10],  # Top 10 by content
+                "generated_at": now.isoformat(),
+            }
+
+            logger.info(f"Usage stats generated for admin {current_user.username}")
+            return result
+    except Exception as e:
+        logger.error(f"Error generating usage stats: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to generate usage stats: {str(e)}")
 
 # Debug test endpoint
 @api_router.get("/lists/test")
 def test_lists_endpoint():
-    print("DEBUG: /api/lists/test called successfully!")
+    logger.debug("/api/lists/test called successfully!")
     return {"message": "Lists router is working"}
 
 # Debug: Print all registered routes
-print("DEBUG: Registered API routes:")
+logger.debug("Registered API routes:")
 for route in api_router.routes:
     if hasattr(route, 'path') and hasattr(route, 'methods'):
-        print(f"  {route.methods} {route.path}")
+        logger.debug(f"  {route.methods} {route.path}")
 
 @api_router.post("/admin/check-releases")
 async def check_releases():

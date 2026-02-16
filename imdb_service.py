@@ -1,3 +1,4 @@
+import logging
 import requests
 import re
 from typing import List, Dict, Optional
@@ -5,6 +6,8 @@ from dataclasses import dataclass
 from datetime import datetime
 import asyncio
 import aiohttp
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class IMDBMovie:
@@ -68,7 +71,7 @@ class IMDBService:
                 return []
                 
         except Exception as e:
-            print(f"Error searching movies: {e}")
+            logger.error(f"Error searching movies: {e}")
             return []
     
     def search_series(self, query: str) -> List[IMDBSeries]:
@@ -99,7 +102,7 @@ class IMDBService:
                 return []
                 
         except Exception as e:
-            print(f"Error searching series: {e}")
+            logger.error(f"Error searching series: {e}")
             return []
     
     def get_movie_details(self, imdb_id: str) -> Optional[IMDBMovie]:
@@ -126,7 +129,7 @@ class IMDBService:
             return None
             
         except Exception as e:
-            print(f"Error getting movie details: {e}")
+            logger.error(f"Error getting movie details: {e}")
             return None
     
     def get_series_details(self, imdb_id: str) -> Optional[IMDBSeries]:
@@ -160,7 +163,7 @@ class IMDBService:
             return None
             
         except Exception as e:
-            print(f"Error getting series details: {e}")
+            logger.error(f"Error getting series details: {e}")
             return None
     
     async def _get_series_episodes_async(self, imdb_id: str, total_seasons: int) -> List[IMDBEpisode]:
@@ -196,7 +199,7 @@ class IMDBService:
             try:
                 async with session.get(self.base_url, params=params) as resp:
                     if resp.status != 200:
-                        print(f"Error getting episodes for season {season}: HTTP {resp.status}")
+                        logger.error(f"Error getting episodes for season {season}: HTTP {resp.status}")
                         return []
                     
                     data = await resp.json()
@@ -216,9 +219,9 @@ class IMDBService:
                     return season_episodes
                     
             except Exception as e:
-                print(f"Error getting episodes for season {season}: {e}")
+                logger.error(f"Error getting episodes for season {season}: {e}")
                 return []
-        
+
         # Create aiohttp session and fetch all seasons concurrently
         async with aiohttp.ClientSession() as session:
             # Create tasks for all seasons
@@ -232,7 +235,7 @@ class IMDBService:
                 if isinstance(result, list):
                     episodes.extend(result)
                 else:
-                    print(f"Error in concurrent fetch: {result}")
+                    logger.error(f"Error in concurrent fetch: {result}")
         
         return episodes
 
@@ -242,7 +245,7 @@ class IMDBService:
         try:
             return asyncio.run(self._get_series_episodes_async(imdb_id, total_seasons))
         except Exception as e:
-            print(f"Error in async episode fetch, falling back to sync: {e}")
+            logger.warning(f"Error in async episode fetch, falling back to sync: {e}")
             # Fallback to the original synchronous implementation
             return self._get_series_episodes_sync(imdb_id, total_seasons)
     
@@ -278,9 +281,9 @@ class IMDBService:
                         episodes.append(episode)
                         
             except Exception as e:
-                print(f"Error getting episodes for season {season}: {e}")
+                logger.error(f"Error getting episodes for season {season}: {e}")
                 continue
-        
+
         return episodes
 
 # For development/testing without API key
