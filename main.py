@@ -328,7 +328,7 @@ def get_current_user_info(current_user: User = Depends(get_current_user)):
     }
 
 @api_router.get("/debug/auth-test")
-def debug_auth_test(current_user: User = Depends(get_current_user)):
+def debug_auth_test(current_user: User = Depends(get_current_admin_user)):
     """Debug endpoint to test authentication - similar to watchlist but simpler"""
     logger.debug(f"AUTH_TEST: Called for user: {current_user.username} (ID: {current_user.id})")
     logger.debug(f"AUTH_TEST: User auth_provider: {getattr(current_user, 'auth_provider', 'unknown')}")
@@ -514,8 +514,8 @@ def toggle_user_admin_status(user_id: int, admin_update: dict, current_user: Use
         raise HTTPException(status_code=500, detail=f"Failed to update admin status: {str(e)}")
 
 @app.get("/debug-users")
-def debug_users():
-    """Debug endpoint to see all users in database (no auth required)"""
+def debug_users(current_user: User = Depends(get_current_admin_user)):
+    """Debug endpoint to see all users in database (admin only)"""
     logger.debug("DEBUG: Checking all users in database...")
     with Session(engine) as session:
         users = session.exec(select(User)).all()
@@ -3554,8 +3554,8 @@ def get_jellyfin_libraries_debug():
         raise HTTPException(status_code=500, detail=f"Failed to get Jellyfin libraries: {str(e)}")
 
 @api_router.get("/import/jellyfin/debug")
-def debug_jellyfin():
-    """Debug Jellyfin connection and service"""
+def debug_jellyfin(current_user: User = Depends(get_current_admin_user)):
+    """Debug Jellyfin connection and service (admin only)"""
     try:
         logger.info("Debugging Jellyfin service...")
         
@@ -3651,8 +3651,8 @@ def test_jellyfin_libraries():
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/import/jellyfin/debug-movie-data")
-def debug_movie_data():
-    """Debug the raw movie data from Jellyfin to see provider IDs"""
+def debug_movie_data(current_user: User = Depends(get_current_admin_user)):
+    """Debug the raw movie data from Jellyfin to see provider IDs (admin only)"""
     try:
         jellyfin_service = create_jellyfin_service()
         
@@ -3681,8 +3681,8 @@ def debug_movie_data():
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/import/jellyfin/debug-provider-ids")
-def debug_provider_ids():
-    """Debug the raw provider IDs from Jellyfin to see what keys are available"""
+def debug_provider_ids(current_user: User = Depends(get_current_admin_user)):
+    """Debug the raw provider IDs from Jellyfin to see what keys are available (admin only)"""
     try:
         jellyfin_service = create_jellyfin_service()
         
@@ -4123,8 +4123,8 @@ def read_root(request: Request):
     return FileResponse("static/index.html")
 
 @api_router.get("/debug/movies")
-def debug_movies():
-    """Debug endpoint to see all movies in database with collection info"""
+def debug_movies(current_user: User = Depends(get_current_admin_user)):
+    """Debug endpoint to see all movies in database with collection info (admin only)"""
     try:
         with Session(engine) as session:
             movies = session.exec(select(Movie)).all()
@@ -4147,8 +4147,8 @@ def debug_movies():
         raise HTTPException(status_code=500, detail=str(e))
 
 @api_router.get("/debug/users")
-def debug_users():
-    """Debug endpoint to check users in database"""
+def debug_users_api(current_user: User = Depends(get_current_admin_user)):
+    """Debug endpoint to check users in database (admin only)"""
     try:
         with Session(engine) as session:
             users = session.exec(select(User)).all()
