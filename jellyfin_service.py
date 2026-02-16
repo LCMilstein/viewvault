@@ -46,8 +46,8 @@ class JellyfinService:
                 try:
                     error_content = response.text
                     logger.error(f"Error response content: {error_content[:500]}")
-                except:
-                    pass
+                except Exception:
+                    logger.debug("Failed to read error response content")
                 return False
             
             # Try to parse the response to make sure it's valid

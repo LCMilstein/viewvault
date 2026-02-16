@@ -9,11 +9,18 @@ from sqlalchemy.exc import IntegrityError
 from models import User
 from database import engine
 import os
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Security configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-this-in-production")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 525600  # 1 year (365 days * 24 hours * 60 minutes)
+
+# Warn loudly if using the insecure default — don't crash, just nag
+if SECRET_KEY in ("your-secret-key-change-this-in-production", "change-me", "change-me-in-production"):
+    logger.warning("⚠️  SECRET_KEY is using an insecure default. Set SECRET_KEY in secrets.env for production.")
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")

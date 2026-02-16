@@ -2,11 +2,10 @@ from dotenv import load_dotenv
 import os
 
 # Load environment variables from secrets.env if it exists
+_secrets_loaded = False
 if os.path.exists('secrets.env'):
     load_dotenv('secrets.env')
-    print("Loaded environment variables from secrets.env")
-else:
-    print("secrets.env not found, using system environment variables")
+    _secrets_loaded = True
 from fastapi import FastAPI, status, HTTPException, Query, Request, Depends, APIRouter
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, RedirectResponse
@@ -42,6 +41,12 @@ from contextlib import asynccontextmanager
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Log deferred startup messages
+if _secrets_loaded:
+    logger.info("Loaded environment variables from secrets.env")
+else:
+    logger.info("secrets.env not found, using system environment variables")
+
 # =============================================================================
 # SOFT DELETE BEHAVIOR - CRITICAL FOR USER PRIVACY
 # =============================================================================
@@ -75,24 +80,22 @@ def rate_limit_tmdb():
 
 # Initialize IMDB service (use mock for development, real service with API key)
 imdb_api_key = os.getenv("IMDB_API_KEY")
-print(f"🔍 IMDB DEBUG: IMDB_API_KEY = {imdb_api_key}")
-print(f"🔍 IMDB DEBUG: IMDB_API_KEY type = {type(imdb_api_key)}")
-print(f"🔍 IMDB DEBUG: IMDB_API_KEY length = {len(imdb_api_key) if imdb_api_key else 0}")
+logger.debug(f"IMDB_API_KEY present: {bool(imdb_api_key)}, length: {len(imdb_api_key) if imdb_api_key else 0}")
 
 if imdb_api_key:
-    print("🔍 IMDB DEBUG: Using real IMDBService")
+    logger.info("Using real IMDBService")
     imdb_service = IMDBService(imdb_api_key)
 else:
-    print("🔍 IMDB DEBUG: Using MockIMDBService")
+    logger.info("Using MockIMDBService (no IMDB_API_KEY set)")
     imdb_service = MockIMDBService()
 
 # Initialize database tables on startup
-print("🔧 Initializing database...")
+logger.info("Initializing database...")
 try:
     from init_database import init_database
     init_database()
 except Exception as e:
-    print(f"❌ Database initialization failed: {e}")
+    logger.error(f"Database initialization failed: {e}")
     # Don't crash the app, but log the error
 
 def migrate_user_table():
@@ -201,10 +204,16 @@ app = FastAPI(lifespan=lifespan, title="ViewVault", version="1.0.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# CORS middleware
+# CORS middleware — configurable via env var, defaults to ["*"] for backward compat
+# Set CORS_ORIGINS in secrets.env as comma-separated list:
+#   CORS_ORIGINS=https://app.viewvault.app,http://localhost:3000
+cors_origins_env = os.getenv("CORS_ORIGINS", "")
+cors_origins = [o.strip() for o in cors_origins_env.split(",") if o.strip()] if cors_origins_env else ["*"]
+logger.info(f"CORS origins: {cors_origins}")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # In production, specify your frontend domain
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

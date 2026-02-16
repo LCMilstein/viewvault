@@ -15,4 +15,4 @@ else:
     sqlite_file_name = os.path.join("db", "viewvault.db")
 
 sqlite_url = f"sqlite:///{sqlite_file_name}"
-engine = create_engine(sqlite_url, echo=True) 
+engine = create_engine(sqlite_url, echo=os.getenv("SQL_ECHO", "").lower() == "true")
