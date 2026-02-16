@@ -1721,7 +1721,7 @@ def delete_movie(movie_id: int):
         return {"message": "Movie deleted successfully"}
 
 @api_router.patch("/movies/{movie_id}/watched")
-def toggle_movie_watched(movie_id: int):
+def toggle_movie_watched_patch(movie_id: int):
     with Session(engine) as session:
         movie = session.get(Movie, movie_id)
         if not movie or movie.deleted:
@@ -1910,7 +1910,7 @@ def delete_episode(episode_id: int):
         return {"message": "Episode deleted successfully"}
 
 @api_router.patch("/episodes/{episode_id}/watched")
-def toggle_episode_watched(episode_id: int):
+def toggle_episode_watched_patch(episode_id: int):
     with Session(engine) as session:
         episode = session.get(Episode, episode_id)
         if not episode or episode.deleted:
@@ -6367,63 +6367,6 @@ logger.debug("Registered API routes:")
 for route in api_router.routes:
     if hasattr(route, 'path') and hasattr(route, 'methods'):
         logger.debug(f"  {route.methods} {route.path}")
-
-@api_router.post("/admin/check-releases")
-async def check_releases():
-    """Check for new releases and update is_new flags - RESPECTS USER SOFT DELETES
-    
-    IMPORTANT: This function respects user soft deletes.
-    - If User A soft-deleted "Cinderella III", it won't be marked as "new" for User A
-    - If User B has "Cinderella III", it can still be marked as "new" for User B
-    - Manual re-import of soft-deleted items is allowed and will restore them
-    - Only automatic processes respect the soft delete flag
-    """
-    try:
-        with Session(engine) as session:
-            # Get all movies and series - RESPECTING user soft deletes
-            # This function operates globally but respects individual user preferences
-            movies = session.exec(select(Movie).where(Movie.deleted == False)).all()
-            series = session.exec(select(Series).where(Series.deleted == False)).all()
-            
-            # Check for new releases (released in last 30 days)
-            from datetime import datetime, timedelta
-            thirty_days_ago = datetime.now() - timedelta(days=30)
-            
-            new_movies = []
-            new_series = []
-            
-            for movie in movies:
-                if movie.release_date:
-                    try:
-                        release_date = datetime.strptime(movie.release_date, "%Y-%m-%d")
-                        if release_date >= thirty_days_ago:
-                            movie.is_new = True
-                            new_movies.append(movie.title)
-                    except ValueError:
-                        pass
-            
-            for series in series:
-                # Check if any episodes are recent
-                for episode in series.episodes:
-                    if episode.air_date:
-                        try:
-                            air_date = datetime.strptime(episode.air_date, "%Y-%m-%d")
-                            if air_date >= thirty_days_ago:
-                                series.is_new = True
-                                new_series.append(series.title)
-                                break
-                        except ValueError:
-                            pass
-            
-            session.commit()
-            
-            return {
-                "message": "Release check completed",
-                "new_movies": new_movies,
-                "new_series": new_series
-            }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to check releases: {str(e)}")
 
 @api_router.post("/admin/remove-duplicates")
 async def remove_duplicates(current_user: User = Depends(get_current_user)):
