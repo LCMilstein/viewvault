@@ -623,8 +623,8 @@ def get_jellyfin_libraries(current_user: User = Depends(get_current_user)):
 
 
 @router.get("/import/jellyfin/libraries-debug")
-def get_jellyfin_libraries_debug():
-    """Get list of available Jellyfin libraries (no auth required for debugging)"""
+def get_jellyfin_libraries_debug(current_user: User = Depends(get_current_user)):
+    """Get list of available Jellyfin libraries (auth required)"""
     try:
         logger.info("Getting Jellyfin libraries (debug mode)...")
         jellyfin_service = create_jellyfin_service()

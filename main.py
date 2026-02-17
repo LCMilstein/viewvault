@@ -164,7 +164,7 @@ async def lifespan(app: FastAPI):
 # ---------------------------------------------------------------------------
 # App creation, rate limiting, CORS, middleware, static files
 # ---------------------------------------------------------------------------
-app = FastAPI(lifespan=lifespan, title="ViewVault", version="1.0.0")
+app = FastAPI(lifespan=lifespan, title="ViewVault", version="2.0.0")
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
@@ -187,7 +187,18 @@ app.add_middleware(
 from middleware import RequestLoggingMiddleware
 app.add_middleware(RequestLoggingMiddleware)
 
-# Mount static files
+# Mount static files with cache headers
+from starlette.middleware.base import BaseHTTPMiddleware
+
+class StaticCacheMiddleware(BaseHTTPMiddleware):
+    """Add Cache-Control headers for static assets."""
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        if request.url.path.startswith("/static/"):
+            response.headers["Cache-Control"] = "public, max-age=3600"
+        return response
+
+app.add_middleware(StaticCacheMiddleware)
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 # ---------------------------------------------------------------------------
@@ -210,7 +221,7 @@ api_router = APIRouter(prefix="/api")
 @api_router.get("/")
 def api_root():
     logger.info("API root endpoint called!")
-    return {"message": "ViewVault API", "version": "1.0.0", "test": "UPDATED_CODE_RUNNING"}
+    return {"message": "ViewVault API", "version": "2.0.0"}
 
 # ---------------------------------------------------------------------------
 # HTML-serving routes (login, register, Auth0 callbacks)

@@ -601,7 +601,7 @@ def toggle_user_admin_status(user_id: int, admin_update: dict, current_user: Use
 # =============================================================================
 
 @router.get("/lists/test")
-def test_lists_endpoint():
+def test_lists_endpoint(current_user: User = Depends(get_current_user)):
     logger.debug("/api/lists/test called successfully!")
     return {"message": "Lists router is working"}
 

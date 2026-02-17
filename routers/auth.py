@@ -6,7 +6,7 @@ Includes login, user info, password management, OAuth linking, and Auth0 callbac
 
 import os
 import logging
-from datetime import timedelta
+from datetime import timedelta, datetime, timezone
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session, select
 from database import engine
@@ -31,6 +31,13 @@ def login(request: Request, user_credentials: UserLogin):
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    # Update last_login timestamp
+    with Session(engine) as session:
+        db_user = session.get(User, user.id)
+        if db_user:
+            db_user.last_login = datetime.now(timezone.utc)
+            session.add(db_user)
+            session.commit()
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires

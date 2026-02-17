@@ -3,7 +3,7 @@ FROM python:3.11
 # Set metadata
 LABEL maintainer="ViewVault Team"
 LABEL description="ViewVault - Personal Media Watchlist Manager"
-LABEL version="1.0.0"
+LABEL version="2.0.0"
 
 # Set working directory
 WORKDIR /app
