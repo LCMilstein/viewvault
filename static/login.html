@@ -12,8 +12,9 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: Inter, -apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #5c1a8a 0%, #1a4a5a 12%, #0d3535 30%, #3a1660 55%, #0a2e2e 75%, #2d1050 100%);
+            background-attachment: fixed;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -22,9 +23,12 @@
         }
 
         .login-container {
-            background: white;
-            border-radius: 16px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            background: rgba(42, 42, 42, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 20px;
+            box-shadow: 0 8px 48px rgba(0, 0, 0, 0.4);
             padding: 40px;
             width: 100%;
             max-width: 400px;
@@ -34,12 +38,12 @@
         .logo {
             font-size: 2.5rem;
             font-weight: 700;
-            color: #667eea;
+            color: #00d4aa;
             margin-bottom: 10px;
         }
 
         .subtitle {
-            color: #666;
+            color: rgba(255, 255, 255, 0.7);
             margin-bottom: 30px;
             font-size: 1.1rem;
         }
@@ -49,7 +53,7 @@
         }
 
         .auth-section h3 {
-            color: #333;
+            color: rgba(255, 255, 255, 0.9);
             margin-bottom: 20px;
             font-size: 1.2rem;
         }
@@ -65,10 +69,10 @@
             align-items: center;
             justify-content: center;
             padding: 12px 20px;
-            border: 2px solid #e1e5e9;
+            border: 1px solid rgba(255, 255, 255, 0.15);
             border-radius: 8px;
-            background: white;
-            color: #333;
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
             text-decoration: none;
             font-size: 1rem;
             font-weight: 500;
@@ -77,29 +81,30 @@
         }
 
         .auth-button:hover {
-            border-color: #667eea;
-            background: #f8f9ff;
+            background: rgba(0, 212, 170, 0.15);
+            border-color: #00d4aa;
             transform: translateY(-1px);
         }
 
         .auth-button.google {
-            border-color: #db4437;
-            color: #db4437;
+            border-color: rgba(219, 68, 55, 0.5);
+            color: #ffffff;
         }
 
         .auth-button.google:hover {
-            background: #fef7f7;
+            background: rgba(0, 212, 170, 0.15);
+            border-color: #00d4aa;
         }
 
         .auth-button.github {
-            border-color: #333;
-            color: #333;
+            border-color: rgba(255, 255, 255, 0.25);
+            color: #ffffff;
         }
 
         .auth-button.github:hover {
-            background: #f8f9fa;
+            background: rgba(0, 212, 170, 0.15);
+            border-color: #00d4aa;
         }
-
 
         .auth-button svg {
             width: 20px;
@@ -111,7 +116,7 @@
             display: flex;
             align-items: center;
             margin: 30px 0;
-            color: #666;
+            color: rgba(255, 255, 255, 0.5);
         }
 
         .divider::before,
@@ -119,150 +124,13 @@
             content: '';
             flex: 1;
             height: 1px;
-            background: #e1e5e9;
+            background: rgba(255, 255, 255, 0.15);
         }
 
         .divider span {
             padding: 0 20px;
             font-size: 0.9rem;
-        }
-
-        .form-group {
-            margin-bottom: 20px;
-        }
-
-        .form-group label {
-            display: block;
-            margin-bottom: 5px;
-            color: #333;
-            font-weight: 500;
-        }
-
-        .form-group input {
-            width: 100%;
-            padding: 12px 15px;
-            border: 2px solid #e9ecef;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
-
-        .form-group input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
-
-        .btn {
-            width: 100%;
-            padding: 12px 25px;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: all 0.3s;
-            margin-bottom: 15px;
-        }
-
-        .btn-primary {
-            background: #667eea;
-            color: white;
-        }
-
-        .btn-primary:hover {
-            background: #5a6fd8;
-            transform: translateY(-2px);
-        }
-
-        .btn-secondary {
-            background: #6c757d;
-            color: white;
-        }
-
-        .btn-secondary:hover {
-            background: #5a6268;
-        }
-
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .success {
-            background: #d4edda;
-            color: #155724;
-            padding: 10px;
-            border-radius: 5px;
-            margin-bottom: 20px;
-            display: none;
-        }
-
-        .toggle-form {
-            text-align: center;
-            margin-top: 20px;
-        }
-
-        .toggle-form a {
-            color: #667eea;
-            text-decoration: none;
-            cursor: pointer;
-        }
-
-        .toggle-form a:hover {
-            text-decoration: underline;
-        }
-        .loading {
-            display: none;
-            color: #667eea;
-            font-size: 0.9rem;
-            margin-top: 10px;
-        }
-
-        .error {
-            display: none;
-            color: #e74c3c;
-            background: #fdf2f2;
-            border: 1px solid #fecaca;
-            border-radius: 6px;
-            padding: 12px;
-            margin-top: 15px;
-            font-size: 0.9rem;
-        }
-
-        .success {
-            display: none;
-            color: #059669;
-            background: #f0fdf4;
-            border: 1px solid #bbf7d0;
-            border-radius: 6px;
-            padding: 12px;
-            margin-top: 15px;
-            font-size: 0.9rem;
-        }
-
-        .legacy-section {
-            border-top: 1px solid #e1e5e9;
-            padding-top: 30px;
-        }
-
-        .legacy-section h3 {
-            color: #666;
-            margin-bottom: 15px;
-            font-size: 1rem;
-        }
-
-        .legacy-link {
-            color: #667eea;
-            text-decoration: none;
-            font-size: 0.9rem;
-        }
-
-        .legacy-link:hover {
-            text-decoration: underline;
+            background: transparent;
         }
 
         .form-group {
@@ -273,22 +141,28 @@
         .form-group label {
             display: block;
             margin-bottom: 5px;
-            color: #333;
+            color: rgba(255, 255, 255, 0.9);
             font-weight: 500;
         }
 
         .form-group input {
             width: 100%;
             padding: 12px 15px;
-            border: 2px solid #e9ecef;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             border-radius: 8px;
             font-size: 16px;
+            color: #ffffff;
             transition: border-color 0.3s;
         }
 
         .form-group input:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #00d4aa;
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
         }
 
         .btn {
@@ -304,13 +178,73 @@
         }
 
         .btn-primary {
-            background: #667eea;
-            color: white;
+            background: #00d4aa;
+            color: #ffffff;
         }
 
         .btn-primary:hover {
-            background: #5a6fd8;
+            background: #00b894;
             transform: translateY(-2px);
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #ffffff;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        .loading {
+            display: none;
+            color: #00d4aa;
+            font-size: 0.9rem;
+            margin-top: 10px;
+        }
+
+        .error {
+            display: none;
+            color: #FF5252;
+            background: rgba(255, 82, 82, 0.15);
+            border: 1px solid rgba(255, 82, 82, 0.3);
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+
+        .success {
+            display: none;
+            color: #00d4aa;
+            background: rgba(0, 212, 170, 0.15);
+            border: 1px solid rgba(0, 212, 170, 0.3);
+            border-radius: 6px;
+            padding: 12px;
+            margin-top: 15px;
+            font-size: 0.9rem;
+        }
+
+        .legacy-section {
+            border-top: 1px solid rgba(255, 255, 255, 0.15);
+            padding-top: 30px;
+        }
+
+        .legacy-section h3 {
+            color: rgba(255, 255, 255, 0.7);
+            margin-bottom: 15px;
+            font-size: 1rem;
+        }
+
+        .legacy-link {
+            color: #00d4aa;
+            text-decoration: none;
+            font-size: 0.9rem;
+        }
+
+        .legacy-link:hover {
+            text-decoration: underline;
         }
 
         .toggle-form {
@@ -319,7 +253,7 @@
         }
 
         .toggle-form a {
-            color: #667eea;
+            color: #00d4aa;
             text-decoration: none;
             cursor: pointer;
             font-size: 0.9rem;

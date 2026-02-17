@@ -12,23 +12,31 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+            font-family: Inter, -apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #5c1a8a 0%, #1a4a5a 12%, #0d3535 30%, #3a1660 55%, #0a2e2e 75%, #2d1050 100%);
+            background-attachment: fixed;
             min-height: 100vh;
             padding: 20px;
+            color: #ffffff;
         }
 
         .admin-container {
             max-width: 1200px;
             margin: 0 auto;
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            background: rgba(42, 42, 42, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 20px;
+            box-shadow: 0 8px 48px rgba(0, 0, 0, 0.4);
             overflow: hidden;
         }
 
         .admin-header {
-            background: #e74c3c;
+            background: rgba(231, 76, 60, 0.3);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.12);
             color: white;
             padding: 20px;
             text-align: center;
@@ -37,14 +45,19 @@
 
         .admin-header h1 {
             margin-bottom: 10px;
+            color: #ffffff;
+        }
+
+        .admin-header p {
+            color: rgba(255, 255, 255, 0.7);
         }
 
         .admin-close-btn {
             position: absolute;
             top: 20px;
             right: 20px;
-            background: rgba(255, 255, 255, 0.2);
-            border: none;
+            background: rgba(255, 255, 255, 0.15);
+            border: 1px solid rgba(255, 255, 255, 0.2);
             color: white;
             padding: 10px 15px;
             border-radius: 8px;
@@ -54,7 +67,7 @@
         }
 
         .admin-close-btn:hover {
-            background: rgba(255, 255, 255, 0.3);
+            background: rgba(255, 255, 255, 0.25);
             transform: translateY(-1px);
         }
 
@@ -62,11 +75,20 @@
             padding: 30px;
         }
 
+        .admin-content h2 {
+            color: #ffffff;
+            margin-bottom: 20px;
+        }
+
+        .admin-content h3 {
+            color: rgba(255, 255, 255, 0.9);
+        }
+
         .loading-message {
             text-align: center;
             padding: 50px;
             font-size: 18px;
-            color: #666;
+            color: rgba(255, 255, 255, 0.7);
         }
 
         .admin-interface {
@@ -78,7 +100,7 @@
         }
 
         .admin-nav {
-            background: #34495e;
+            background: rgba(42, 42, 42, 0.5);
             padding: 15px;
             display: flex;
             gap: 20px;
@@ -94,9 +116,9 @@
         }
 
         .nav-tab {
-            background: #2c3e50;
-            color: white;
-            border: none;
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+            border: 1px solid rgba(255, 255, 255, 0.1);
             padding: 10px 20px;
             border-radius: 5px;
             cursor: pointer;
@@ -104,7 +126,8 @@
         }
 
         .nav-tab:hover, .nav-tab.active {
-            background: #e74c3c;
+            background: rgba(231, 76, 60, 0.5);
+            border-color: rgba(231, 76, 60, 0.6);
         }
 
         .admin-menu {
@@ -116,7 +139,7 @@
         .admin-menu-item {
             background: rgba(255, 255, 255, 0.1);
             color: white;
-            border: none;
+            border: 1px solid rgba(255, 255, 255, 0.1);
             padding: 8px 16px;
             border-radius: 5px;
             cursor: pointer;
@@ -149,11 +172,13 @@
         }
 
         .stat-card {
-            background: #f8f9fa;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-left: 4px solid #e74c3c;
             padding: 20px;
             border-radius: 10px;
             text-align: center;
-            border-left: 4px solid #e74c3c;
+            color: rgba(255, 255, 255, 0.9);
         }
 
         .stat-number {
@@ -170,6 +195,11 @@
             margin: 2px;
             font-size: 14px;
             transition: all 0.3s;
+        }
+
+        .btn:hover {
+            transform: translateY(-1px);
+            filter: brightness(1.15);
         }
 
         .btn-success {
@@ -196,10 +226,11 @@
             display: none;
             text-align: center;
             padding: 20px;
+            color: rgba(255, 255, 255, 0.7);
         }
 
         .spinner {
-            border: 4px solid #f3f3f3;
+            border: 4px solid rgba(255, 255, 255, 0.1);
             border-top: 4px solid #e74c3c;
             border-radius: 50%;
             width: 40px;
@@ -472,23 +503,23 @@
                 
                 // Create users table
                 let tableHTML = `
-                    <table style="width: 100%; border-collapse: collapse; margin-top: 20px;">
+                    <table style="width: 100%; border-collapse: collapse; margin-top: 20px; color: #ffffff;">
                         <thead>
-                            <tr style="background: #f8f9fa; border-bottom: 2px solid #dee2e6;">
-                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6;">ID</th>
-                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6;">Username</th>
-                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6;">Email</th>
-                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6;">Admin</th>
-                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6;">Active</th>
-                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid #dee2e6;">Actions</th>
+                            <tr style="background: rgba(255, 255, 255, 0.06); border-bottom: 2px solid rgba(255, 255, 255, 0.12);">
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.8);">ID</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.8);">Username</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.8);">Email</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.8);">Admin</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.8);">Active</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.8);">Actions</th>
                             </tr>
                         </thead>
                         <tbody>
                 `;
-                
+
                 users.forEach(user => {
                     tableHTML += `
-                        <tr style="border-bottom: 1px solid #dee2e6;">
+                        <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.06);">
                             <td style="padding: 12px;">${user.id}</td>
                             <td style="padding: 12px;">${user.username}</td>
                             <td style="padding: 12px;">${user.email || '-'}</td>
@@ -522,7 +553,7 @@
             .catch(error => {
                 console.error('Users error:', error);
                 loading.style.display = 'none';
-                content.innerHTML = `<p style="color: red;">Error loading users: ${error.message}</p>`;
+                content.innerHTML = `<p style="color: #e74c3c;">Error loading users: ${error.message}</p>`;
             });
         }
 

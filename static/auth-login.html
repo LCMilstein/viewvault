@@ -12,8 +12,9 @@
         }
 
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: Inter, -apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #5c1a8a 0%, #1a4a5a 12%, #0d3535 30%, #3a1660 55%, #0a2e2e 75%, #2d1050 100%);
+            background-attachment: fixed;
             min-height: 100vh;
             display: flex;
             align-items: center;
@@ -22,9 +23,12 @@
         }
 
         .login-container {
-            background: white;
+            background: rgba(42, 42, 42, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
             border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 48px rgba(0, 0, 0, 0.4);
             padding: 40px;
             width: 100%;
             max-width: 400px;
@@ -35,7 +39,8 @@
             width: 80px;
             height: 80px;
             margin: 0 auto 20px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: rgba(0, 212, 170, 0.15);
+            border: 1px solid rgba(0, 212, 170, 0.3);
             border-radius: 20px;
             display: flex;
             align-items: center;
@@ -50,13 +55,13 @@
         }
 
         h1 {
-            color: #333;
+            color: #ffffff;
             margin-bottom: 10px;
             font-size: 28px;
         }
 
         .subtitle {
-            color: #666;
+            color: rgba(255, 255, 255, 0.7);
             margin-bottom: 30px;
             font-size: 16px;
         }
@@ -65,7 +70,7 @@
             width: 100%;
             padding: 12px 20px;
             margin-bottom: 12px;
-            border: none;
+            border: 1px solid rgba(255, 255, 255, 0.15);
             border-radius: 10px;
             font-size: 16px;
             font-weight: 600;
@@ -75,11 +80,15 @@
             justify-content: center;
             gap: 10px;
             transition: all 0.3s ease;
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
         }
 
         .auth-btn:hover {
+            background: rgba(0, 212, 170, 0.15);
+            border-color: #00d4aa;
             transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
         }
 
         .auth-btn:disabled {
@@ -89,23 +98,27 @@
         }
 
         .google-btn {
-            background: #4285f4;
-            color: white;
+            border-color: rgba(219, 68, 55, 0.5);
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
         }
 
         .github-btn {
-            background: #333;
-            color: white;
+            border-color: rgba(255, 255, 255, 0.25);
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
         }
 
         .email-btn {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
+            background: rgba(0, 212, 170, 0.2);
+            border-color: rgba(0, 212, 170, 0.4);
+            color: #ffffff;
         }
 
         .jwt-btn {
-            background: #6c757d;
-            color: white;
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(255, 255, 255, 0.15);
+            color: #ffffff;
         }
 
         .divider {
@@ -121,19 +134,20 @@
             left: 0;
             right: 0;
             height: 1px;
-            background: #ddd;
+            background: rgba(255, 255, 255, 0.15);
         }
 
         .divider span {
-            background: white;
+            background: rgba(42, 42, 42, 0.6);
             padding: 0 15px;
-            color: #666;
+            color: rgba(255, 255, 255, 0.5);
             font-size: 14px;
         }
 
         .error-message {
-            background: #fee;
-            color: #c33;
+            background: rgba(255, 82, 82, 0.15);
+            border: 1px solid rgba(255, 82, 82, 0.3);
+            color: #FF5252;
             padding: 10px;
             border-radius: 8px;
             margin-bottom: 20px;
@@ -141,8 +155,9 @@
         }
 
         .success-message {
-            background: #efe;
-            color: #3c3;
+            background: rgba(0, 212, 170, 0.15);
+            border: 1px solid rgba(0, 212, 170, 0.3);
+            color: #00d4aa;
             padding: 10px;
             border-radius: 8px;
             margin-bottom: 20px;
@@ -157,11 +172,11 @@
         .footer-links {
             margin-top: 20px;
             font-size: 14px;
-            color: #666;
+            color: rgba(255, 255, 255, 0.5);
         }
 
         .footer-links a {
-            color: #4285f4;
+            color: #00d4aa;
             text-decoration: none;
         }
 
@@ -181,21 +196,27 @@
         .form-group label {
             display: block;
             margin-bottom: 5px;
-            color: #333;
+            color: rgba(255, 255, 255, 0.9);
             font-weight: 500;
         }
 
         .form-group input {
             width: 100%;
             padding: 10px;
-            border: 2px solid #e9ecef;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             border-radius: 8px;
             font-size: 14px;
+            color: #ffffff;
         }
 
         .form-group input:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #00d4aa;
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
         }
     </style>
 </head>

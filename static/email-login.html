@@ -12,8 +12,9 @@
         }
 
         body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            font-family: Inter, -apple-system, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: linear-gradient(135deg, #5c1a8a 0%, #1a4a5a 12%, #0d3535 30%, #3a1660 55%, #0a2e2e 75%, #2d1050 100%);
+            background-attachment: fixed;
             min-height: 100vh;
             display: flex;
             justify-content: center;
@@ -22,9 +23,12 @@
         }
 
         .login-container {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            background: rgba(42, 42, 42, 0.6);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            border-radius: 20px;
+            box-shadow: 0 8px 48px rgba(0, 0, 0, 0.4);
             padding: 40px;
             width: 100%;
             max-width: 400px;
@@ -36,12 +40,12 @@
         }
 
         .header h1 {
-            color: #333;
+            color: #ffffff;
             margin-bottom: 10px;
         }
 
         .header p {
-            color: #666;
+            color: rgba(255, 255, 255, 0.7);
         }
 
         .form-group {
@@ -51,22 +55,28 @@
         .form-group label {
             display: block;
             margin-bottom: 5px;
-            color: #333;
+            color: rgba(255, 255, 255, 0.9);
             font-weight: 500;
         }
 
         .form-group input {
             width: 100%;
             padding: 12px 15px;
-            border: 2px solid #e9ecef;
+            background: rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.15);
             border-radius: 8px;
             font-size: 16px;
+            color: #ffffff;
             transition: border-color 0.3s;
         }
 
         .form-group input:focus {
             outline: none;
-            border-color: #667eea;
+            border-color: #00d4aa;
+        }
+
+        .form-group input::placeholder {
+            color: rgba(255, 255, 255, 0.4);
         }
 
         .btn {
@@ -82,27 +92,29 @@
         }
 
         .btn-primary {
-            background: #667eea;
-            color: white;
+            background: #00d4aa;
+            color: #ffffff;
         }
 
         .btn-primary:hover {
-            background: #5a6fd8;
+            background: #00b894;
             transform: translateY(-2px);
         }
 
         .btn-secondary {
-            background: #6c757d;
-            color: white;
+            background: rgba(255, 255, 255, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: #ffffff;
         }
 
         .btn-secondary:hover {
-            background: #5a6268;
+            background: rgba(255, 255, 255, 0.15);
         }
 
         .error {
-            background: #f8d7da;
-            color: #721c24;
+            background: rgba(255, 82, 82, 0.15);
+            border: 1px solid rgba(255, 82, 82, 0.3);
+            color: #FF5252;
             padding: 10px;
             border-radius: 5px;
             margin-bottom: 20px;
@@ -110,8 +122,9 @@
         }
 
         .success {
-            background: #d4edda;
-            color: #155724;
+            background: rgba(0, 212, 170, 0.15);
+            border: 1px solid rgba(0, 212, 170, 0.3);
+            color: #00d4aa;
             padding: 10px;
             border-radius: 5px;
             margin-bottom: 20px;
@@ -124,7 +137,7 @@
         }
 
         .toggle-form a {
-            color: #667eea;
+            color: #00d4aa;
             text-decoration: none;
             cursor: pointer;
         }
@@ -139,7 +152,7 @@
         }
 
         .back-link a {
-            color: #667eea;
+            color: #00d4aa;
             text-decoration: none;
             font-size: 0.9rem;
         }
