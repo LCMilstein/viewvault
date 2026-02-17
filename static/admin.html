@@ -282,24 +282,55 @@
                 <!-- Dashboard Tab -->
                 <div id="dashboard" class="tab-content active">
                     <h2>System Overview</h2>
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-number" id="total-users">-</div>
-                            <div>Total Users</div>
+
+                    <!-- Row 1: Hero Metrics -->
+                    <div class="stats-grid" style="grid-template-columns: repeat(4, 1fr);">
+                        <div class="stat-card" style="border-left-color: #00d4aa;">
+                            <div class="stat-number" id="active-7d" style="color: #00d4aa;">-</div>
+                            <div>Active Users</div>
+                            <div style="color: rgba(255,255,255,0.45); font-size: 0.8em; margin-top: 4px;">7-day active</div>
+                        </div>
+                        <div class="stat-card" style="border-left-color: #00d4aa;">
+                            <div class="stat-number" id="active-30d" style="color: #00d4aa;">-</div>
+                            <div>Active Users</div>
+                            <div style="color: rgba(255,255,255,0.45); font-size: 0.8em; margin-top: 4px;">30-day active</div>
                         </div>
                         <div class="stat-card">
-                            <div class="stat-number" id="total-movies">-</div>
-                            <div>Total Movies</div>
+                            <div class="stat-number" id="total-content">-</div>
+                            <div>Total Content</div>
+                            <div id="total-content-subtitle" style="color: rgba(255,255,255,0.45); font-size: 0.8em; margin-top: 4px;">– movies · – series</div>
                         </div>
-                        <div class="stat-card">
-                            <div class="stat-number" id="total-series">-</div>
-                            <div>Total Series</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-number" id="admin-users">-</div>
-                            <div>Admin Users</div>
+                        <div class="stat-card" style="border-left-color: #00d4aa;">
+                            <div class="stat-number" id="new-this-week" style="color: #00d4aa;">-</div>
+                            <div>New This Week</div>
+                            <div style="color: rgba(255,255,255,0.45); font-size: 0.8em; margin-top: 4px;">added in last 7 days</div>
                         </div>
                     </div>
+
+                    <!-- Row 2: User Activity Table -->
+                    <h3 style="margin-bottom: 12px;">User Activity</h3>
+                    <div id="user-activity-table" style="overflow-x: auto; margin-bottom: 30px;">
+                        <p style="color: rgba(255,255,255,0.5);">Loading user activity...</p>
+                    </div>
+
+                    <!-- Row 3: Insights -->
+                    <h3 style="margin-bottom: 12px;">Insights</h3>
+                    <div class="stats-grid" style="grid-template-columns: repeat(3, 1fr);">
+                        <div class="stat-card" style="border-left-color: #3498db; text-align: left;">
+                            <h3 style="margin-bottom: 8px; font-size: 1em;">Auth Providers</h3>
+                            <div id="auth-providers-info" style="color: rgba(255,255,255,0.7); font-size: 0.95em;">Loading...</div>
+                        </div>
+                        <div class="stat-card" style="border-left-color: #3498db; text-align: left;">
+                            <h3 style="margin-bottom: 8px; font-size: 1em;">Docker Hub Pulls</h3>
+                            <div id="docker-pulls" style="font-size: 1.6em; font-weight: bold; color: #3498db;">–</div>
+                            <div style="color: rgba(255,255,255,0.45); font-size: 0.8em; margin-top: 4px;">lcmilstein/viewvault</div>
+                        </div>
+                        <div class="stat-card" style="border-left-color: #3498db; text-align: left;">
+                            <h3 style="margin-bottom: 8px; font-size: 1em;">App Version</h3>
+                            <div style="font-size: 1.6em; font-weight: bold; color: #3498db;">v2.0.0</div>
+                        </div>
+                    </div>
+
                     <div class="loading" id="dashboard-loading">
                         <div class="spinner"></div>
                         <p>Loading dashboard data...</p>
@@ -446,12 +477,53 @@
             }
         }
 
+        // Helper: relative time from ISO datetime string
+        function timeAgo(dateStr) {
+            if (!dateStr) return '–';
+            const date = new Date(dateStr);
+            const now = new Date();
+            const diffMs = now - date;
+            const diffSec = Math.floor(diffMs / 1000);
+            const diffMin = Math.floor(diffSec / 60);
+            const diffHr = Math.floor(diffMin / 60);
+            const diffDay = Math.floor(diffHr / 24);
+
+            if (diffSec < 60) return 'just now';
+            if (diffMin < 60) return `${diffMin}m ago`;
+            if (diffHr < 24) return `${diffHr}h ago`;
+            if (diffDay < 7) return `${diffDay}d ago`;
+            // Older than a week: show short date
+            const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+            const month = months[date.getMonth()];
+            const day = date.getDate();
+            const year = date.getFullYear();
+            if (year === now.getFullYear()) return `${month} ${day}`;
+            return `${month} ${day}, ${year}`;
+        }
+
+        // Helper: fetch Docker Hub pull count
+        function fetchDockerPulls() {
+            const el = document.getElementById('docker-pulls');
+            fetch('https://hub.docker.com/v2/repositories/lcmilstein/viewvault')
+                .then(response => {
+                    if (!response.ok) throw new Error('fetch failed');
+                    return response.json();
+                })
+                .then(data => {
+                    const pulls = data.pull_count;
+                    el.textContent = pulls != null ? pulls.toLocaleString() : '–';
+                })
+                .catch(() => {
+                    el.textContent = '–';
+                });
+        }
+
         // Admin functions
         function loadDashboard() {
             const loading = document.getElementById('dashboard-loading');
             loading.style.display = 'block';
 
-            fetch('/api/admin/dashboard', {
+            fetch('/api/admin/usage-stats', {
                 headers: {
                     'Authorization': `Bearer ${localStorage.getItem('access_token')}`,
                     'Content-Type': 'application/json'
@@ -465,10 +537,85 @@
             })
             .then(data => {
                 console.log('Dashboard data received:', data);
-                document.getElementById('total-users').textContent = data.total_users || 0;
-                document.getElementById('total-movies').textContent = data.total_movies || 0;
-                document.getElementById('total-series').textContent = data.total_series || 0;
-                document.getElementById('admin-users').textContent = data.admin_users || 0;
+
+                // Row 1: Hero Metrics
+                document.getElementById('active-7d').textContent = data.users.active_last_7d || 0;
+                document.getElementById('active-30d').textContent = data.users.active_last_30d || 0;
+
+                const totalMovies = data.content.total_movies || 0;
+                const totalSeries = data.content.total_series || 0;
+                document.getElementById('total-content').textContent = totalMovies + totalSeries;
+                document.getElementById('total-content-subtitle').textContent = `${totalMovies} movies \u00b7 ${totalSeries} series`;
+
+                const newMovies = (data.content.added_last_7d && data.content.added_last_7d.movies) || 0;
+                const newSeries = (data.content.added_last_7d && data.content.added_last_7d.series) || 0;
+                document.getElementById('new-this-week').textContent = newMovies + newSeries;
+
+                // Row 2: User Activity Table
+                const perUser = data.per_user || [];
+                // Sort by last_login descending (nulls last)
+                perUser.sort((a, b) => {
+                    if (!a.last_login && !b.last_login) return 0;
+                    if (!a.last_login) return 1;
+                    if (!b.last_login) return -1;
+                    return new Date(b.last_login) - new Date(a.last_login);
+                });
+
+                const providerColors = { google: '#3498db', auth0: '#f39c12', local: '#95a5a6' };
+
+                let tableHTML = `
+                    <table style="width: 100%; border-collapse: collapse; color: #ffffff;">
+                        <thead>
+                            <tr style="background: rgba(255, 255, 255, 0.06); border-bottom: 2px solid rgba(255, 255, 255, 0.12);">
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.8);">Username</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.8);">Auth Provider</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.8);">Last Active</th>
+                                <th style="padding: 12px; text-align: left; border-bottom: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.8);">Member Since</th>
+                                <th style="padding: 12px; text-align: center; border-bottom: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.8);">Movies</th>
+                                <th style="padding: 12px; text-align: center; border-bottom: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.8);">Series</th>
+                                <th style="padding: 12px; text-align: center; border-bottom: 1px solid rgba(255, 255, 255, 0.1); color: rgba(255, 255, 255, 0.8);">Lists</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                perUser.forEach(user => {
+                    const provider = (user.auth_provider || 'local').toLowerCase();
+                    const pillColor = providerColors[provider] || '#95a5a6';
+                    const providerLabel = provider.charAt(0).toUpperCase() + provider.slice(1);
+
+                    tableHTML += `
+                        <tr style="border-bottom: 1px solid rgba(255, 255, 255, 0.06);">
+                            <td style="padding: 12px; font-weight: 500;">${user.username || '–'}</td>
+                            <td style="padding: 12px;">
+                                <span style="display: inline-block; padding: 2px 10px; border-radius: 12px; font-size: 0.8em; font-weight: 600; background: ${pillColor}; color: #fff;">${providerLabel}</span>
+                            </td>
+                            <td style="padding: 12px; color: rgba(255,255,255,0.65);">${timeAgo(user.last_login)}</td>
+                            <td style="padding: 12px; color: rgba(255,255,255,0.65);">${timeAgo(user.created_at)}</td>
+                            <td style="padding: 12px; text-align: center;">${user.movies != null ? user.movies : 0}</td>
+                            <td style="padding: 12px; text-align: center;">${user.series != null ? user.series : 0}</td>
+                            <td style="padding: 12px; text-align: center;">${user.lists != null ? user.lists : 0}</td>
+                        </tr>
+                    `;
+                });
+
+                tableHTML += `
+                        </tbody>
+                    </table>
+                `;
+
+                document.getElementById('user-activity-table').innerHTML = tableHTML;
+
+                // Row 3: Auth Providers Insight
+                const ap = data.users.auth_providers || {};
+                const googleCount = ap.google || 0;
+                const auth0Count = ap.auth0 || 0;
+                const localCount = ap.local || 0;
+                document.getElementById('auth-providers-info').textContent = `Google: ${googleCount} \u00b7 Auth0: ${auth0Count} \u00b7 Local: ${localCount}`;
+
+                // Docker Hub Pulls (async, independent)
+                fetchDockerPulls();
+
                 loading.style.display = 'none';
             })
             .catch(error => {
