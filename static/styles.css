@@ -128,7 +128,7 @@ body {
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-md);
   box-shadow: var(--shadow-md);
-  overflow: visible;
+  overflow: hidden;
   position: relative;
 }
 
@@ -137,7 +137,6 @@ body {
   background: rgba(42, 42, 42, 0.7);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  z-index: 100;
   border-bottom: 1px solid var(--glass-border);
   box-shadow: none;
   border-top: none;
@@ -389,9 +388,7 @@ body {
 }
 
 .settings-dropdown {
-  position: absolute;
-  right: 0;
-  top: 100%;
+  position: fixed;
   background: rgba(30, 30, 30, 0.92);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
@@ -399,7 +396,7 @@ body {
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-xl);
   min-width: 220px;
-  z-index: 1000;
+  z-index: 10000;
   display: none;
   padding: 4px 0;
 }

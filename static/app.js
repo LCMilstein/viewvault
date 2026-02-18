@@ -1,9 +1,5 @@
 const API_BASE = '/api';
 
-// Test if JavaScript is loading
-console.log('🚨 ViewVault JavaScript loaded! - FIX-MODAL-UI BRANCH v1.0');
-console.log('🚨 API_BASE set to:', API_BASE);
-
 // Handle Auth0 callback token - must run BEFORE any authentication checks
 function handleAuth0Callback() {
     const urlParams = new URLSearchParams(window.location.search);
@@ -4945,7 +4941,7 @@ document.addEventListener('DOMContentLoaded', async function() {
     
     // Close settings menu when clicking outside
     document.addEventListener('click', function(e) {
-        if (!e.target.closest('.settings-menu')) {
+        if (!e.target.closest('.settings-menu') && !e.target.closest('#settingsDropdown')) {
             document.getElementById('settingsDropdown').style.display = 'none';
         }
     });
@@ -5273,7 +5269,14 @@ function toggleSettingsMenu() {
     
     settingsMenuToggleTimeout = setTimeout(() => {
         const dropdown = document.getElementById('settingsDropdown');
-        dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        const isHidden = dropdown.style.display === 'none';
+        dropdown.style.display = isHidden ? 'block' : 'none';
+        if (isHidden) {
+            const btn = document.getElementById('settingsBtn');
+            const rect = btn.getBoundingClientRect();
+            dropdown.style.top = rect.bottom + 'px';
+            dropdown.style.right = (window.innerWidth - rect.right) + 'px';
+        }
     }, 50); // Small delay to prevent double-clicks
 }
 

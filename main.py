@@ -319,11 +319,6 @@ async def auth0_callback_redirect(code: str = None, error: str = None, state: st
         logger.error(f"AUTH0 CALLBACK: Exception during processing: {e}")
         return RedirectResponse(f"/login?error=callback_error")
 
-@app.get("/auth")
-def read_auth_login():
-    """Legacy authentication page"""
-    return FileResponse("static/auth-login.html")
-
 @app.get("/auth/callback")
 def auth_callback(request: Request):
     """OAuth callback handler - processes OAuth callback and redirects"""
