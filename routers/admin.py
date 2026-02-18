@@ -312,11 +312,22 @@ def get_usage_stats(current_user: User = Depends(get_current_admin_user)):
             now = datetime.now(timezone.utc)
             thirty_days_ago = now - timedelta(days=30)
             seven_days_ago = now - timedelta(days=7)
+            # Naive versions for comparing with timezone-unaware DB values
+            thirty_days_ago_naive = thirty_days_ago.replace(tzinfo=None)
+            seven_days_ago_naive = seven_days_ago.replace(tzinfo=None)
+
+            def _tz_safe_gte(dt, threshold_aware, threshold_naive):
+                """Compare a datetime that may be naive or aware."""
+                if dt is None:
+                    return False
+                if dt.tzinfo is not None:
+                    return dt >= threshold_aware
+                return dt >= threshold_naive
 
             # --- Active users ---
             all_active_users = session.exec(select(User).where(User.is_active == True)).all()
-            active_30d = [u for u in all_active_users if u.last_login and u.last_login >= thirty_days_ago]
-            active_7d = [u for u in active_30d if u.last_login >= seven_days_ago]
+            active_30d = [u for u in all_active_users if _tz_safe_gte(u.last_login, thirty_days_ago, thirty_days_ago_naive)]
+            active_7d = [u for u in active_30d if _tz_safe_gte(u.last_login, seven_days_ago, seven_days_ago_naive)]
 
             # --- Content totals ---
             total_movies = len(session.exec(select(Movie).where(Movie.deleted == False)).all())
@@ -351,11 +362,12 @@ def get_usage_stats(current_user: User = Depends(get_current_admin_user)):
             per_user.sort(key=lambda x: x["total_items"], reverse=True)
 
             # --- Recently added content (last 7 days) ---
+            # Use naive datetime for SQLite comparisons (stored as text)
             recent_movies = len(session.exec(
-                select(Movie).where(Movie.deleted == False, Movie.added_at >= seven_days_ago)
+                select(Movie).where(Movie.deleted == False, Movie.added_at >= seven_days_ago_naive)
             ).all())
             recent_series = len(session.exec(
-                select(Series).where(Series.deleted == False, Series.added_at >= seven_days_ago)
+                select(Series).where(Series.deleted == False, Series.added_at >= seven_days_ago_naive)
             ).all())
 
             # --- Auth provider breakdown ---
