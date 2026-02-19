@@ -389,16 +389,16 @@ body {
 
 .settings-dropdown {
   position: fixed;
-  background: rgba(30, 30, 30, 0.92);
+  background: var(--glass-bg);
   backdrop-filter: blur(var(--glass-blur));
   -webkit-backdrop-filter: blur(var(--glass-blur));
   border: 1px solid var(--glass-border);
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-xl);
   min-width: 220px;
   z-index: 10000;
   display: none;
-  padding: 4px 0;
+  padding: 6px;
 }
 
 .settings-item {
@@ -407,14 +407,16 @@ body {
   display: flex;
   align-items: center;
   gap: var(--space-md);
-  transition: background-color 0.2s;
+  transition: all 0.2s ease;
   color: var(--text-primary);
   font-weight: 500;
   white-space: nowrap;
+  border-radius: var(--radius-md);
 }
 
 .settings-item:hover {
   background: var(--accent-tint);
+  transform: translateY(-1px);
 }
 
 .settings-item.separator {
@@ -2221,6 +2223,84 @@ div.collection-episodes > div.watchlist-row {
   height: 2px;
   background: var(--text-primary);
   border-radius: 1px;
+}
+
+/* ----- Sort & Filter Action Bars (Glass) ----- */
+.action-bar {
+  background: var(--glass-bg);
+  backdrop-filter: blur(var(--glass-blur));
+  -webkit-backdrop-filter: blur(var(--glass-blur));
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  margin: var(--space-sm) 0 var(--space-lg) 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-sm);
+}
+
+.action-bar-title {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--space-sm);
+}
+
+.action-bar-title span {
+  font-size: var(--font-sm);
+  font-weight: 600;
+  color: var(--accent);
+}
+
+.action-bar-close {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 16px;
+  font-weight: bold;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: all 0.2s;
+  background: transparent;
+  border: none;
+  line-height: 1;
+}
+
+.action-bar-close:hover {
+  background: var(--glass-border);
+  color: var(--text-secondary);
+}
+
+.action-bar-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-sm);
+}
+
+.action-bar-chip {
+  padding: 6px 14px;
+  border-radius: 20px;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: var(--font-sm);
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.action-bar-chip:hover {
+  background: var(--accent-tint);
+  border-color: var(--accent);
+}
+
+.action-bar-chip.active {
+  background: var(--accent-tint);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
 }
 
 /* ----- List Management Container (Glass) ----- */

@@ -5290,70 +5290,33 @@ function showSortOptions() {
         return;
     }
 
-    // Create iOS-style sort row
+    // Create glass-styled sort row
     const sortRow = document.createElement('div');
     sortRow.id = 'sortOptionsRow';
-    sortRow.style.cssText = `
-        background: #1a0a1a;
-        padding: 16px;
-        border-bottom: 1px solid #444;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    `;
-    
+    sortRow.className = 'action-bar';
+
     // Title with close button
     const titleContainer = document.createElement('div');
-    titleContainer.style.cssText = `
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 8px;
-    `;
-    
-    const title = document.createElement('div');
+    titleContainer.className = 'action-bar-title';
+
+    const title = document.createElement('span');
     title.textContent = 'Sort Options';
-    title.style.cssText = `
-        font-size: 14px;
-        font-weight: 600;
-        color: #00d4aa;
-    `;
-    
-    const closeBtn = document.createElement('div');
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'action-bar-close';
     closeBtn.innerHTML = '✕';
-    closeBtn.style.cssText = `
-        cursor: pointer;
-        color: #666;
-        font-size: 16px;
-        font-weight: bold;
-        padding: 4px 8px;
-        border-radius: 4px;
-        transition: all 0.2s;
-    `;
-    closeBtn.onmouseenter = () => {
-        closeBtn.style.background = '#444';
-        closeBtn.style.color = '#ccc';
-    };
-    closeBtn.onmouseleave = () => {
-        closeBtn.style.background = 'transparent';
-        closeBtn.style.color = '#666';
-    };
     closeBtn.onclick = () => {
         sortRow.remove();
         updateSortButtonText();
     };
-    
+
     titleContainer.appendChild(title);
     titleContainer.appendChild(closeBtn);
     sortRow.appendChild(titleContainer);
-    
+
     // Sort chips container
     const chipsContainer = document.createElement('div');
-    chipsContainer.style.cssText = `
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-    `;
+    chipsContainer.className = 'action-bar-chips';
     
     // Define sort options matching iOS
     const sortOptions = [
@@ -5378,21 +5341,7 @@ function showSortOptions() {
     // Create sort chips
     sortOptions.forEach(option => {
         const chip = document.createElement('div');
-        chip.style.cssText = `
-            background: #444;
-            border-radius: 16px;
-            padding: 8px 12px;
-            border: 1px solid #666;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: #ccc;
-            font-weight: 500;
-        `;
-        
+
         // Determine if this chip is active
         let isActive = false;
         if (option.key === 'alphabetical' && (currentSort === 'alphabetical' || currentSort === 'alphabetical_reverse')) {
@@ -5402,13 +5351,8 @@ function showSortOptions() {
         } else if (option.key === 'release_date' && (currentSort === 'release_date' || currentSort === 'release_date_newest')) {
             isActive = true;
         }
-        
-        if (isActive) {
-            chip.style.background = '#00d4aa';
-            chip.style.borderColor = '#00d4aa';
-            chip.style.color = '#000';
-            chip.style.fontWeight = '600';
-        }
+
+        chip.className = isActive ? 'action-bar-chip active' : 'action-bar-chip';
         
         // Add direction arrow if active
         let directionArrow = '';
@@ -5449,23 +5393,9 @@ function showSortOptions() {
             }, 100);
         };
         
-        chip.onmouseenter = () => {
-            if (!isActive) {
-                chip.style.background = '#555';
-                chip.style.borderColor = '#00d4aa';
-            }
-        };
-        
-        chip.onmouseleave = () => {
-            if (!isActive) {
-                chip.style.background = '#444';
-                chip.style.borderColor = '#666';
-            }
-        };
-        
         chipsContainer.appendChild(chip);
     });
-    
+
     sortRow.appendChild(chipsContainer);
     
     // Insert the row after the search container
@@ -5507,70 +5437,33 @@ function showFilterOptions() {
         return;
     }
 
-    // Create iOS-style filter row
+    // Create glass-styled filter row
     const filterRow = document.createElement('div');
     filterRow.id = 'filterOptionsRow';
-    filterRow.style.cssText = `
-        background: #1a0a1a;
-        padding: 16px;
-        border-bottom: 1px solid #444;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-    `;
-    
+    filterRow.className = 'action-bar';
+
     // Title with close button
     const titleContainer = document.createElement('div');
-    titleContainer.style.cssText = `
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 8px;
-    `;
-    
-    const title = document.createElement('div');
+    titleContainer.className = 'action-bar-title';
+
+    const title = document.createElement('span');
     title.textContent = 'Filter Options';
-    title.style.cssText = `
-        font-size: 14px;
-        font-weight: 600;
-        color: #00d4aa;
-    `;
-    
-    const closeBtn = document.createElement('div');
+
+    const closeBtn = document.createElement('button');
+    closeBtn.className = 'action-bar-close';
     closeBtn.innerHTML = '✕';
-    closeBtn.style.cssText = `
-        cursor: pointer;
-        color: #666;
-        font-size: 16px;
-        font-weight: bold;
-        padding: 4px 8px;
-        border-radius: 4px;
-        transition: all 0.2s;
-    `;
-    closeBtn.onmouseenter = () => {
-        closeBtn.style.background = '#444';
-        closeBtn.style.color = '#ccc';
-    };
-    closeBtn.onmouseleave = () => {
-        closeBtn.style.background = 'transparent';
-        closeBtn.style.color = '#666';
-    };
     closeBtn.onclick = () => {
         filterRow.remove();
         updateFilterButtonText();
     };
-    
+
     titleContainer.appendChild(title);
     titleContainer.appendChild(closeBtn);
     filterRow.appendChild(titleContainer);
-    
+
     // Filter chips container
     const chipsContainer = document.createElement('div');
-    chipsContainer.style.cssText = `
-        display: flex;
-        flex-wrap: wrap;
-        gap: 8px;
-    `;
+    chipsContainer.className = 'action-bar-chips';
     
     // Get current filter state
     const currentFilters = { ...watchlistFilters };
@@ -5578,27 +5471,7 @@ function showFilterOptions() {
     // Create filter chips
     filterOptions.forEach(option => {
         const chip = document.createElement('div');
-        chip.style.cssText = `
-            background: #444;
-            border-radius: 16px;
-            padding: 8px 12px;
-            border: 1px solid #666;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: #ccc;
-            font-weight: 500;
-        `;
-        
-        if (currentFilters[option.key]) {
-            chip.style.background = '#00d4aa';
-            chip.style.borderColor = '#00d4aa';
-            chip.style.color = '#000';
-            chip.style.fontWeight = '600';
-        }
+        chip.className = currentFilters[option.key] ? 'action-bar-chip active' : 'action-bar-chip';
         
         chip.innerHTML = `
             <span>${option.icon}</span>
@@ -5608,45 +5481,21 @@ function showFilterOptions() {
         chip.onclick = () => {
             // Toggle the filter
             currentFilters[option.key] = !currentFilters[option.key];
-            
+
             // Update the global filter state
             watchlistFilters[option.key] = currentFilters[option.key];
-            
-            // Update the visual state of this specific chip immediately
-            if (currentFilters[option.key]) {
-                chip.style.background = '#00d4aa';
-                chip.style.borderColor = '#00d4aa';
-                chip.style.color = '#000';
-                chip.style.fontWeight = '600';
-            } else {
-                chip.style.background = '#444';
-                chip.style.borderColor = '#666';
-                chip.style.color = '#ccc';
-                chip.style.fontWeight = '500';
-            }
-            
+
+            // Toggle CSS class
+            chip.className = currentFilters[option.key] ? 'action-bar-chip active' : 'action-bar-chip';
+
             // Update filter state and reload watchlist
             updateFilterState();
             loadWatchlist();
-            
+
             // Update the filter button text
             updateFilterButtonText();
         };
-        
-        chip.onmouseenter = () => {
-            if (!currentFilters[option.key]) {
-                chip.style.background = '#555';
-                chip.style.borderColor = '#00d4aa';
-            }
-        };
-        
-        chip.onmouseleave = () => {
-            if (!currentFilters[option.key]) {
-                chip.style.background = '#444';
-                chip.style.borderColor = '#666';
-            }
-        };
-        
+
         chipsContainer.appendChild(chip);
     });
     
@@ -5664,21 +5513,6 @@ function showFilterOptions() {
     updateFilterButtonText();
 }
 
-function updateFilterChipsVisualState(filterRow, currentFilters) {
-    // Update all filter chips to reflect the new state
-    const chips = filterRow.querySelectorAll('[onclick*="currentFilters[option.key]"]');
-    
-    chips.forEach((chip, index) => {
-        const filterKey = Object.keys(currentFilters)[index];
-        const isActive = currentFilters[filterKey];
-        
-        // Update border and background for iOS-style chips
-        chip.style.borderColor = isActive ? '#00d4aa' : '#666';
-        chip.style.background = isActive ? '#00d4aa' : '#444';
-        chip.style.color = isActive ? '#000' : '#ccc';
-        chip.style.fontWeight = isActive ? '600' : '500';
-    });
-}
 
 function updateFilterButtonText() {
     const filterButton = document.querySelector('.settings-item[onclick="showFilterOptions()"]');

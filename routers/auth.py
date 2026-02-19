@@ -309,7 +309,7 @@ def initiate_auth0_oauth(provider: str, request: Request):
     if not auth0_bridge.is_available:
         raise HTTPException(status_code=503, detail="Auth0 not configured")
 
-    if provider not in ["google", "github", "facebook", "twitter"]:
+    if provider not in ["google", "github", "email", "facebook", "twitter"]:
         raise HTTPException(status_code=400, detail="Unsupported provider")
 
     oauth_url = auth0_bridge.get_authorization_url(provider)

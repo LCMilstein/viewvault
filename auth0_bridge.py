@@ -111,6 +111,7 @@ class Auth0Bridge:
                 connection_map = {
                     'google': 'google-oauth2',
                     'github': 'github',
+                    'email': 'email',  # Auth0 Passwordless OTP
                     'facebook': 'facebook',
                     'twitter': 'twitter-oauth2'
                 }

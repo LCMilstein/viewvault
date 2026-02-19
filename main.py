@@ -229,23 +229,13 @@ def api_root():
 
 @app.get("/login")
 async def login_page(request: Request):
-    """Redirect directly to Auth0 Universal Login"""
-    if not auth0_bridge.is_available:
-        return FileResponse("static/login.html")
-    auth_url = auth0_bridge.get_universal_login_url("login")
-    if not auth_url:
-        return FileResponse("static/login.html")
-    return RedirectResponse(url=auth_url, status_code=302)
+    """Serve the unified login page"""
+    return FileResponse("static/login.html")
 
 @app.get("/register")
 async def register_page(request: Request):
-    """Redirect directly to Auth0 Universal Login for signup"""
-    if not auth0_bridge.is_available:
-        return FileResponse("static/login.html")
-    auth_url = auth0_bridge.get_universal_login_url("signup")
-    if not auth_url:
-        return FileResponse("static/login.html")
-    return RedirectResponse(url=auth_url, status_code=302)
+    """Serve the unified login page (handles both login and signup)"""
+    return FileResponse("static/login.html")
 
 @app.get("/auth0-login")
 def read_auth0_login():
